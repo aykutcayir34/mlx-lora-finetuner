@@ -1,0 +1,6 @@
+{"messages": [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}]}
+{"messages": []}
+{"messages": [{"role": "user", "content": "no assistant"}]}
+{"messages": [{"role": "bot", "content": "bad role"}, {"role": "assistant", "content": "ok"}]}
+not-json-line-{{{
+{"prompt": "wrong format key"}

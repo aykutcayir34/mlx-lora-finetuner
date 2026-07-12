@@ -1,0 +1,3 @@
+name,age
+Ayse,30
+Mehmet,25

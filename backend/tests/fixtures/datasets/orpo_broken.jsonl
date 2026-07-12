@@ -1,0 +1,4 @@
+{"prompt": "p", "chosen": "c", "rejected": "r", "preference_score": 0.5}
+{"prompt": "p2", "chosen": "c2", "rejected": "r2", "preference_score": 1.5}
+{"prompt": "p3", "chosen": "c3", "rejected": "r3"}
+garbage

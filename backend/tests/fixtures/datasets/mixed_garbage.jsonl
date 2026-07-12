@@ -1,0 +1,3 @@
+{"messages": [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "yo"}]}
+{"prompt": "x", "completion": "y"}
+{"text": "z"}

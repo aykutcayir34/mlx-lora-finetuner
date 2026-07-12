@@ -1,0 +1,4 @@
+{"text": "valid text row"}
+{"text": ""}
+{"nottext": "wrong key"}
+{not valid json at all}

@@ -1,0 +1,5 @@
+{"prompt": "ok prompt", "completion": "ok completion"}
+{"prompt": "", "completion": "empty prompt"}
+{"prompt": "missing completion"}
+{"completion": "missing prompt"}
+not valid json
