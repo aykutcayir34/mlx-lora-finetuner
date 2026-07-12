@@ -1,17 +1,31 @@
-# TODO(Wave-1 T1): training orchestration (subprocess spawn, WS streaming, cancel).
+"""Training job orkestrasyonu: POST/GET /train/jobs*, WS /ws/train/{run_id}.
 
-from fastapi import APIRouter, Depends, WebSocket
+İş mantığının tamamı `app.training.manager.JobManager`'da; bu router sadece
+HTTP/WS sözleşmesini (docs/api.md) JobManager metodlarına bağlar.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
-from app.core.errors import AppError
+from app.core.errors import NotFoundError
+from app.core.ws import get_ws_manager
 from app.deps import get_current_user
-from app.schemas.training import MetricEvent, RunSummary, TrainingConfig
+from app.schemas.training import JobStatus, MetricEvent, RunSummary, TrainingConfig
+from app.training.manager import JobManager, get_job_manager
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
+
+TERMINAL_STATUSES = {JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED}
 
 
 class RunSummaryListResponse(BaseModel):
     runs: list[RunSummary]
+    total: int
 
 
 class MetricEventListResponse(BaseModel):
@@ -22,45 +36,126 @@ class LogsResponse(BaseModel):
     lines: list[str]
 
 
-@router.post("/train/jobs", response_model=RunSummary)
-def create_train_job(body: TrainingConfig) -> RunSummary:
-    raise AppError(message="training job oluşturma henüz uygulanmadı", code="not_implemented", status_code=501)
+@router.post("/train/jobs", response_model=RunSummary, status_code=201)
+async def create_train_job(
+    body: TrainingConfig,
+    manager: Annotated[JobManager, Depends(get_job_manager)],
+) -> RunSummary:
+    return await manager.create_job(body)
 
 
 @router.get("/train/jobs", response_model=RunSummaryListResponse)
-def list_train_jobs(
+async def list_train_jobs(
+    manager: Annotated[JobManager, Depends(get_job_manager)],
     status: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> RunSummaryListResponse:
-    raise AppError(message="training job listeleme henüz uygulanmadı", code="not_implemented", status_code=501)
+    runs, total = await manager.list_runs(status=status, limit=limit, offset=offset)
+    return RunSummaryListResponse(runs=runs, total=total)
 
 
 @router.get("/train/jobs/{run_id}", response_model=RunSummary)
-def get_train_job(run_id: str) -> RunSummary:
-    raise AppError(message="training job detayı henüz uygulanmadı", code="not_implemented", status_code=501)
+async def get_train_job(
+    run_id: str,
+    manager: Annotated[JobManager, Depends(get_job_manager)],
+) -> RunSummary:
+    return await manager.get_run(run_id)
 
 
-@router.post("/train/jobs/{run_id}/cancel", response_model=RunSummary)
-def cancel_train_job(run_id: str) -> RunSummary:
-    raise AppError(message="training job iptali henüz uygulanmadı", code="not_implemented", status_code=501)
+@router.post("/train/jobs/{run_id}/cancel", response_model=RunSummary, status_code=202)
+async def cancel_train_job(
+    run_id: str,
+    manager: Annotated[JobManager, Depends(get_job_manager)],
+) -> RunSummary:
+    return await manager.cancel(run_id)
 
 
 @router.get("/train/jobs/{run_id}/metrics", response_model=MetricEventListResponse)
-def get_train_job_metrics(
+async def get_train_job_metrics(
     run_id: str,
+    manager: Annotated[JobManager, Depends(get_job_manager)],
     after_step: int = 0,
     kind: str | None = None,
 ) -> MetricEventListResponse:
-    raise AppError(message="training job metrikleri henüz uygulanmadı", code="not_implemented", status_code=501)
+    metrics = await manager.get_metrics(run_id, after_step=after_step, kind=kind)
+    return MetricEventListResponse(metrics=metrics)
 
 
 @router.get("/train/jobs/{run_id}/logs", response_model=LogsResponse)
-def get_train_job_logs(run_id: str, tail: int = 200) -> LogsResponse:
-    raise AppError(message="training job logları henüz uygulanmadı", code="not_implemented", status_code=501)
+async def get_train_job_logs(
+    run_id: str,
+    manager: Annotated[JobManager, Depends(get_job_manager)],
+    tail: int = 200,
+) -> LogsResponse:
+    lines = await manager.get_logs(run_id, tail=tail)
+    return LogsResponse(lines=lines)
+
+
+async def _watch_for_disconnect(websocket: WebSocket) -> None:
+    try:
+        while True:
+            await websocket.receive()
+    except WebSocketDisconnect:
+        return
 
 
 @router.websocket("/ws/train/{run_id}")
-async def ws_train(websocket: WebSocket, run_id: str) -> None:
+async def ws_train(
+    websocket: WebSocket,
+    run_id: str,
+    manager: Annotated[JobManager, Depends(get_job_manager)],
+) -> None:
     await websocket.accept()
-    await websocket.close(code=1011, reason="not implemented — Wave-1 training WS akışı")
+
+    try:
+        first_frame = await websocket.receive_json()
+    except WebSocketDisconnect:
+        return
+
+    last_step = 0
+    if isinstance(first_frame, dict):
+        try:
+            last_step = int(first_frame.get("last_step") or 0)
+        except (TypeError, ValueError):
+            last_step = 0
+
+    try:
+        run = await manager.get_run(run_id)
+    except NotFoundError:
+        await websocket.close(code=1008, reason="run not found")
+        return
+
+    metrics = await manager.get_metrics(run_id, after_step=last_step)
+    for metric in metrics:
+        await websocket.send_json({"type": "metric", "data": metric.model_dump()})
+
+    await websocket.send_json(
+        {"type": "status", "status": run.status.value, "error": run.error}
+    )
+
+    if run.status in TERMINAL_STATUSES:
+        await websocket.close()
+        return
+
+    ws_manager = get_ws_manager()
+    topic = f"train/{run_id}"
+    await ws_manager.subscribe(topic, websocket)
+
+    disconnect_task = asyncio.create_task(_watch_for_disconnect(websocket))
+    done_task = asyncio.create_task(manager.done_event(run_id).wait())
+    try:
+        await asyncio.wait(
+            {disconnect_task, done_task}, return_when=asyncio.FIRST_COMPLETED
+        )
+    finally:
+        for task in (disconnect_task, done_task):
+            if not task.done():
+                task.cancel()
+        await ws_manager.unsubscribe(topic, websocket)
+
+    try:
+        await websocket.close()
+    except RuntimeError:
+        # Already closed by the client disconnecting.
+        pass

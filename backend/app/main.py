@@ -25,10 +25,13 @@ ALLOWED_ORIGINS = ["http://localhost:5173"]
 async def reap_orphans() -> None:
     """Reap orphaned training/export subprocesses left over from a previous run.
 
-    No-op stub for Wave-0. Wave-1 T1 will fill this in: on startup, scan
-    `runs` for rows still marked `running` whose `pid` is no longer alive
-    and mark them `failed`/`cancelled` accordingly.
+    Wave-1 T1: delegates to `JobManager.reap_orphans()`, which scans `runs`
+    for rows still marked `queued`/`running` whose `pid` is no longer alive
+    (-> `failed`) or is still alive (-> killpg + `cancelled`).
     """
+    from app.training.manager import get_job_manager
+
+    await get_job_manager().reap_orphans()
 
 
 @asynccontextmanager
@@ -50,6 +53,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await reap_orphans()
 
     yield
+
+    # Gracefully cancel any active training job before the server exits.
+    from app.training.manager import get_job_manager
+
+    await get_job_manager().shutdown()
 
 
 def create_app() -> FastAPI:
