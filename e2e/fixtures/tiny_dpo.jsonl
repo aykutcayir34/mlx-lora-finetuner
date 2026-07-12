@@ -1,0 +1,16 @@
+{"prompt": "What is the capital of France?", "chosen": "The capital of France is Paris.", "rejected": "I don't know, maybe Berlin?"}
+{"prompt": "What is 2 plus 2?", "chosen": "2 plus 2 is 4.", "rejected": "2 plus 2 is 5, obviously."}
+{"prompt": "Who wrote Romeo and Juliet?", "chosen": "William Shakespeare wrote Romeo and Juliet.", "rejected": "It was written by Charles Dickens."}
+{"prompt": "What is the chemical symbol for water?", "chosen": "The chemical symbol for water is H2O.", "rejected": "The chemical symbol for water is CO2."}
+{"prompt": "How many days are in a week?", "chosen": "There are 7 days in a week.", "rejected": "There are 5 days in a week."}
+{"prompt": "What is the largest planet in our solar system?", "chosen": "Jupiter is the largest planet in our solar system.", "rejected": "Mars is the largest planet in our solar system."}
+{"prompt": "What color do you get by mixing blue and yellow?", "chosen": "Mixing blue and yellow makes green.", "rejected": "Mixing blue and yellow makes purple."}
+{"prompt": "What is the boiling point of water in Celsius?", "chosen": "Water boils at 100 degrees Celsius.", "rejected": "Water boils at 50 degrees Celsius."}
+{"prompt": "What is the capital of Japan?", "chosen": "The capital of Japan is Tokyo.", "rejected": "The capital of Japan is Osaka."}
+{"prompt": "What is 10 minus 3?", "chosen": "10 minus 3 is 7.", "rejected": "10 minus 3 is 6."}
+{"prompt": "How many legs does a spider have?", "chosen": "A spider has 8 legs.", "rejected": "A spider has 6 legs."}
+{"prompt": "What is the freezing point of water in Celsius?", "chosen": "Water freezes at 0 degrees Celsius.", "rejected": "Water freezes at 10 degrees Celsius."}
+{"prompt": "What is the capital of Italy?", "chosen": "The capital of Italy is Rome.", "rejected": "The capital of Italy is Milan."}
+{"prompt": "What is 5 times 6?", "chosen": "5 times 6 is 30.", "rejected": "5 times 6 is 35."}
+{"prompt": "Who painted the Mona Lisa?", "chosen": "Leonardo da Vinci painted the Mona Lisa.", "rejected": "Pablo Picasso painted the Mona Lisa."}
+{"prompt": "What gas do plants absorb from the air?", "chosen": "Plants absorb carbon dioxide from the air.", "rejected": "Plants absorb oxygen from the air."}

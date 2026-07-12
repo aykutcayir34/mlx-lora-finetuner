@@ -15,12 +15,22 @@ Screenshots: coming soon.
   supported formats (`chat`, `completions`, `text`, `dpo`, `orpo`, `grpo`), per-row
   validation with errors/warnings, train/valid/test splitting, and a paginated
   preview per split.
-- **Train** — SFT today (DPO/ORPO/CPO/GRPO schemas are already defined, UI lands
-  in Faz 2), LoRA/DoRA/full fine-tuning, QLoRA-style 4/6/8-bit quantized loading,
-  and a live run monitor with loss/learning-rate/memory charts and a log tail
-  streamed over WebSocket.
+- **Train** — SFT, DPO, ORPO, CPO, and GRPO training modes, LoRA/DoRA/full
+  fine-tuning, QLoRA-style 4/6/8-bit quantized loading, and a live run monitor
+  with loss/learning-rate/memory charts and a log tail streamed over
+  WebSocket.
 - **Chat** — streaming chat against a base model or a trained LoRA adapter, with
   a side-by-side adapter-compare mode to see how fine-tuning changed responses.
+- **Arena** — side-by-side comparison of two model/adapter pairs against the
+  same prompt, generated sequentially over a single WebSocket (one Metal GPU,
+  one model resident at a time).
+- **Data Recipes** — deterministic, no-LLM document→dataset conversion:
+  upload a `.pdf`/`.docx`/`.txt`/`.md` and get a chunked `text` dataset, or a
+  `.csv` and get a `completions`/`chat` dataset — registered like any other
+  upload once the conversion job completes.
+- **Run History** — a filterable, sortable history of every run (by model,
+  train mode, status) with one-click cloning of a past run's config into a
+  fresh prefill.
 - **Export** — fuse a LoRA adapter into the base model, convert the fused model to
   GGUF (with preflight checks for llama.cpp availability, architecture support,
   and de-quantization), and render an Ollama `Modelfile` ready for `ollama create`.
@@ -64,7 +74,7 @@ All settings are environment variables with an `MLXLF_` prefix (see
 
 ```
 <data_dir>/
-├── app.db              # SQLite: runs, metrics, datasets, downloads, exports, artifacts
+├── app.db              # SQLite: runs, metrics, datasets, downloads, exports, artifacts, recipe_jobs
 ├── models/<org>__<name>/       # downloaded HF models, one directory per model_id
 ├── datasets/<dataset_id>/
 │   ├── raw.jsonl                # as uploaded
@@ -83,16 +93,21 @@ All settings are environment variables with an `MLXLF_` prefix (see
 ```bash
 make test      # pytest (backend) + vitest (frontend)
 make lint      # ruff check (backend) + tsc --noEmit (frontend)
-make e2e       # end-to-end suite (see below)
+make e2e       # Faz-1 end-to-end smoke: download -> train (SFT) -> chat -> fuse
+make e2e-faz2  # Faz-2 end-to-end smoke: DPO train, Data Recipes, Run History, Arena
 ```
 
 Backend tests never require MLX or a real training run: training is exercised
 against a scripted fake worker subprocess, and inference/training mlx imports are
 monkeypatched at the indirection-function boundary. Frontend tests mock the
-backend via MSW. `make e2e` is the real end-to-end entry point (Playwright-driven
-browser tests against the live app) — it needs an Apple Silicon Mac and network
-access on its first run to download a small real model, so it's not part of the
-default `make test` loop.
+backend via MSW. `make e2e` and `make e2e-faz2` are the real end-to-end entry
+points — plain Python scripts (`e2e/smoke_train.py`, `e2e/smoke_faz2.py`) that
+drive the actual FastAPI app in-process against a real, small downloaded model
+on real Apple Silicon hardware, no mocks. They need an Apple Silicon Mac and
+network access on the first run (to download
+`mlx-community/SmolLM-135M-Instruct-4bit`), so neither is part of the default
+`make test` loop. Set `MLXLF_E2E_DATA_DIR` to reuse a data dir (and its
+downloaded model) across both.
 
 ## Architecture
 
@@ -126,13 +141,6 @@ change starts with a dedicated commit updating that document, not the code.
 
 See [`CLAUDE.md`](CLAUDE.md) for repository conventions (monorepo layout, the
 mlx-import-must-be-lazy rule, the single-training-job lock, etc.).
-
-## Roadmap (Faz 2)
-
-- DPO/ORPO/CPO/GRPO training UI (schemas already exist; SFT-only in the UI today)
-- Model Arena — side-by-side multi-model comparison sessions
-- Data Recipes — dataset conversion pipelines
-- Run history page with rich filters and run cloning
 
 ## License
 

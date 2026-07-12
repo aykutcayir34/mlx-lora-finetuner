@@ -21,16 +21,21 @@ affect the contract.
 | `api/training.py` | Training job routes and `WS /ws/train/{run_id}`. Thin wrapper over `training/manager.py`'s `JobManager`. |
 | `api/inference.py` | `GET /adapters`, `WS /ws/chat`. Thin wrapper over `services/inference_service.py`. |
 | `api/export.py` | Export routes — fuse, GGUF preflight/convert, Ollama Modelfile render, job status, artifact list. Thin wrapper over `services/export_service.py`. |
+| `api/arena.py` | `WS /ws/arena` — side-by-side two-model chat generation. Thin wrapper over `services/arena_service.py`. |
+| `api/recipes.py` | `POST /recipes/convert`, `GET /recipes/jobs/{id}` — document→dataset conversion jobs. Thin wrapper over `services/recipe_service.py`. |
+| `api/history.py` | `GET /runs/history` (filter/sort/paginate) and `POST /train/jobs/{run_id}/clone`. No dedicated service — talks to `RunsRepo` directly, same pattern as `api/system.py`. |
 | `core/errors.py` | `AppError` hierarchy (`NotFoundError`, `ConflictError`, `ValidationAppError`, `TrainingActiveError`, `InternalError`) and the exception handlers that turn them (plus `RequestValidationError` and any uncaught exception) into the `{"error": {code, message, detail}}` shape from `docs/api.md`. |
 | `core/process.py` | Process-group spawn/kill helpers (`spawn_process_group`, `terminate_process_group`, `kill_process_group`, PID-file read/write, liveness check). Used by both the training worker and orphan reaping. |
 | `core/ws.py` | `ConnectionManager` — topic-based WebSocket pub/sub (`subscribe`/`unsubscribe`/`broadcast`), used by the training WS. Downloads and chat WS use their own local queue-based mechanisms instead. |
 | `db/database.py` | SQLite schema + versioned migrations (`MIGRATIONS` list, `schema_version` table), `init_db`, `get_connection`. |
 | `db/repositories.py` | Thin query-layer classes per table: `RunsRepo`, `MetricsRepo`, `DatasetsRepo`, `DownloadsRepo`, `ExportsRepo`, `ArtifactsRepo`. |
-| `schemas/*.py` | Pydantic request/response models per domain (`training.py`, `datasets.py`, `models.py`, `inference.py`, `export.py`), plus `events.py` for the worker's internal JSONL event protocol. |
+| `schemas/*.py` | Pydantic request/response models per domain (`training.py`, `datasets.py`, `models.py`, `inference.py`, `export.py`, `arena.py`), plus `events.py` for the worker's internal JSONL event protocol. |
 | `services/model_registry.py` | Local model directory scan, HF Hub search, resumable snapshot downloads with live progress (via a custom `tqdm` subclass), deletion. No `mlx` import — must stay importable on any OS/CI. |
 | `services/dataset_service.py` | Upload, format sniffing (6 formats), per-row validation, train/valid/test split, paginated preview, delete. Pure file/SQLite logic, no `mlx` import. |
 | `services/inference_service.py` | Chat generation: model/tokenizer LRU cache (size 1) and a single-thread executor for all MLX work. See [Single-thread MLX executor](#single-thread-mlx-executor-in-inference) below. |
 | `services/export_service.py` | Fuse (LoRA → merged model), GGUF preflight + conversion, Ollama Modelfile rendering (Jinja2 templates in `app/templates/ollama/`). Every heavy operation runs as a subprocess. |
+| `services/arena_service.py` | Sequential two-side chat orchestration for the Model Arena. See [Arena orchestration](#arena-orchestration) below. |
+| `services/recipe_service.py` | Document→dataset conversion pipeline (pdf/docx/csv/txt/md). See [Recipes pipeline](#recipes-pipeline) below. |
 | `training/manager.py` | `JobManager` — the training orchestrator. See [Training pipeline lifecycle](#training-pipeline-lifecycle). |
 | `training/worker.py` | `python -m app.training.worker --run-dir <dir>` subprocess entry point — bridges `TrainingConfig` to `mlx_lm_lora.train.run()` and emits JSONL events on stdout. |
 | `training/presets.py` | Named default configs for the Train page. |
@@ -40,7 +45,7 @@ affect the contract.
 
 | Directory | Responsibility |
 | --- | --- |
-| `pages/` | One component per top-level route (`DashboardPage`, `ModelsPage`, `DatasetsPage`, `TrainPage`, `ChatPage`, `ExportPage`), wired in `routes.ts` / `App.tsx`. |
+| `pages/` | One component per top-level route (`DashboardPage`, `ModelsPage`, `DatasetsPage`, `TrainPage`, `ChatPage`, `ExportPage`, `ArenaPage`, `RecipesPage`, `HistoryPage`), wired in `routes.ts` / `App.tsx`. |
 | `components/dashboard/` | System stats panel, active-run card, recent-runs list, onboarding guide. |
 | `components/models/` | Local model grid, HF search panel, download list with live progress. |
 | `components/datasets/` | Upload dropzone, format badge, validation report view, split dialog, per-format preview table. |
@@ -48,6 +53,9 @@ affect the contract.
 | `components/charts/` | `LossChart`, `LRChart`, `MemoryChart` (Recharts) plus a shared `downsample` helper for long-running charts. |
 | `components/chat/` | Chat window, message bubbles, generation-params drawer, adapter-compare column, `useChatSocket` hook. |
 | `components/export/` | Fuse/GGUF/Ollama wizards, job progress panel, Modelfile preview, artifact table. |
+| `components/arena/` | `ArenaTopBar` (side model/adapter pickers), `ArenaColumn` (per-side transcript), `arenaStore` (Zustand), `useArenaSocket` hook for `WS /ws/arena`. |
+| `components/history/` | `HistoryFilterBar`, `HistoryTable`, `RunHistoryList` — the `GET /runs/history` filter/sort UI and clone action. |
+| `components/recipes/` | `RecipeUploadForm`, `RecipeJobProgress` — the `POST /recipes/convert` upload form and job-status poller. |
 | `components/common/` | Design-system primitives (Button, Card, Modal, Table, Toast, Tabs, Field, etc.) shared across pages. |
 | `components/layout/` | App shell — side nav, top bar, status footer, page shell. |
 | `api/client.ts` | Typed `fetch` wrapper that decodes the `{"error": {...}}` shape into thrown errors. |
@@ -141,6 +149,11 @@ affect the contract.
   `ModelRegistry`'s own per-download subscriber-queue mechanism (not
   `core.ws.ConnectionManager`), since downloads are keyed by `download_id`
   rather than a broadcast topic multiple clients share equally.
+- **`WS /ws/arena`** — same `generate`/`cancel` client-frame shape as
+  `/ws/chat`, but `generate` carries two model/adapter specs (`side_a`,
+  `side_b`) and every server frame is tagged with a `side`. See
+  [Arena orchestration](#arena-orchestration) below for why the two sides
+  stream sequentially rather than concurrently.
 
 ## Single-thread MLX executor (in inference)
 
@@ -188,12 +201,83 @@ conversion can never take the API server down with it:
    restart, unlike training's SQLite-backed metrics) and, on success, inserts
    an `artifacts` row pointing at the produced path.
 
+## Arena orchestration
+
+`ArenaService.run_turn` (`services/arena_service.py`) drives one `/ws/arena`
+turn end to end and holds no MLX-specific logic of its own — it composes
+`InferenceService.stream_chat`, the same generation path `/ws/chat` uses, and
+translates its `token`/`done` events into `side`-tagged wire frames.
+
+- **Sequential, not concurrent.** Side "a" fully streams (through
+  `side_start` → `token`* → `side_done`) before side "b" starts. This isn't
+  just a simplicity choice: `InferenceService`'s model/tokenizer cache holds
+  one entry (LRU size 1) and its single-thread executor serializes all MLX
+  work anyway (see [Single-thread MLX executor](#single-thread-mlx-executor-in-inference)),
+  so interleaving the two sides would just thrash the cache, reloading each
+  model between token batches, for no benefit — there's one Metal GPU to
+  share regardless of ordering.
+- **Turn-level cancel protocol.** A `threading.Event` (`turn_cancelled`) is
+  distinct from the per-side `threading.Event` handed to `stream_chat`
+  (`current_worker_event`): the latter is unconditionally set in
+  `stream_chat`'s own `finally` block once a side finishes normally, so it
+  can't double as a "user actually cancelled" signal. `register_cancel`
+  installs a callback the WS route invokes when it receives `{"type":
+  "cancel"}`; that callback sets both events, aborting the in-flight side's
+  generation loop and causing the turn to `break` before starting the next
+  side (rather than skip straight to it).
+- **Per-side vs. turn-level errors.** A missing model/adapter path or an
+  exception during one side's generation yields a `side`-tagged `error`
+  frame and the loop moves on to the next side; a precondition that blocks
+  the whole turn (e.g. `training_active`, checked once via `RunsRepo
+  .list_active()` before either side starts) yields a `side: null` error and
+  ends the turn immediately. Either way a terminal `done` frame is always
+  sent and the socket stays open for the next turn.
+
+## Recipes pipeline
+
+`RecipeService` (`services/recipe_service.py`) turns an uploaded document
+into a registered dataset without any LLM call — the "recipe" is a fixed
+extract → chunk/emit → register pipeline, run in a `BackgroundTasks` task so
+`POST /recipes/convert` returns `202` immediately and the caller polls
+`GET /recipes/jobs/{id}` (mirroring the export job's polling shape, not the
+training job's WS-first one, since a recipe conversion is comparatively
+short and has no intermediate progress worth streaming).
+
+1. **Extract** — `.pdf`/`.docx` are parsed to plain text with `pypdf` /
+   `python-docx` (imported lazily inside the extraction functions, matching
+   the project's "heavy/optional import at call time, not module scope"
+   convention); `.txt`/`.md` are read as-is.
+2. **Chunk** (pdf/docx/txt/md only) — `chunk_text` splits on paragraph
+   (blank-line) boundaries up to `chunk_size` chars, preferring not to split
+   mid-paragraph; a paragraph longer than `chunk_size` on its own is
+   windowed directly. Each chunk after the first is seeded with the last
+   `chunk_overlap` chars of the previous one so context isn't lost across a
+   split. CSVs skip this step entirely — each row is one dataset row.
+3. **Emit** — pdf/docx/txt/md chunks become `{"text": chunk}` rows (`text`
+   format, the only format they're allowed to target). CSV rows become
+   either `{"prompt", "completion"}` (`completions` format) or a one-turn
+   `{"messages": [...]}` (`chat` format, with an optional injected `system`
+   turn), read via `prompt_column`/`completion_column`; rows with an empty
+   prompt or completion after stripping are silently dropped.
+4. **Register** — the emitted rows are written to a scratch `output.jsonl`
+   and handed to the existing `DatasetService.upload()` (reused, not
+   duplicated) wrapped in a synthetic `UploadFile`, so the result gets
+   format auto-detection, a `datasets` row, and shows up in `GET /datasets`
+   exactly like a manually uploaded file — it can be validated/split/trained
+   like any other dataset. The job's own `recipe_jobs` row is finalized with
+   `rows_emitted`, a `preview_json` of the first 5 emitted rows, and the
+   resulting `dataset_id` (or an `error` if extraction/emission produced zero
+   rows or raised).
+
 ## Storage layout
 
 See the [data directory layout](../README.md#data-directory-layout) in the
-README for the on-disk tree. The SQLite database (`app.db`, WAL mode) has six
-tables, all created by the single migration in `db/database.py` (`MIGRATIONS`,
-tracked via a `schema_version` table for future migrations):
+README for the on-disk tree. The SQLite database (`app.db`, WAL mode) has
+seven tables, tracked via a `schema_version` table and two migrations in
+`db/database.py` (`MIGRATIONS`): the original six tables under version 1, and
+`recipe_jobs` (Faz 2, Data Recipes) added under version 2 — the first use of
+the versioned-migration mechanism for something other than the initial
+schema.
 
 - **`runs`** — one row per training job: config (as JSON), status, model/dataset
   ids, timestamps, `pid`, resulting `adapter_path`, final losses, error text.
@@ -207,6 +291,9 @@ tracked via a `schema_version` table for future migrations):
 - **`artifacts`** — one row per produced file (fused model, GGUF, Modelfile),
   linked back to `source_run_id` when applicable, listed by
   `GET /export/artifacts`.
+- **`recipe_jobs`** — one row per `POST /recipes/convert` job: status, rows
+  emitted, a JSON preview of the first 5 emitted rows, and the resulting
+  `dataset_id` once registered.
 
 ## Testing strategy
 
@@ -229,9 +316,17 @@ tracked via a `schema_version` table for future migrations):
   so component/page tests exercise real TanStack Query hooks against
   predictable fixture responses instead of a live backend.
 - **Real-model e2e** — the end-to-end suite (owned by a separate `e2e/`
-  workspace, run via `make e2e`) drives the actual built app against a real,
-  small downloaded model on real Apple Silicon hardware — the one layer that
-  isn't mocked anywhere else.
+  workspace) drives the actual built app against a real, small downloaded
+  model on real Apple Silicon hardware — the one layer that isn't mocked
+  anywhere else. `make e2e` (`e2e/smoke_train.py`) covers the Faz-1 SFT
+  flow (download → dataset → train → chat → fuse → optional GGUF); `make
+  e2e-faz2` (`e2e/smoke_faz2.py`) covers Faz 2 — a real DPO training run,
+  Data Recipes csv/txt conversion, Run History filter/sort/clone, and the
+  Arena WS side-by-side comparison (against a warm SFT adapter if
+  `MLXLF_E2E_DATA_DIR` already has one from a prior `make e2e` run, else
+  base-vs-base). Both share the `MLXLF_E2E_DATA_DIR` env var to reuse a
+  downloaded model/data dir across runs, and are kept as separate `make`
+  targets so a plain Faz-1 check doesn't pay for the Faz-2 flow.
 
 ## Decisions log
 

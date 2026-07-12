@@ -1,4 +1,4 @@
-.PHONY: install dev test test-backend test-frontend lint e2e
+.PHONY: install dev test test-backend test-frontend lint e2e e2e-faz2
 
 install:
 	cd backend && uv sync --all-extras --all-groups
@@ -28,3 +28,12 @@ lint:
 # Set MLXLF_E2E_DATA_DIR to reuse a data dir across runs and skip the download.
 e2e:
 	cd backend && uv run python ../e2e/smoke_train.py
+
+# Real end-to-end smoke test for the Faz-2 surface: DPO training, Data
+# Recipes (csv/txt -> dataset), Run History filter/sort/clone, and the Arena
+# WS side-by-side comparison. Same MLXLF_E2E_DATA_DIR env var as `e2e` above
+# (reusing it lets Arena compare against a warm SFT adapter instead of
+# falling back to base-vs-base). Kept as a separate target from `e2e` since
+# it's Faz-2-specific and not needed for a plain Faz-1 check.
+e2e-faz2:
+	cd backend && uv run python ../e2e/smoke_faz2.py
