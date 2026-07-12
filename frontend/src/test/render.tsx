@@ -16,18 +16,22 @@ function createTestQueryClient() {
 
 interface RenderWithProvidersOptions {
   route?: string
+  /** Optional react-router location state for the initial entry. */
+  routeState?: unknown
 }
 
 export function renderWithProviders(
   ui: ReactElement,
-  { route = '/' }: RenderWithProvidersOptions = {},
+  { route = '/', routeState }: RenderWithProvidersOptions = {},
 ) {
   const queryClient = createTestQueryClient()
 
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={[{ pathname: route, state: routeState }]}>
+          {children}
+        </MemoryRouter>
       </QueryClientProvider>
     )
   }
