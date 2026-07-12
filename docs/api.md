@@ -241,8 +241,57 @@ return `409 training_active` (Metal memory contention).
 
 ---
 
-## Faz 2 (rezerve — henüz implement edilmedi)
+## Arena (Faz 2)
 
-- `POST /arena/sessions`, `WS /ws/arena/{session_id}` (frames tagged `"side": "a"|"b"`)
-- `POST /recipes/convert` (multipart), `GET /recipes/jobs/{id}`
-- `GET /runs/history?...` (zengin filtreler), `POST /train/jobs/{run_id}/clone`
+Stateless side-by-side comparison of two model/adapter pairs. Generation is
+SEQUENTIAL (side "a" fully streams, then side "b") — one Metal GPU, and the
+inference service holds one model at a time.
+
+### WS /ws/arena
+- Client → server:
+  - `{"type": "generate",
+     "side_a": {"model_id": "...", "adapter_path": "/abs"|null},
+     "side_b": {"model_id": "...", "adapter_path": "/abs"|null},
+     "messages": [{"role": "user", "content": "..."}],
+     "params": GenerationParams}`
+  - `{"type": "cancel"}` — aborts the in-flight side and skips the remaining side.
+- Server → client:
+  - `{"type": "side_start", "side": "a"|"b"}`
+  - `{"type": "token", "side": "a"|"b", "text": "..."}`
+  - `{"type": "side_done", "side": "a"|"b", "usage": {...}}`  (same usage shape as chat)
+  - `{"type": "done"}` — after both sides (or after cancel)
+  - `{"type": "error", "side": "a"|"b"|null, "code": "...", "message": "..."}` — a per-side
+    error skips to the next side; `side: null` errors (e.g. `training_active`) end the turn.
+    Socket stays open in all cases.
+
+## Data Recipes (Faz 2)
+
+Deterministic document→dataset conversion (no LLM in the loop). Accepted
+uploads: `.pdf`, `.docx`, `.csv`, `.txt`, `.md`.
+
+### POST /recipes/convert — multipart
+Fields: `file`; `name` (dataset name); `output_format`: `text|completions|chat`;
+`chunk_size` (chars, default 2000), `chunk_overlap` (default 200) for pdf/docx/txt/md;
+for CSV: `prompt_column`, `completion_column` (required for completions/chat),
+optional `system_prompt` (chat only).
+Rules: pdf/docx/txt/md → `text` format only (422 otherwise). CSV → `completions`
+or `chat`. → `202 {"recipe_job_id": "rj_...", "name": "..."}`
+
+### GET /recipes/jobs/{id}
+```json
+{"recipe_job_id": "rj_...", "status": "running|completed|failed",
+ "rows_emitted": 42, "preview_rows": [<first 5 emitted rows>],
+ "dataset_id": "ds_..."|null, "error": null}
+```
+On success the output is registered as a regular dataset (appears in GET /datasets,
+can be validated/split/trained like any upload).
+
+## Run History (Faz 2)
+
+### GET /runs/history?model_id=&train_mode=&status=&sort=&limit=50&offset=0
+`sort`: `created_at|-created_at|final_train_loss|-final_train_loss` (default `-created_at`).
+→ `{"runs": [RunSummary], "total": n}` (superset of GET /train/jobs filtering).
+
+### POST /train/jobs/{run_id}/clone
+Returns the past run's config as a fresh prefill — does NOT create a job.
+→ `200 TrainingConfig` (404 if run missing).
