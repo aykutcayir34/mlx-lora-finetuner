@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import datasets, export, inference, models, system, training
+from app.api import arena, datasets, export, history, inference, models, recipes, system, training
 from app.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.db.database import init_db
@@ -73,7 +73,17 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
 
-    for router_module in (system, models, datasets, training, inference, export):
+    for router_module in (
+        system,
+        models,
+        datasets,
+        training,
+        inference,
+        arena,
+        export,
+        recipes,
+        history,
+    ):
         app.include_router(router_module.router, prefix="/api/v1")
 
     return app

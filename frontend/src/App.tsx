@@ -6,7 +6,10 @@ import { ModelsPage } from './pages/ModelsPage'
 import { DatasetsPage } from './pages/DatasetsPage'
 import { TrainPage } from './pages/TrainPage'
 import { ChatPage } from './pages/ChatPage'
+import { ArenaPage } from './pages/ArenaPage'
 import { ExportPage } from './pages/ExportPage'
+import { RecipesPage } from './pages/RecipesPage'
+import { HistoryPage } from './pages/HistoryPage'
 
 const queryClient = new QueryClient()
 
@@ -19,7 +22,10 @@ export function AppRoutes() {
         <Route path="/datasets" element={<DatasetsPage />} />
         <Route path="/train" element={<TrainPage />} />
         <Route path="/chat" element={<ChatPage />} />
+        <Route path="/arena" element={<ArenaPage />} />
         <Route path="/export" element={<ExportPage />} />
+        <Route path="/recipes" element={<RecipesPage />} />
+        <Route path="/history" element={<HistoryPage />} />
       </Route>
     </Routes>
   )

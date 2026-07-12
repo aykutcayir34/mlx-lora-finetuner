@@ -3,7 +3,7 @@ export interface RouteDef {
   label: string
 }
 
-// Single source of truth for the 6 top-level routes, shared by the router
+// Single source of truth for the top-level routes, shared by the router
 // setup (App.tsx) and the side nav icon rail.
 export const ROUTES: RouteDef[] = [
   { path: '/', label: 'Dashboard' },
@@ -11,5 +11,8 @@ export const ROUTES: RouteDef[] = [
   { path: '/datasets', label: 'Datasets' },
   { path: '/train', label: 'Train' },
   { path: '/chat', label: 'Chat' },
+  { path: '/arena', label: 'Arena' },
   { path: '/export', label: 'Export' },
+  { path: '/recipes', label: 'Recipes' },
+  { path: '/history', label: 'History' },
 ]

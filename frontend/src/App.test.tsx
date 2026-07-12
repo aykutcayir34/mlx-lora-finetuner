@@ -27,7 +27,10 @@ const CASES: Array<[route: string, heading: string]> = [
   ['/datasets', 'Datasets'],
   ['/train', 'Train'],
   ['/chat', 'Chat'],
+  ['/arena', 'Arena'],
   ['/export', 'Export'],
+  ['/recipes', 'Recipes'],
+  ['/history', 'History'],
 ]
 
 describe('AppRoutes', () => {

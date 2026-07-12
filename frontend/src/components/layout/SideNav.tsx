@@ -1,11 +1,14 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { ROUTES } from '../../routes'
 import {
+  ArenaIcon,
   ChatIcon,
   DashboardIcon,
   DatasetsIcon,
   ExportIcon,
+  HistoryIcon,
   ModelsIcon,
+  RecipesIcon,
   TrainIcon,
 } from './icons'
 
@@ -15,7 +18,10 @@ const ICONS: Record<string, (props: { className?: string }) => JSX.Element> = {
   '/datasets': DatasetsIcon,
   '/train': TrainIcon,
   '/chat': ChatIcon,
+  '/arena': ArenaIcon,
   '/export': ExportIcon,
+  '/recipes': RecipesIcon,
+  '/history': HistoryIcon,
 }
 
 export function SideNav() {

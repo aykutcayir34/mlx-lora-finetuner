@@ -77,3 +77,31 @@ export function ExportIcon(props: SVGProps<SVGSVGElement>) {
     </Icon>
   )
 }
+
+export function ArenaIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="5" width="8" height="14" rx="1.5" />
+      <rect x="13" y="5" width="8" height="14" rx="1.5" />
+    </Icon>
+  )
+}
+
+export function RecipesIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M14 3H6a1.5 1.5 0 0 0-1.5 1.5v15A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V8.5L14 3Z" />
+      <path d="M14 3v5.5h5.5" />
+      <path d="M8.5 13h7M8.5 17h7" />
+    </Icon>
+  )
+}
+
+export function HistoryIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </Icon>
+  )
+}

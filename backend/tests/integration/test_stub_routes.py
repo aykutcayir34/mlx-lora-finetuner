@@ -27,6 +27,10 @@ ROUTES: list[tuple[str, str]] = [
     ("GET", "/export/artifacts"),
     ("GET", "/system/health"),
     ("GET", "/system/stats"),
+    ("POST", "/recipes/convert"),
+    ("GET", "/recipes/jobs/rj_1"),
+    ("GET", "/runs/history"),
+    ("POST", "/train/jobs/run_1/clone"),
 ]
 
 
