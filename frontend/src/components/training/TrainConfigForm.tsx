@@ -12,10 +12,10 @@ import { Select } from '../common/Select'
 import { Switch } from '../common/Switch'
 import { Button } from '../common/Button'
 import { Badge } from '../common/Badge'
-import { Tooltip } from '../common/Tooltip'
 import { useToast } from '../common/Toast'
 import {
   DEFAULT_TRAINING_CONFIG,
+  defaultOverridesForMode,
   LOAD_IN_BITS_OPTIONS,
   LR_SCHEDULE_OPTIONS,
   MODE_OPTIONS,
@@ -26,15 +26,17 @@ import {
 
 interface TrainConfigFormProps {
   onCreated: (runId: string) => void
+  /** Prefill (e.g. a cloned run's config); falls back to the defaults. */
+  initialConfig?: TrainingConfig
 }
 
-export function TrainConfigForm({ onCreated }: TrainConfigFormProps) {
+export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormProps) {
   const { toast } = useToast()
   const modelsQuery = useModels()
   const datasetsQuery = useDatasets()
   const createRun = useCreateRun()
 
-  const [config, setConfig] = useState<TrainingConfig>(DEFAULT_TRAINING_CONFIG)
+  const [config, setConfig] = useState<TrainingConfig>(initialConfig ?? DEFAULT_TRAINING_CONFIG)
   const [touched, setTouched] = useState(false)
 
   const splitDatasets = useMemo(
@@ -52,6 +54,10 @@ export function TrainConfigForm({ onCreated }: TrainConfigFormProps) {
 
   function updateLora<K extends keyof LoraParams>(key: K, value: LoraParams[K]) {
     setConfig((prev) => ({ ...prev, lora: { ...prev.lora, [key]: value } }))
+  }
+
+  function updateMode(mode: TrainMode) {
+    setConfig((prev) => ({ ...prev, train_mode: mode, ...defaultOverridesForMode(mode) }))
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -177,32 +183,23 @@ export function TrainConfigForm({ onCreated }: TrainConfigFormProps) {
           <div>
             <span className="mb-2 block text-sm font-medium text-text">Train mode</span>
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Train mode">
-              {MODE_OPTIONS.map((mode) => {
-                const button = (
-                  <button
-                    key={mode.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={config.train_mode === mode.value}
-                    disabled={!mode.enabled}
-                    onClick={() => update('train_mode', mode.value as TrainMode)}
-                    className={`rounded-lg border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                      config.train_mode === mode.value
-                        ? 'border-accent bg-accent/10 text-text'
-                        : 'border-border bg-surface-raised text-text-muted hover:text-text'
-                    }`}
-                  >
-                    {mode.label}
-                  </button>
-                )
-                return mode.enabled ? (
-                  button
-                ) : (
-                  <Tooltip key={mode.value} content="Faz 2">
-                    {button}
-                  </Tooltip>
-                )
-              })}
+              {MODE_OPTIONS.map((mode) => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={config.train_mode === mode.value}
+                  disabled={!mode.enabled}
+                  onClick={() => updateMode(mode.value)}
+                  className={`rounded-lg border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                    config.train_mode === mode.value
+                      ? 'border-accent bg-accent/10 text-text'
+                      : 'border-border bg-surface-raised text-text-muted hover:text-text'
+                  }`}
+                >
+                  {mode.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -216,6 +213,64 @@ export function TrainConfigForm({ onCreated }: TrainConfigFormProps) {
           </Field>
         </div>
       </Card>
+
+      {(config.train_mode === 'dpo' || config.train_mode === 'orpo' || config.train_mode === 'cpo') && (
+        <Card title="Preference / RL">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="Beta" htmlFor="beta" error={touched ? errors.beta : undefined}>
+              <Input
+                id="beta"
+                type="number"
+                step="0.01"
+                value={config.beta ?? ''}
+                onChange={(e) => update('beta', e.target.value === '' ? null : Number(e.target.value))}
+              />
+            </Field>
+          </div>
+        </Card>
+      )}
+
+      {config.train_mode === 'grpo' && (
+        <Card title="Preference / RL">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="Group size" htmlFor="group-size" error={touched ? errors.group_size : undefined}>
+              <Input
+                id="group-size"
+                type="number"
+                value={config.group_size ?? ''}
+                onChange={(e) => update('group_size', e.target.value === '' ? null : Number(e.target.value))}
+              />
+            </Field>
+            <Field
+              label="Temperature"
+              htmlFor="temperature"
+              error={touched ? errors.temperature : undefined}
+            >
+              <Input
+                id="temperature"
+                type="number"
+                step="0.05"
+                value={config.temperature ?? ''}
+                onChange={(e) => update('temperature', e.target.value === '' ? null : Number(e.target.value))}
+              />
+            </Field>
+            <Field
+              label="Max completion length"
+              htmlFor="max-completion-length"
+              error={touched ? errors.max_completion_length : undefined}
+            >
+              <Input
+                id="max-completion-length"
+                type="number"
+                value={config.max_completion_length ?? ''}
+                onChange={(e) =>
+                  update('max_completion_length', e.target.value === '' ? null : Number(e.target.value))
+                }
+              />
+            </Field>
+          </div>
+        </Card>
+      )}
 
       {config.train_type !== 'full' && (
         <Card title="LoRA">

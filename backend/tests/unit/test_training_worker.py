@@ -48,6 +48,28 @@ class FakeTrainModule:
         cls.captured_callback = training_callback
 
 
+class FakeTrainModuleWithLibraryDefaults(FakeTrainModule):
+    """Stand-in whose `build_parser()` mirrors the real
+    `mlx_lm_lora.train.build_parser()` argparse defaults for the
+    preference/RL-only knobs (`--beta 0.1`, `--group-size 4`,
+    `--max-completion-length 512`, `--temperature 1.0`), so tests can assert
+    that our optional-field mapping preserves the library's own defaults
+    instead of stomping them with `None`.
+    """
+
+    captured_args = None
+    captured_callback = None
+
+    @staticmethod
+    def build_parser():
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--beta", type=float, default=0.1)
+        parser.add_argument("--group-size", type=int, default=4)
+        parser.add_argument("--max-completion-length", type=int, default=512)
+        parser.add_argument("--temperature", type=float, default=1.0)
+        return parser
+
+
 def make_config(**overrides) -> TrainingConfig:
     base = dict(
         name="test-run",
@@ -119,6 +141,67 @@ def test_build_worker_args_joins_reward_functions(settings, tmp_path):
 
     assert args.reward_functions == "accuracy,format"
     assert args.group_size == 4
+
+
+@pytest.mark.parametrize(
+    "train_mode,extra",
+    [
+        ("dpo", {"beta": 0.1}),
+        ("orpo", {"beta": 0.1}),
+        ("cpo", {"beta": 0.2}),
+        ("grpo", {"group_size": 4, "beta": 0.05}),
+    ],
+)
+def test_build_worker_args_maps_preference_rl_modes(settings, tmp_path, train_mode, extra):
+    run_dir = tmp_path / "runs" / f"run_{train_mode}"
+    run_dir.mkdir(parents=True)
+    config = make_config(train_mode=train_mode, **extra)
+
+    args = worker._build_worker_args(run_dir, config, train_mod=FakeTrainModule)
+
+    assert args.train_mode == train_mode
+    assert args.beta == extra["beta"]
+    if train_mode == "grpo":
+        assert args.group_size == extra["group_size"]
+
+
+def test_build_worker_args_grpo_falls_back_to_library_defaults_when_optional_fields_unset(
+    settings, tmp_path
+):
+    """Regression test: `beta`/`temperature`/`max_completion_length` are
+    optional on `TrainingConfig` even for grpo (only `group_size` is
+    required). Before the fix, unconditionally overriding with
+    `config.<field>` stomped the library's own argparse defaults with
+    `None`, which would crash GRPO's KL-penalty math (`beta * kl_term`).
+    """
+    run_dir = tmp_path / "runs" / "run_grpo_defaults"
+    run_dir.mkdir(parents=True)
+    config = make_config(train_mode="grpo", group_size=4)  # beta/temperature/max_completion_length left None
+
+    args = worker._build_worker_args(
+        run_dir, config, train_mod=FakeTrainModuleWithLibraryDefaults
+    )
+
+    assert args.group_size == 4
+    assert args.beta == 0.1
+    assert args.temperature == 1.0
+    assert args.max_completion_length == 512
+
+
+def test_build_worker_args_dpo_reference_model_path_left_unset_for_base_model_default(
+    settings, tmp_path
+):
+    """DPO/GRPO's reference model defaults to the base model when
+    `reference_model_path` is None (`mlx_lm_lora.train.load_reference_model`).
+    We never set it, so it must stay whatever the library itself defaults to.
+    """
+    run_dir = tmp_path / "runs" / "run_dpo_ref"
+    run_dir.mkdir(parents=True)
+    config = make_config(train_mode="dpo", beta=0.1)
+
+    args = worker._build_worker_args(run_dir, config, train_mod=FakeTrainModule)
+
+    assert not hasattr(args, "reference_model_path") or args.reference_model_path is None
 
 
 @pytest.mark.parametrize(

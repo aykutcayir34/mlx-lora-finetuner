@@ -136,13 +136,30 @@ def _build_worker_args(run_dir: Path, config, train_mod=None):
         "load_in_6bits": config.load_in_bits == 6,
         "load_in_8bits": config.load_in_bits == 8,
         "load_in_mxfp4": False,
+    }
+    default_args.update(overrides)
+
+    # Preference/RL-only knobs: only override when the caller actually set a
+    # value. These fields are optional on `TrainingConfig` even for the modes
+    # that use them (only dpo/orpo/cpo require `beta`; grpo only requires
+    # `group_size` — see `TrainingConfig.check_beta_and_group_size`). If we
+    # always overrode with `config.<field>`, a `None` would stomp the
+    # library's own argparse/CONFIG_DEFAULTS defaults (e.g. GRPO's
+    # beta=0.1, temperature=1.0, max_completion_length=512) with `None`,
+    # which then blows up numeric ops (e.g. `beta * kl_term`) inside
+    # mlx-lm-lora's trainers.
+    optional_overrides: dict[str, Any] = {
         "beta": config.beta,
         "group_size": config.group_size,
         "temperature": config.temperature,
         "max_completion_length": config.max_completion_length,
-        "reward_functions": ",".join(config.reward_functions) if config.reward_functions else None,
     }
-    default_args.update(overrides)
+    for key, value in optional_overrides.items():
+        if value is not None:
+            default_args[key] = value
+    if config.reward_functions:
+        default_args["reward_functions"] = ",".join(config.reward_functions)
+
     return types.SimpleNamespace(**default_args)
 
 

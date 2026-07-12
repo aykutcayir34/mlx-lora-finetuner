@@ -35,15 +35,31 @@ export interface ModeOption {
   enabled: boolean
 }
 
-// Faz 1 only exposes `sft`; the rest are visible (so the roadmap is legible)
-// but disabled until Faz 2 lands.
+// Faz 2 (T15): all modes are wired end to end against mlx-lm-lora 2.1.0 and
+// verified with real training runs (see task report). All enabled.
 export const MODE_OPTIONS: ModeOption[] = [
   { value: 'sft', label: 'SFT', enabled: true },
-  { value: 'dpo', label: 'DPO', enabled: false },
-  { value: 'orpo', label: 'ORPO', enabled: false },
-  { value: 'cpo', label: 'CPO', enabled: false },
-  { value: 'grpo', label: 'GRPO', enabled: false },
+  { value: 'dpo', label: 'DPO', enabled: true },
+  { value: 'orpo', label: 'ORPO', enabled: true },
+  { value: 'cpo', label: 'CPO', enabled: true },
+  { value: 'grpo', label: 'GRPO', enabled: true },
 ]
+
+// Suggested per-mode defaults for the preference/RL-only fields, mirrored
+// from `backend/app/training/presets.py::suggest_hyperparameters`. Applied
+// when the user switches `train_mode` so the form starts from sane values;
+// fields unused by the newly selected mode are reset to `null`.
+export function defaultOverridesForMode(
+  mode: TrainMode,
+): Pick<TrainingConfig, 'beta' | 'group_size' | 'temperature' | 'max_completion_length'> {
+  if (mode === 'dpo' || mode === 'orpo' || mode === 'cpo') {
+    return { beta: 0.1, group_size: null, temperature: null, max_completion_length: null }
+  }
+  if (mode === 'grpo') {
+    return { beta: null, group_size: 4, temperature: 0.8, max_completion_length: 512 }
+  }
+  return { beta: null, group_size: null, temperature: null, max_completion_length: null }
+}
 
 export const TRAIN_TYPE_OPTIONS: { value: TrainType; label: string }[] = [
   { value: 'lora', label: 'LoRA' },
@@ -144,11 +160,28 @@ export function validateTrainingConfig(
     }
   }
 
-  if ((config.train_mode === 'dpo' || config.train_mode === 'orpo' || config.train_mode === 'cpo') && config.beta === null) {
-    errors.beta = 'Beta is required for dpo/orpo/cpo.'
+  if (config.train_mode === 'dpo' || config.train_mode === 'orpo' || config.train_mode === 'cpo') {
+    if (config.beta === null) {
+      errors.beta = 'Beta is required for dpo/orpo/cpo.'
+    } else if (!Number.isFinite(config.beta) || config.beta <= 0) {
+      errors.beta = 'Beta must be greater than 0.'
+    }
   }
-  if (config.train_mode === 'grpo' && config.group_size === null) {
-    errors.group_size = 'Group size is required for grpo.'
+  if (config.train_mode === 'grpo') {
+    if (config.group_size === null) {
+      errors.group_size = 'Group size is required for grpo.'
+    } else if (!Number.isFinite(config.group_size) || config.group_size < 1) {
+      errors.group_size = 'Group size must be at least 1.'
+    }
+    if (config.temperature !== null && (!Number.isFinite(config.temperature) || config.temperature <= 0)) {
+      errors.temperature = 'Temperature must be greater than 0.'
+    }
+    if (
+      config.max_completion_length !== null &&
+      (!Number.isFinite(config.max_completion_length) || config.max_completion_length < 1)
+    ) {
+      errors.max_completion_length = 'Max completion length must be at least 1.'
+    }
   }
 
   return errors

@@ -47,15 +47,101 @@ describe('TrainConfigForm', () => {
     expect(screen.queryByLabelText('Dropout')).not.toBeInTheDocument()
   })
 
-  it('disables non-sft modes (Faz 2) while sft stays enabled', async () => {
+  it('enables all train modes (Faz 2 — T15)', async () => {
     renderForm()
     await waitForPickersLoaded()
 
     expect(screen.getByRole('radio', { name: 'SFT' })).toBeEnabled()
-    expect(screen.getByRole('radio', { name: 'DPO' })).toBeDisabled()
-    expect(screen.getByRole('radio', { name: 'ORPO' })).toBeDisabled()
-    expect(screen.getByRole('radio', { name: 'CPO' })).toBeDisabled()
-    expect(screen.getByRole('radio', { name: 'GRPO' })).toBeDisabled()
+    expect(screen.getByRole('radio', { name: 'DPO' })).toBeEnabled()
+    expect(screen.getByRole('radio', { name: 'ORPO' })).toBeEnabled()
+    expect(screen.getByRole('radio', { name: 'CPO' })).toBeEnabled()
+    expect(screen.getByRole('radio', { name: 'GRPO' })).toBeEnabled()
+  })
+
+  it('shows no Preference/RL section for sft, a Beta field for dpo/orpo/cpo with the preset default', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await waitForPickersLoaded()
+
+    expect(screen.queryByLabelText('Beta')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Group size')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'DPO' }))
+    expect(screen.getByLabelText('Beta')).toHaveValue(0.1)
+    expect(screen.queryByLabelText('Group size')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'ORPO' }))
+    expect(screen.getByLabelText('Beta')).toHaveValue(0.1)
+
+    await user.click(screen.getByRole('radio', { name: 'CPO' }))
+    expect(screen.getByLabelText('Beta')).toHaveValue(0.1)
+
+    await user.click(screen.getByRole('radio', { name: 'SFT' }))
+    expect(screen.queryByLabelText('Beta')).not.toBeInTheDocument()
+  })
+
+  it('shows group_size/temperature/max_completion_length fields with preset defaults for grpo', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await waitForPickersLoaded()
+
+    await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+
+    expect(screen.getByLabelText('Group size')).toHaveValue(4)
+    expect(screen.getByLabelText('Temperature')).toHaveValue(0.8)
+    expect(screen.getByLabelText('Max completion length')).toHaveValue(512)
+    expect(screen.queryByLabelText('Beta')).not.toBeInTheDocument()
+  })
+
+  it('blocks submit with a beta error when beta is cleared for dpo', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await waitForPickersLoaded()
+
+    await user.type(screen.getByLabelText('Run name'), 'my-dpo-run')
+    await user.click(screen.getByRole('radio', { name: 'DPO' }))
+    await user.clear(screen.getByLabelText('Beta'))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    expect(await screen.findByText('Beta is required for dpo/orpo/cpo.')).toBeInTheDocument()
+  })
+
+  it('blocks submit with a group_size error when group_size is cleared for grpo', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await waitForPickersLoaded()
+
+    await user.type(screen.getByLabelText('Run name'), 'my-grpo-run')
+    await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+    await user.clear(screen.getByLabelText('Group size'))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    expect(await screen.findByText('Group size is required for grpo.')).toBeInTheDocument()
+  })
+
+  it('surfaces a dataset-format compatibility error when the selected dataset does not match the mode', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('/api/v1/datasets', () =>
+        HttpResponse.json({
+          datasets: [
+            splitDataset, // format: chat — compatible with sft only
+          ],
+        }),
+      ),
+    )
+    renderForm()
+    await waitForPickersLoaded()
+
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-chat-data/ }))
+    await user.click(screen.getByRole('radio', { name: 'DPO' }))
+
+    expect(
+      await screen.findByText(
+        'Dataset format "chat" is not compatible with mode "dpo". Needs: dpo.',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('blocks submit and surfaces field errors when required fields are missing', async () => {
