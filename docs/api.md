@@ -215,6 +215,9 @@ Any stdout line that is not valid JSON with an `event` key is treated as a raw l
 
 ## Export
 
+While a training job is queued/running, `POST /export/fuse` and `POST /export/gguf`
+return `409 training_active` (Metal memory contention).
+
 ### POST /export/fuse
 `{"run_id": "run_..."} | {"model_id": "...", "adapter_path": "..."}` + `{"de_quantize": false, "output_name": "my-model"}`
 → `202 {"export_id": "ex_...", "kind": "fuse"}`

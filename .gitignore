@@ -1,0 +1,56 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+.python-version
+
+# --- uv ---
+.uv/
+
+# --- Node / frontend ---
+node_modules/
+dist/
+.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# --- Editors ---
+.vscode/
+.idea/
+*.swp
+
+# --- App data / secrets ---
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.*
+!.env.example
+
+# --- Logs ---
+*.log
+.claude/
