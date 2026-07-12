@@ -41,4 +41,8 @@ async def test_route_exists_and_does_not_404(client, method, path):
     else:
         response = await client.get(url)
 
-    assert response.status_code != 404
+    if response.status_code == 404:
+        # A domain 404 in the contract error shape proves the route exists
+        # (implemented endpoints correctly return not_found for fake ids);
+        # a missing route yields FastAPI's default {"detail": "Not Found"}.
+        assert response.json().get("error", {}).get("code") == "not_found"
