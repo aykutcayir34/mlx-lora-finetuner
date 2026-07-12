@@ -45,6 +45,17 @@ export function useDownloads() {
   })
 }
 
+export function useCancelDownload() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (downloadId: string) =>
+      apiClient.post<DownloadInfo>(`/models/downloads/${downloadId}/cancel`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.models.downloads })
+    },
+  })
+}
+
 export function useDeleteModel() {
   const queryClient = useQueryClient()
   return useMutation({

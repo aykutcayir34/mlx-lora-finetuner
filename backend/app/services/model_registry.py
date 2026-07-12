@@ -53,6 +53,11 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+class DownloadCancelled(Exception):
+    """Raised inside the download thread to abort an in-flight snapshot_download
+    once a cancellation has been requested via `ModelRegistry.cancel_download`."""
+
+
 @dataclass
 class _DownloadState:
     model_id: str
@@ -67,6 +72,7 @@ class _DownloadState:
     loop: asyncio.AbstractEventLoop | None = None
     last_persist_ts: float = 0.0
     task: asyncio.Task | None = None
+    cancel_event: threading.Event = field(default_factory=threading.Event)
 
     def progress_frame(self) -> dict:
         with self.lock:
@@ -84,6 +90,8 @@ class _DownloadState:
                 return {"type": "done"}
             if self.status == "failed":
                 return {"type": "error", "message": self.error or "download failed"}
+            if self.status == "cancelled":
+                return {"type": "cancelled"}
             return None
 
 
@@ -307,6 +315,14 @@ class ModelRegistry:
                     tqdm_class=tqdm_class,
                     token=self._settings.hf_token,
                 )
+            except DownloadCancelled:
+                with state.lock:
+                    state.status = "cancelled"
+                await DownloadsRepo(conn).finish(
+                    download_id, status="cancelled", finished_at=_now_iso(), error=None
+                )
+                self._broadcast_terminal(download_id)
+                return
             except Exception as exc:
                 with state.lock:
                     state.status = "failed"
@@ -350,6 +366,8 @@ class ModelRegistry:
                 self._mlxlf_total = None
                 kwargs.setdefault("file", io.StringIO())
                 super().__init__(*args, **kwargs)
+                if registry._is_cancelled(download_id):
+                    raise DownloadCancelled()
 
             @property
             def total(self):  # type: ignore[override]
@@ -364,6 +382,8 @@ class ModelRegistry:
                     registry._set_total(download_id, "files_total", value)
 
             def update(self, n=1):
+                if registry._is_cancelled(download_id):
+                    raise DownloadCancelled()
                 result = super().update(n)
                 if self._mlxlf_kind == "bytes":
                     registry._add_done(download_id, "bytes_done", n or 0)
@@ -372,6 +392,12 @@ class ModelRegistry:
                 return result
 
         return _ProgressTqdm
+
+    def _is_cancelled(self, download_id: str) -> bool:
+        state = self._downloads.get(download_id)
+        if state is None:
+            return False
+        return state.cancel_event.is_set()
 
     def _set_total(self, download_id: str, field_name: str, value) -> None:
         state = self._downloads.get(download_id)
@@ -476,7 +502,7 @@ class ModelRegistry:
         state = self._downloads.get(download_id)
         if state is not None:
             with state.lock:
-                terminal = state.status in ("completed", "failed")
+                terminal = state.status in ("completed", "failed", "cancelled")
                 frame = {
                     "type": "progress",
                     "bytes_done": state.bytes_done,
@@ -504,6 +530,8 @@ class ModelRegistry:
             queue.put_nowait({"type": "done"})
         elif row["status"] == "failed":
             queue.put_nowait({"type": "error", "message": row["error"] or "download failed"})
+        elif row["status"] == "cancelled":
+            queue.put_nowait({"type": "cancelled"})
         else:
             queue.put_nowait(
                 {
@@ -524,6 +552,40 @@ class ModelRegistry:
         with state.lock:
             if queue in state.subscribers:
                 state.subscribers.remove(queue)
+
+    async def cancel_download(
+        self, download_id: str, conn: aiosqlite.Connection
+    ) -> DownloadInfo:
+        state = self._downloads.get(download_id)
+        if state is None:
+            row = await DownloadsRepo(conn).get(download_id)
+            if row is None:
+                raise NotFoundError(message=f"unknown download_id '{download_id}'")
+            raise ConflictError(
+                message=f"'{download_id}' is already in a terminal state"
+            )
+
+        with state.lock:
+            if state.status != "running":
+                raise ConflictError(
+                    message=f"'{download_id}' is already in a terminal state"
+                )
+            state.cancel_event.set()
+
+        row = await DownloadsRepo(conn).get(download_id)
+        frame = state.progress_frame()
+        return DownloadInfo(
+            download_id=download_id,
+            model_id=state.model_id,
+            status=state.status,
+            bytes_done=frame["bytes_done"],
+            bytes_total=frame["bytes_total"],
+            files_done=frame["files_done"],
+            files_total=frame["files_total"],
+            error=state.error,
+            started_at=row["started_at"] if row is not None else _now_iso(),
+            finished_at=row["finished_at"] if row is not None else None,
+        )
 
     # ------------------------------------------------------------------ #
     # Delete

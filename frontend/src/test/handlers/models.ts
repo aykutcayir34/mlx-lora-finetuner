@@ -33,4 +33,22 @@ export const modelsHandlers = [
   http.get('/api/v1/models/downloads', () => HttpResponse.json({ downloads: [] })),
 
   http.delete('/api/v1/models/:modelId', () => new HttpResponse(null, { status: 204 })),
+
+  http.post('/api/v1/models/downloads/:downloadId/cancel', () =>
+    HttpResponse.json(
+      {
+        download_id: 'dl_1',
+        model_id: 'mlx-community/Llama-3.2-1B-Instruct-4bit',
+        status: 'cancelled',
+        bytes_done: 0,
+        bytes_total: 0,
+        files_done: 0,
+        files_total: 0,
+        error: null,
+        started_at: '2026-01-01T00:00:00Z',
+        finished_at: '2026-01-01T00:00:05Z',
+      },
+      { status: 202 },
+    ),
+  ),
 ]

@@ -1,4 +1,8 @@
+from typing import Literal
+
 from pydantic import BaseModel
+
+DownloadStatus = Literal["running", "completed", "failed", "cancelled"]
 
 
 class Quantization(BaseModel):
@@ -30,7 +34,7 @@ class DownloadRequest(BaseModel):
 class DownloadInfo(BaseModel):
     download_id: str
     model_id: str
-    status: str
+    status: DownloadStatus
     bytes_done: int
     bytes_total: int
     files_done: int

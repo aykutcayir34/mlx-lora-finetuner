@@ -269,3 +269,136 @@ def test_ws_downloads_unknown_id_gets_error_frame(data_dir):
         with tc.websocket_connect("/api/v1/ws/downloads/dl_does_not_exist") as ws:
             frame = ws.receive_json()
             assert frame["type"] == "error"
+
+
+# --------------------------------------------------------------------------
+# POST /models/downloads/{download_id}/cancel
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_cancel_download_returns_202_then_ws_terminal_cancelled_frame(client, monkeypatch):
+    event = threading.Event()
+    monkeypatch.setattr(
+        "app.services.model_registry.snapshot_download",
+        _fake_snapshot_download_factory(event=event),
+    )
+
+    response = await client.post(
+        "/api/v1/models/download", json={"model_id": "mlx-community/ApiCancelMe"}
+    )
+    assert response.status_code == 202
+    download_id = response.json()["download_id"]
+
+    cancel_response = await client.post(f"/api/v1/models/downloads/{download_id}/cancel")
+    assert cancel_response.status_code == 202
+    assert cancel_response.json()["status"] == "running"
+    assert cancel_response.json()["download_id"] == download_id
+
+    event.set()
+    registry = get_model_registry(get_settings())
+    await registry._downloads[download_id].task
+
+    list_response = await client.get("/api/v1/models/downloads")
+    row = next(
+        r for r in list_response.json()["downloads"] if r["download_id"] == download_id
+    )
+    assert row["status"] == "cancelled"
+
+
+def test_ws_downloads_streams_progress_then_cancelled(data_dir, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    event = threading.Event()
+    monkeypatch.setattr(
+        "app.services.model_registry.snapshot_download",
+        _fake_snapshot_download_factory(event=event),
+    )
+
+    test_app = create_app()
+    with TestClient(test_app) as tc:
+        response = tc.post(
+            "/api/v1/models/download", json={"model_id": "mlx-community/WsCancelMe"}
+        )
+        assert response.status_code == 202
+        download_id = response.json()["download_id"]
+
+        cancel_response = tc.post(f"/api/v1/models/downloads/{download_id}/cancel")
+        assert cancel_response.status_code == 202
+
+        event.set()
+
+        frames = []
+        with tc.websocket_connect(f"/api/v1/ws/downloads/{download_id}") as ws:
+            while True:
+                frame = ws.receive_json()
+                frames.append(frame)
+                if frame["type"] in ("done", "error", "cancelled"):
+                    break
+
+        assert frames[-1] == {"type": "cancelled"}
+
+
+@pytest.mark.asyncio
+async def test_cancel_download_already_terminal_is_409(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.services.model_registry.snapshot_download", _fake_snapshot_download_factory()
+    )
+
+    response = await client.post(
+        "/api/v1/models/download", json={"model_id": "mlx-community/ApiAlreadyDone"}
+    )
+    download_id = response.json()["download_id"]
+    registry = get_model_registry(get_settings())
+    await registry._downloads[download_id].task
+
+    cancel_response = await client.post(f"/api/v1/models/downloads/{download_id}/cancel")
+    assert cancel_response.status_code == 409
+    assert cancel_response.json()["error"]["code"] == "conflict"
+
+
+@pytest.mark.asyncio
+async def test_cancel_download_unknown_id_is_404(client):
+    response = await client.post("/api/v1/models/downloads/dl_does_not_exist/cancel")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_cancelled_download_can_be_retried_via_api(client, monkeypatch):
+    event = threading.Event()
+    monkeypatch.setattr(
+        "app.services.model_registry.snapshot_download",
+        _fake_snapshot_download_factory(event=event),
+    )
+
+    response = await client.post(
+        "/api/v1/models/download", json={"model_id": "mlx-community/ApiResumable"}
+    )
+    download_id = response.json()["download_id"]
+
+    cancel_response = await client.post(f"/api/v1/models/downloads/{download_id}/cancel")
+    assert cancel_response.status_code == 202
+
+    event.set()
+    registry = get_model_registry(get_settings())
+    await registry._downloads[download_id].task
+
+    monkeypatch.setattr(
+        "app.services.model_registry.snapshot_download", _fake_snapshot_download_factory()
+    )
+    retry_response = await client.post(
+        "/api/v1/models/download", json={"model_id": "mlx-community/ApiResumable"}
+    )
+    assert retry_response.status_code == 202
+    retry_download_id = retry_response.json()["download_id"]
+    assert retry_download_id != download_id
+
+    await registry._downloads[retry_download_id].task
+    list_response = await client.get("/api/v1/models/downloads")
+    row = next(
+        r for r in list_response.json()["downloads"] if r["download_id"] == retry_download_id
+    )
+    assert row["status"] == "completed"

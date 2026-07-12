@@ -149,4 +149,76 @@ describe('DownloadsSection', () => {
       expect(capturedBody).toEqual({ model_id: 'mlx-community/Llama-3.2-1B-Instruct-4bit' }),
     )
   })
+
+  it('cancels a running download by POSTing the cancel endpoint', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('/api/v1/models/downloads', () => HttpResponse.json({ downloads: [runningDownload()] })),
+    )
+    let capturedDownloadId: string | null = null
+    server.use(
+      http.post('/api/v1/models/downloads/:downloadId/cancel', ({ params }) => {
+        capturedDownloadId = params.downloadId as string
+        return HttpResponse.json(
+          { ...runningDownload(), status: 'cancelled', finished_at: '2026-07-12T10:05:00Z' },
+          { status: 202 },
+        )
+      }),
+    )
+
+    renderSection()
+
+    await screen.findByText('2/10 files')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => expect(capturedDownloadId).toBe('dl_1'))
+  })
+
+  it('shows a cancelled badge and a Retry button for a cancelled download', async () => {
+    server.use(
+      http.get('/api/v1/models/downloads', () =>
+        HttpResponse.json({
+          downloads: [
+            runningDownload({ status: 'cancelled', finished_at: '2026-07-12T10:05:00Z' }),
+          ],
+        }),
+      ),
+    )
+
+    renderSection()
+
+    expect(await screen.findByText('cancelled')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retry (resumes)' })).toBeInTheDocument()
+  })
+
+  it('treats a WS cancelled frame as terminal and refetches downloads', async () => {
+    MockWebSocket.instances = []
+    server.use(
+      http.get('/api/v1/models/downloads', () => HttpResponse.json({ downloads: [runningDownload()] })),
+    )
+
+    renderSection()
+    await screen.findByText('2/10 files')
+
+    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1))
+    const socket = MockWebSocket.instances[0]
+
+    server.use(
+      http.get('/api/v1/models/downloads', () =>
+        HttpResponse.json({
+          downloads: [
+            runningDownload({ status: 'cancelled', finished_at: '2026-07-12T10:05:00Z' }),
+          ],
+        }),
+      ),
+    )
+
+    act(() => {
+      socket.open()
+      socket.onmessage?.({ data: JSON.stringify({ type: 'cancelled' }) })
+    })
+
+    expect(await screen.findByText('cancelled')).toBeInTheDocument()
+    expect(socket.readyState).toBe(MockWebSocket.CLOSED)
+  })
 })

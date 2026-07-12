@@ -69,6 +69,17 @@ async def list_downloads(
     return DownloadsListResponse(downloads=await registry.list_downloads(conn))
 
 
+@router.post(
+    "/models/downloads/{download_id}/cancel", response_model=DownloadInfo, status_code=202
+)
+async def cancel_download(
+    download_id: str,
+    registry: Annotated[ModelRegistry, Depends(_registry)],
+    conn: Annotated[aiosqlite.Connection, Depends(get_db)],
+) -> DownloadInfo:
+    return await registry.cancel_download(download_id, conn)
+
+
 @router.delete("/models/{model_id:path}", status_code=204)
 async def delete_model(
     model_id: str,
@@ -101,7 +112,7 @@ async def ws_downloads(
                 await websocket.send_json(frame)
             except WebSocketDisconnect:
                 break
-            if frame.get("type") in ("done", "error"):
+            if frame.get("type") in ("done", "error", "cancelled"):
                 break
     finally:
         registry.unsubscribe(download_id, queue)
