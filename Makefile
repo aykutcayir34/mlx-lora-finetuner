@@ -22,5 +22,9 @@ lint:
 	cd backend && uv run ruff check .
 	cd frontend && npx tsc --noEmit
 
+# Real end-to-end smoke test against the MLX runtime: downloads a tiny model,
+# trains a LoRA adapter, chats with it, and fuses the result. Needs Apple
+# Silicon + network on first run (to download mlx-community/SmolLM-135M-Instruct-4bit).
+# Set MLXLF_E2E_DATA_DIR to reuse a data dir across runs and skip the download.
 e2e:
-	@echo "e2e: placeholder — no end-to-end suite yet"
+	cd backend && uv run python ../e2e/smoke_train.py
