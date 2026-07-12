@@ -39,7 +39,6 @@ affect the contract.
 | `training/manager.py` | `JobManager` — the training orchestrator. See [Training pipeline lifecycle](#training-pipeline-lifecycle). |
 | `training/worker.py` | `python -m app.training.worker --run-dir <dir>` subprocess entry point — bridges `TrainingConfig` to `mlx_lm_lora.train.run()` and emits JSONL events on stdout. |
 | `training/presets.py` | Named default configs for the Train page. |
-| `training/events.py` | (Reserved — currently empty/minimal; event parsing lives in `schemas/events.py`.) |
 
 ### Frontend (`frontend/src/`)
 

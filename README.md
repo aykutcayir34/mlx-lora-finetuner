@@ -144,7 +144,7 @@ mlx-import-must-be-lazy rule, the single-training-job lock, etc.).
 
 ## License
 
-MIT — see `LICENSE` (placeholder; add the actual license file before release).
+MIT — see [`LICENSE`](LICENSE).
 
 ## Built on
 
