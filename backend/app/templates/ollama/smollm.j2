@@ -1,0 +1,11 @@
+FROM {{ gguf_path }}
+
+TEMPLATE """{% raw %}{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+<|im_start|>assistant
+{{ .Response }}<|im_end|>
+{% endraw %}"""
+PARAMETER stop "<|im_start|>"
+PARAMETER stop "<|im_end|>"

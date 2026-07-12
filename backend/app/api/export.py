@@ -1,10 +1,10 @@
-# TODO(Wave-1 T4): fuse/gguf/ollama export pipeline.
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends
+import aiosqlite
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
-from app.core.errors import AppError
-from app.deps import get_current_user
+from app.deps import get_current_user, get_db
 from app.schemas.export import (
     ExportArtifact,
     ExportJobInfo,
@@ -13,39 +13,75 @@ from app.schemas.export import (
     OllamaModelfileRequest,
     PreflightReport,
 )
+from app.services.export_service import ExportService, get_export_service
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
+
+
+class ExportStartResponse(BaseModel):
+    export_id: str
+    kind: Literal["fuse", "gguf"]
+
+
+class ModelfileResponse(BaseModel):
+    modelfile: str
+    path: str
 
 
 class ExportArtifactsListResponse(BaseModel):
     artifacts: list[ExportArtifact]
 
 
-@router.post("/export/fuse", response_model=ExportJobInfo)
-def export_fuse(body: FuseRequest) -> ExportJobInfo:
-    raise AppError(message="model fuse etme henüz uygulanmadı", code="not_implemented", status_code=501)
+@router.post("/export/fuse", response_model=ExportStartResponse, status_code=202)
+async def export_fuse(
+    body: FuseRequest,
+    background_tasks: BackgroundTasks,
+    conn: Annotated[aiosqlite.Connection, Depends(get_db)],
+    service: Annotated[ExportService, Depends(get_export_service)],
+) -> dict:
+    return await service.start_fuse(conn, body, background_tasks)
 
 
 @router.get("/export/gguf/preflight", response_model=PreflightReport)
-def export_gguf_preflight(model_path: str) -> PreflightReport:
-    raise AppError(message="GGUF preflight kontrolü henüz uygulanmadı", code="not_implemented", status_code=501)
+async def export_gguf_preflight(
+    model_path: str,
+    service: Annotated[ExportService, Depends(get_export_service)],
+) -> PreflightReport:
+    return await service.preflight_gguf(model_path)
 
 
-@router.post("/export/gguf", response_model=ExportJobInfo)
-def export_gguf(body: GGUFRequest) -> ExportJobInfo:
-    raise AppError(message="GGUF export henüz uygulanmadı", code="not_implemented", status_code=501)
+@router.post("/export/gguf", response_model=ExportStartResponse, status_code=202)
+async def export_gguf(
+    body: GGUFRequest,
+    background_tasks: BackgroundTasks,
+    conn: Annotated[aiosqlite.Connection, Depends(get_db)],
+    service: Annotated[ExportService, Depends(get_export_service)],
+) -> dict:
+    return await service.start_gguf(conn, body, background_tasks)
 
 
-@router.post("/export/ollama-modelfile", response_model=ExportArtifact)
-def export_ollama_modelfile(body: OllamaModelfileRequest) -> ExportArtifact:
-    raise AppError(message="Ollama modelfile export henüz uygulanmadı", code="not_implemented", status_code=501)
+@router.post("/export/ollama-modelfile", response_model=ModelfileResponse)
+async def export_ollama_modelfile(
+    body: OllamaModelfileRequest,
+    conn: Annotated[aiosqlite.Connection, Depends(get_db)],
+    service: Annotated[ExportService, Depends(get_export_service)],
+) -> dict:
+    return await service.render_modelfile(conn, body)
 
 
 @router.get("/export/jobs/{export_id}", response_model=ExportJobInfo)
-def get_export_job(export_id: str) -> ExportJobInfo:
-    raise AppError(message="export job detayı henüz uygulanmadı", code="not_implemented", status_code=501)
+async def get_export_job(
+    export_id: str,
+    conn: Annotated[aiosqlite.Connection, Depends(get_db)],
+    service: Annotated[ExportService, Depends(get_export_service)],
+) -> ExportJobInfo:
+    return await service.get_job(conn, export_id)
 
 
 @router.get("/export/artifacts", response_model=ExportArtifactsListResponse)
-def list_export_artifacts() -> ExportArtifactsListResponse:
-    raise AppError(message="export artifact listeleme henüz uygulanmadı", code="not_implemented", status_code=501)
+async def list_export_artifacts(
+    conn: Annotated[aiosqlite.Connection, Depends(get_db)],
+    service: Annotated[ExportService, Depends(get_export_service)],
+) -> ExportArtifactsListResponse:
+    artifacts = await service.list_artifacts(conn)
+    return ExportArtifactsListResponse(artifacts=artifacts)

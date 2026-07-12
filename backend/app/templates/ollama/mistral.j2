@@ -1,0 +1,7 @@
+FROM {{ gguf_path }}
+
+TEMPLATE """{% raw %}{{ if .System }}{{ .System }}
+
+{{ end }}[INST] {{ .Prompt }} [/INST]{{ .Response }}{% endraw %}"""
+PARAMETER stop "[INST]"
+PARAMETER stop "[/INST]"
