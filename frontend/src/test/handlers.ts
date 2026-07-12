@@ -19,4 +19,64 @@ export const handlers = [
       data_dir: '/Users/x/.mlx-lora-finetuner',
     }),
   ),
+
+  // Additional handlers for src/api/queries hook tests. Kept additive so the
+  // two handlers above (relied on by TopBar/StatusFooter default-state tests)
+  // keep working unmodified.
+  http.get('/api/v1/models', () =>
+    HttpResponse.json({
+      models: [
+        {
+          model_id: 'mlx-community/SmolLM-135M-Instruct-4bit',
+          path: '/models/mlx-community__SmolLM-135M-Instruct-4bit',
+          size_bytes: 123456789,
+          model_type: 'llama',
+          quantization: { bits: 4, group_size: 64 },
+          downloaded_at: '2026-07-12T10:00:00Z',
+        },
+        {
+          model_id: 'mlx-community/Qwen2.5-0.5B-Instruct-4bit',
+          path: '/models/mlx-community__Qwen2.5-0.5B-Instruct-4bit',
+          size_bytes: 987654321,
+          model_type: 'qwen2',
+          quantization: { bits: 4, group_size: 64 },
+          downloaded_at: '2026-07-12T10:05:00Z',
+        },
+      ],
+    }),
+  ),
+  http.get('/api/v1/train/jobs', () => HttpResponse.json({ runs: [], total: 0 })),
+  http.post('/api/v1/train/jobs', () =>
+    HttpResponse.json(
+      {
+        run_id: 'run_new',
+        name: 'my-run',
+        status: 'queued',
+        config: {},
+        created_at: '2026-07-12T10:00:00Z',
+        started_at: null,
+        finished_at: null,
+        final_train_loss: null,
+        final_val_loss: null,
+        adapter_path: null,
+        error: null,
+      },
+      { status: 201 },
+    ),
+  ),
+  http.get('/api/v1/train/jobs/:runId', ({ params }) =>
+    HttpResponse.json({
+      run_id: params.runId,
+      name: 'my-run',
+      status: 'running',
+      config: {},
+      created_at: '2026-07-12T10:00:00Z',
+      started_at: '2026-07-12T10:00:01Z',
+      finished_at: null,
+      final_train_loss: null,
+      final_val_loss: null,
+      adapter_path: null,
+      error: null,
+    }),
+  ),
 ]

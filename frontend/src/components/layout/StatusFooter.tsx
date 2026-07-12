@@ -1,10 +1,42 @@
-// Placeholder for the active job / memory status bar. Not wired to any data
-// source yet — that lands with the training/job features in a later wave.
+import { Link } from 'react-router-dom'
+import { useRun } from '../../api/queries/training'
+import { useHealth, useSystemStats } from '../../api/queries/system'
+
 export function StatusFooter() {
+  const { data: health, isError: isHealthError } = useHealth()
+  const { data: stats, isError: isStatsError } = useSystemStats()
+  const activeRunId = stats?.active_run_id ?? undefined
+  const { data: activeRun } = useRun(activeRunId)
+
+  const isHealthy = !isHealthError && health?.status === 'ok'
+  const healthDotClass = isHealthy ? 'bg-success' : 'bg-danger'
+  const healthLabel = isHealthy ? 'Backend healthy' : 'Backend unreachable'
+
+  const memoryLabel =
+    !isStatsError && stats
+      ? `Memory: ${stats.memory.used_gb.toFixed(1)} / ${stats.memory.total_gb.toFixed(1)} GB`
+      : 'Memory: —'
+
   return (
     <footer className="flex h-9 items-center justify-between border-t border-border bg-surface px-4 text-xs text-text-muted">
-      <span>No active job</span>
-      <span>Memory: —</span>
+      {activeRun ? (
+        <Link to="/train" className="hover:text-text">
+          Active run: {activeRun.run_id} ({activeRun.status})
+        </Link>
+      ) : (
+        <span>No active job</span>
+      )}
+      <div className="flex items-center gap-3">
+        <span>{memoryLabel}</span>
+        <div className="flex items-center gap-2" title={healthLabel}>
+          <span
+            data-testid="footer-health-dot"
+            aria-label={healthLabel}
+            className={`h-2 w-2 rounded-full ${healthDotClass}`}
+          />
+          <span>{healthLabel}</span>
+        </div>
+      </div>
     </footer>
   )
 }
