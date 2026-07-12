@@ -929,6 +929,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
+    { name = "datasets" },
     { name = "fastapi" },
     { name = "huggingface-hub" },
     { name = "jinja2" },
@@ -958,6 +959,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiosqlite" },
+    { name = "datasets" },
     { name = "fastapi" },
     { name = "huggingface-hub" },
     { name = "jinja2" },

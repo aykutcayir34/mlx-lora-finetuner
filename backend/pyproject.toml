@@ -15,6 +15,7 @@ dependencies = [
     "python-multipart",
     "pypdf",
     "python-docx",
+    "datasets",
 ]
 
 [project.optional-dependencies]

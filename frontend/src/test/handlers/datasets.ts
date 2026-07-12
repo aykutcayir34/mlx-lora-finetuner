@@ -1,5 +1,12 @@
 import { http, HttpResponse } from 'msw'
-import type { DatasetInfo, PreviewPage, ValidationReport } from '../../api/types'
+import type {
+  DatasetImportInfo,
+  DatasetImportResponse,
+  DatasetInfo,
+  HFDatasetSearchResult,
+  PreviewPage,
+  ValidationReport,
+} from '../../api/types'
 
 // Reusable fixtures + handler factories for the Datasets page tests.
 // Register the handlers you need per-test with `server.use(...)`; the
@@ -65,4 +72,66 @@ export function splitDatasetErrorHandler(message = 'Ratios must sum to 1.0.') {
 
 export function previewDatasetHandler(page: PreviewPage) {
   return http.get('/api/v1/datasets/:id/preview', () => HttpResponse.json(page))
+}
+
+// ---------------------------------------------------------------------------
+// Hugging Face dataset import
+// ---------------------------------------------------------------------------
+
+export const sampleSearchResult: HFDatasetSearchResult = {
+  dataset_id: 'mlx-community/wikisql',
+  downloads: 1234,
+  likes: 5,
+  imported: false,
+}
+
+export const sampleImportInfo: DatasetImportInfo = {
+  import_id: 'di_1',
+  hf_dataset_id: 'mlx-community/wikisql',
+  config: null,
+  split: 'train',
+  status: 'running',
+  rows_written: 0,
+  dataset_id: null,
+  error: null,
+  started_at: '2026-07-12T10:00:00Z',
+  finished_at: null,
+}
+
+export function searchDatasetsHandler(results: HFDatasetSearchResult[] = [sampleSearchResult]) {
+  return http.get('/api/v1/datasets/search', () => HttpResponse.json({ results }))
+}
+
+export function importDatasetHandler(
+  response: DatasetImportResponse = { import_id: 'di_1', dataset_id: 'mlx-community/wikisql' },
+) {
+  return http.post('/api/v1/datasets/import', () => HttpResponse.json(response, { status: 202 }))
+}
+
+export function importDatasetConflictHandler(message = 'This dataset is already importing.') {
+  return http.post('/api/v1/datasets/import', () =>
+    HttpResponse.json({ error: { code: 'conflict', message, detail: {} } }, { status: 409 }),
+  )
+}
+
+export function listDatasetImportsHandler(imports: DatasetImportInfo[] = [sampleImportInfo]) {
+  return http.get('/api/v1/datasets/imports', () => HttpResponse.json({ imports }))
+}
+
+export function cancelImportHandler(
+  response: DatasetImportInfo = { ...sampleImportInfo, status: 'cancelled' },
+) {
+  return http.post('/api/v1/datasets/imports/:id/cancel', () => HttpResponse.json(response, { status: 202 }))
+}
+
+export function cancelImportConflictHandler(message = 'Import already finished.') {
+  return http.post('/api/v1/datasets/imports/:id/cancel', () =>
+    HttpResponse.json({ error: { code: 'conflict', message, detail: {} } }, { status: 409 }),
+  )
+}
+
+export function cancelImportNotFoundHandler(message = 'Import not found.') {
+  return http.post('/api/v1/datasets/imports/:id/cancel', () =>
+    HttpResponse.json({ error: { code: 'not_found', message, detail: {} } }, { status: 404 }),
+  )
 }

@@ -56,3 +56,49 @@ class PreviewPage(BaseModel):
     page: int
     size: int
     total_rows: int
+
+
+# --------------------------------------------------------------------------
+# Hugging Face Hub dataset search + streaming/cancellable import
+# --------------------------------------------------------------------------
+
+
+class HFDatasetSearchResult(BaseModel):
+    dataset_id: str
+    downloads: int
+    likes: int
+    imported: bool = False
+
+
+class DatasetSearchResponse(BaseModel):
+    results: list[HFDatasetSearchResult]
+
+
+class DatasetImportRequest(BaseModel):
+    dataset_id: str
+    config: str | None = None
+    split: str = "train"
+    name: str | None = None
+    max_rows: int | None = None
+
+
+class DatasetImportAccepted(BaseModel):
+    import_id: str
+    dataset_id: str
+
+
+class DatasetImportInfo(BaseModel):
+    import_id: str
+    hf_dataset_id: str
+    config: str | None = None
+    split: str
+    status: str
+    rows_written: int
+    dataset_id: str | None = None
+    error: str | None = None
+    started_at: str
+    finished_at: str | None = None
+
+
+class DatasetImportsListResponse(BaseModel):
+    imports: list[DatasetImportInfo]

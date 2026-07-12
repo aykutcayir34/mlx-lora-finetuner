@@ -113,6 +113,27 @@ MIGRATIONS: list[tuple[int, str | list[str]]] = [
             """,
         ],
     ),
+    (
+        3,
+        [
+            """
+            CREATE TABLE IF NOT EXISTS dataset_imports (
+                id TEXT PRIMARY KEY,
+                hf_dataset_id TEXT NOT NULL,
+                config TEXT,
+                split TEXT NOT NULL,
+                name TEXT NOT NULL,
+                max_rows INTEGER,
+                status TEXT NOT NULL,
+                rows_written INTEGER,
+                dataset_id TEXT,
+                error TEXT,
+                started_at TEXT NOT NULL,
+                finished_at TEXT
+            )
+            """,
+        ],
+    ),
 ]
 
 

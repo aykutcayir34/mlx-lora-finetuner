@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
-import type { DatasetInfo, PreviewPage, PreviewSplit, SplitRequest, ValidationReport } from '../types'
+import type {
+  DatasetImportInfo,
+  DatasetImportRequest,
+  DatasetImportResponse,
+  DatasetInfo,
+  HFDatasetSearchResult,
+  PreviewPage,
+  PreviewSplit,
+  SplitRequest,
+  ValidationReport,
+} from '../types'
 import { queryKeys } from './keys'
 
 export function useDatasets() {
@@ -72,6 +82,52 @@ export function useDeleteDataset() {
       apiClient.delete<void>(`/datasets/${encodeURIComponent(datasetId)}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.datasets.list })
+    },
+  })
+}
+
+export function useDatasetSearch(query: string) {
+  return useQuery({
+    queryKey: queryKeys.datasets.search(query),
+    queryFn: () => {
+      const params = new URLSearchParams({ q: query, limit: '20' })
+      return apiClient.get<{ results: HFDatasetSearchResult[] }>(
+        `/datasets/search?${params.toString()}`,
+      )
+    },
+    enabled: query.length > 0,
+  })
+}
+
+export function useImportDataset() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: DatasetImportRequest) =>
+      apiClient.post<DatasetImportResponse>('/datasets/import', body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.datasets.imports })
+    },
+  })
+}
+
+export function useDatasetImports() {
+  return useQuery({
+    queryKey: queryKeys.datasets.imports,
+    queryFn: () => apiClient.get<{ imports: DatasetImportInfo[] }>('/datasets/imports'),
+    refetchInterval: (query) => {
+      const imports = query.state.data?.imports ?? []
+      return imports.some((item) => item.status === 'running') ? 1500 : false
+    },
+  })
+}
+
+export function useCancelImport() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (importId: string) =>
+      apiClient.post<DatasetImportInfo>(`/datasets/imports/${encodeURIComponent(importId)}/cancel`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.datasets.imports })
     },
   })
 }

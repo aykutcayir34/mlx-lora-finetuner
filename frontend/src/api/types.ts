@@ -74,7 +74,7 @@ export interface DownloadRequest {
   model_id: string
 }
 
-export type DownloadStatus = 'running' | 'completed' | 'failed'
+export type DownloadStatus = 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface DownloadInfo {
   download_id: string
@@ -98,6 +98,7 @@ export type DownloadWsFrame =
       files_total: number
     }
   | { type: 'done' }
+  | { type: 'cancelled' }
   | { type: 'error'; message: string }
 
 // ---------------------------------------------------------------------------
@@ -417,4 +418,43 @@ export interface RecipeJobInfo {
   preview_rows: Record<string, unknown>[]
   dataset_id: string | null
   error: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Dataset import from Hugging Face Hub
+// ---------------------------------------------------------------------------
+
+export interface HFDatasetSearchResult {
+  dataset_id: string
+  downloads: number
+  likes: number
+  imported: boolean
+}
+
+export interface DatasetImportRequest {
+  dataset_id: string
+  config: string | null
+  split: string
+  name: string | null
+  max_rows: number | null
+}
+
+export interface DatasetImportResponse {
+  import_id: string
+  dataset_id: string
+}
+
+export type DatasetImportStatus = 'running' | 'completed' | 'failed' | 'cancelled'
+
+export interface DatasetImportInfo {
+  import_id: string
+  hf_dataset_id: string
+  config: string | null
+  split: string
+  status: DatasetImportStatus
+  rows_written: number
+  dataset_id: string | null
+  error: string | null
+  started_at: string
+  finished_at: string | null
 }

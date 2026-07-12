@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import userEvent from '@testing-library/user-event'
-import { renderWithProviders, screen, waitFor } from '../../test/render'
+import { renderWithProviders, screen } from '../../test/render'
 import { server } from '../../test/server'
 import { exportHandlers } from '../../test/handlers/export'
 import { OllamaWizard } from './OllamaWizard'

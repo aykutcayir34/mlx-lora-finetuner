@@ -12,6 +12,8 @@ export const queryKeys = {
     list: ['datasets', 'list'] as const,
     preview: (id: string, split: string, page: number, size: number) =>
       ['datasets', 'preview', id, split, page, size] as const,
+    search: (q: string) => ['datasets', 'search', q] as const,
+    imports: ['datasets', 'imports'] as const,
   },
   training: {
     runs: (status?: string, limit?: number, offset?: number) =>

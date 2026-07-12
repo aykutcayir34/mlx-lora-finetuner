@@ -441,3 +441,78 @@ class RecipeJobsRepo:
         cursor = await self._conn.execute("SELECT * FROM recipe_jobs WHERE id = ?", (id,))
         row = await cursor.fetchone()
         return dict(row) if row is not None else None
+
+
+class DatasetImportsRepo:
+    def __init__(self, conn: aiosqlite.Connection) -> None:
+        self._conn = conn
+
+    async def insert(
+        self,
+        id: str,
+        hf_dataset_id: str,
+        config: str | None,
+        split: str,
+        name: str,
+        max_rows: int | None,
+        status: str,
+        started_at: str,
+    ) -> None:
+        await self._conn.execute(
+            """
+            INSERT INTO dataset_imports (
+                id, hf_dataset_id, config, split, name, max_rows, status,
+                rows_written, dataset_id, error, started_at, finished_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL, ?, NULL)
+            """,
+            (id, hf_dataset_id, config, split, name, max_rows, status, started_at),
+        )
+        await self._conn.commit()
+
+    async def update_progress(self, id: str, rows_written: int) -> None:
+        await self._conn.execute(
+            "UPDATE dataset_imports SET rows_written = ? WHERE id = ?",
+            (rows_written, id),
+        )
+        await self._conn.commit()
+
+    async def finish(
+        self,
+        id: str,
+        status: str,
+        dataset_id: str | None,
+        error: str | None,
+        finished_at: str,
+    ) -> None:
+        await self._conn.execute(
+            """
+            UPDATE dataset_imports
+            SET status = ?, dataset_id = ?, error = ?, finished_at = ?
+            WHERE id = ?
+            """,
+            (status, dataset_id, error, finished_at, id),
+        )
+        await self._conn.commit()
+
+    async def get(self, id: str) -> dict | None:
+        self._conn.row_factory = aiosqlite.Row
+        cursor = await self._conn.execute("SELECT * FROM dataset_imports WHERE id = ?", (id,))
+        row = await cursor.fetchone()
+        return dict(row) if row is not None else None
+
+    async def list_(self) -> list[dict]:
+        self._conn.row_factory = aiosqlite.Row
+        cursor = await self._conn.execute(
+            "SELECT * FROM dataset_imports ORDER BY started_at DESC"
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+    async def get_active_by_hf_id(self, hf_dataset_id: str) -> dict | None:
+        self._conn.row_factory = aiosqlite.Row
+        cursor = await self._conn.execute(
+            "SELECT * FROM dataset_imports WHERE hf_dataset_id = ? AND status = 'running'",
+            (hf_dataset_id,),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row is not None else None
