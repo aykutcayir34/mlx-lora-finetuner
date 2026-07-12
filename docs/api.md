@@ -59,15 +59,21 @@ Proxy of HF Hub search. Default `author=mlx-community` applied only when `author
 409 `conflict` if already downloading. Existing completed model → 409 `conflict`.
 ### GET /models/downloads
 ```json
-{"downloads": [{"download_id": "dl_...", "model_id": "...", "status": "running|completed|failed",
+{"downloads": [{"download_id": "dl_...", "model_id": "...",
+  "status": "running|completed|failed|cancelled",
   "bytes_done": 1, "bytes_total": 2, "files_done": 1, "files_total": 5, "error": null,
   "started_at": "...", "finished_at": null}]}
 ```
+### POST /models/downloads/{download_id}/cancel
+→ `202 DownloadInfo` (status flips to `cancelled` once the transfer aborts; partial
+files stay on disk so a re-POSTed download resumes). `409 conflict` if the download
+is already in a terminal state; `404` if unknown.
 ### DELETE /models/{model_id} → `204`. 409 `training_active` if used by the running job.
 
 ### WS /ws/downloads/{download_id}
 Server frames (JSON): `{"type": "progress", "bytes_done": n, "bytes_total": n, "files_done": n, "files_total": n}`,
-terminal `{"type": "done"}` or `{"type": "error", "message": "..."}`. No client frames. Socket closes after terminal frame.
+terminal `{"type": "done"}`, `{"type": "cancelled"}` or `{"type": "error", "message": "..."}`.
+No client frames. Socket closes after terminal frame.
 
 ---
 
@@ -104,6 +110,41 @@ Ratios must sum to 1.0 (±0.001). Writes `train.jsonl`/`valid.jsonl`/`test.jsonl
 ### GET /datasets/{id}/preview?split=raw|train|valid|test&page=1&size=20
 `{"rows": [<parsed json objects>], "page": 1, "size": 20, "total_rows": 200}`
 ### DELETE /datasets/{id} → `204`. 409 `training_active` if used by the running job.
+
+## Dataset import from Hugging Face Hub
+
+### GET /datasets/search?q=&limit=20
+HF Hub dataset search proxy (`HfApi.list_datasets`).
+```json
+{"results": [{"dataset_id": "mlx-community/wikisql", "downloads": 1234, "likes": 5, "imported": false}]}
+```
+`imported` is true when a local dataset was already imported from that HF id.
+
+### POST /datasets/import
+```json
+{"dataset_id": "org/name", "config": null, "split": "train",
+ "name": null, "max_rows": 5000}
+```
+`split` defaults to `"train"`; `name` defaults to a slug of the HF id; `max_rows`
+null = all rows. The import streams rows (`datasets` lib, `streaming=True`) into a
+raw JSONL, then registers it as a regular local dataset (format auto-detected —
+unrecognizable columns fail the job with a message listing the columns found).
+→ `202 {"import_id": "di_...", "dataset_id": "org/name"}`.
+`409 conflict` if the same HF dataset is already importing.
+
+### GET /datasets/imports
+```json
+{"imports": [{"import_id": "di_...", "hf_dataset_id": "org/name", "config": null,
+  "split": "train", "status": "running|completed|failed|cancelled",
+  "rows_written": 1200, "dataset_id": "ds_..."|null, "error": null,
+  "started_at": "...", "finished_at": null}]}
+```
+`dataset_id` is the resulting LOCAL dataset id, set on completion (the dataset then
+appears in GET /datasets and can be validated/split/trained like an upload).
+
+### POST /datasets/imports/{import_id}/cancel
+→ `202` import info (status flips to `cancelled`; no local dataset is registered,
+partial temp output is removed). `409 conflict` if already terminal; `404` if unknown.
 
 ---
 
