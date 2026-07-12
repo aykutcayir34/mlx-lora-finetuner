@@ -13,6 +13,8 @@ dependencies = [
     "psutil",
     "jinja2",
     "python-multipart",
+    "pypdf",
+    "python-docx",
 ]
 
 [project.optional-dependencies]

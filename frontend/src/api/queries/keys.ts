@@ -21,10 +21,23 @@ export const queryKeys = {
       ['training', 'metrics', id, afterStep, kind] as const,
     logs: (id: string, tail?: number) => ['training', 'logs', id, tail] as const,
   },
+  history: {
+    list: (
+      modelId?: string,
+      trainMode?: string,
+      status?: string,
+      sort?: string,
+      limit?: number,
+      offset?: number,
+    ) => ['history', 'list', modelId, trainMode, status, sort, limit, offset] as const,
+  },
   adapters: { list: ['adapters', 'list'] as const },
   export: {
     job: (id: string) => ['export', 'job', id] as const,
     artifacts: ['export', 'artifacts'] as const,
     preflight: (modelPath: string) => ['export', 'preflight', modelPath] as const,
+  },
+  recipes: {
+    job: (id: string) => ['recipes', 'job', id] as const,
   },
 }

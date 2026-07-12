@@ -360,3 +360,61 @@ export interface ExportArtifact {
   source_run_id: string | null
   created_at: string
 }
+
+// ---------------------------------------------------------------------------
+// Arena (Faz 2)
+// ---------------------------------------------------------------------------
+
+export type ArenaSide = 'a' | 'b'
+
+export interface ArenaSideSpec {
+  model_id: string
+  adapter_path: string | null
+}
+
+export type ArenaWsClientFrame =
+  | {
+      type: 'generate'
+      side_a: ArenaSideSpec
+      side_b: ArenaSideSpec
+      messages: ChatMessage[]
+      params: GenerationParams
+    }
+  | { type: 'cancel' }
+
+export type ArenaWsServerFrame =
+  | { type: 'side_start'; side: ArenaSide }
+  | { type: 'token'; side: ArenaSide; text: string }
+  | {
+      type: 'side_done'
+      side: ArenaSide
+      usage: { prompt_tokens: number; completion_tokens: number; tokens_per_sec: number }
+    }
+  | { type: 'done' }
+  | {
+      type: 'error'
+      side: ArenaSide | null
+      code: 'training_active' | 'model_not_found' | 'internal'
+      message: string
+    }
+
+// ---------------------------------------------------------------------------
+// Data Recipes (Faz 2)
+// ---------------------------------------------------------------------------
+
+export type RecipeOutputFormat = 'text' | 'completions' | 'chat'
+export type RecipeJobStatus = 'running' | 'completed' | 'failed'
+
+export interface RecipeConvertResponse {
+  recipe_job_id: string
+  name: string
+}
+
+export interface RecipeJobInfo {
+  recipe_job_id: string
+  status: RecipeJobStatus
+  rows_emitted: number
+  preview_rows: Record<string, unknown>[]
+  dataset_id: string | null
+  error: string | null
+}

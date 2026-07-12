@@ -96,6 +96,23 @@ MIGRATIONS: list[tuple[int, str | list[str]]] = [
             """,
         ],
     ),
+    (
+        2,
+        [
+            """
+            CREATE TABLE IF NOT EXISTS recipe_jobs (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                rows_emitted INTEGER,
+                preview_json TEXT,
+                dataset_id TEXT,
+                error TEXT,
+                created_at TEXT NOT NULL
+            )
+            """,
+        ],
+    ),
 ]
 
 

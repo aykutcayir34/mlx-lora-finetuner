@@ -109,6 +109,45 @@ class RunsRepo:
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
 
+    async def list_history(
+        self,
+        model_id: str | None = None,
+        train_mode: str | None = None,
+        status: str | None = None,
+        order_by: str = "created_at DESC",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """Filtered/sorted run listing for GET /runs/history.
+
+        `order_by` is a trusted SQL fragment (built from a whitelist by the
+        caller, e.g. `app/api/history.py`), never raw user input.
+        """
+        self._conn.row_factory = aiosqlite.Row
+        clauses: list[str] = []
+        params: list[str] = []
+        if model_id is not None:
+            clauses.append("model_id = ?")
+            params.append(model_id)
+        if train_mode is not None:
+            clauses.append("train_mode = ?")
+            params.append(train_mode)
+        if status is not None:
+            clauses.append("status = ?")
+            params.append(status)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+        cursor = await self._conn.execute(
+            f"SELECT * FROM runs {where} ORDER BY {order_by} LIMIT ? OFFSET ?",
+            (*params, limit, offset),
+        )
+        rows = await cursor.fetchall()
+
+        count_cursor = await self._conn.execute(f"SELECT COUNT(*) FROM runs {where}", params)
+        count_row = await count_cursor.fetchone()
+        total = count_row[0] if count_row is not None else 0
+        return [dict(row) for row in rows], total
+
 
 class MetricsRepo:
     def __init__(self, conn: aiosqlite.Connection) -> None:
@@ -365,3 +404,40 @@ class ExportsRepo:
         cursor = await self._conn.execute("SELECT * FROM exports ORDER BY created_at DESC")
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+class RecipeJobsRepo:
+    def __init__(self, conn: aiosqlite.Connection) -> None:
+        self._conn = conn
+
+    async def insert(self, id: str, name: str, status: str, created_at: str) -> None:
+        await self._conn.execute(
+            "INSERT INTO recipe_jobs (id, name, status, created_at) VALUES (?, ?, ?, ?)",
+            (id, name, status, created_at),
+        )
+        await self._conn.commit()
+
+    async def finish(
+        self,
+        id: str,
+        status: str,
+        rows_emitted: int | None,
+        preview_json: str | None,
+        dataset_id: str | None,
+        error: str | None,
+    ) -> None:
+        await self._conn.execute(
+            """
+            UPDATE recipe_jobs
+            SET status = ?, rows_emitted = ?, preview_json = ?, dataset_id = ?, error = ?
+            WHERE id = ?
+            """,
+            (status, rows_emitted, preview_json, dataset_id, error, id),
+        )
+        await self._conn.commit()
+
+    async def get(self, id: str) -> dict | None:
+        self._conn.row_factory = aiosqlite.Row
+        cursor = await self._conn.execute("SELECT * FROM recipe_jobs WHERE id = ?", (id,))
+        row = await cursor.fetchone()
+        return dict(row) if row is not None else None
