@@ -259,6 +259,11 @@ Any stdout line that is not valid JSON with an `event` key is treated as a raw l
 While a training job is queued/running, `POST /export/fuse` and `POST /export/gguf`
 return `409 training_active` (Metal memory contention).
 
+`output_name` (fuse, gguf) and `name` (ollama-modelfile) must be a plain file name:
+`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$` — letters, digits, `.`, `_`, `-`; no path
+separators (`/`, `\`) or `..`; must not start with `.` or `-`. Anything else →
+`422 validation_error`.
+
 ### POST /export/fuse
 `{"run_id": "run_..."} | {"model_id": "...", "adapter_path": "..."}` + `{"de_quantize": false, "output_name": "my-model"}`
 → `202 {"export_id": "ex_...", "kind": "fuse"}`
