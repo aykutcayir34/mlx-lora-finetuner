@@ -1,6 +1,11 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+# Contract (docs/api.md): a plain file name under exports_dir — letters,
+# digits, `.`, `_`, `-`; no path separators (`/`, `\`) or `..`; must not
+# start with `.` or `-`. Anything else is a 422 validation_error.
+ExportName = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")]
 
 
 class FuseRequest(BaseModel):
@@ -8,13 +13,13 @@ class FuseRequest(BaseModel):
     model_id: str | None = None
     adapter_path: str | None = None
     de_quantize: bool = False
-    output_name: str
+    output_name: ExportName
 
 
 class GGUFRequest(BaseModel):
     model_path: str
     outtype: Literal["f16", "q8_0"]
-    output_name: str
+    output_name: ExportName
 
 
 class PreflightCheck(BaseModel):
@@ -31,7 +36,7 @@ class PreflightReport(BaseModel):
 class OllamaModelfileRequest(BaseModel):
     gguf_path: str
     model_family: Literal["qwen", "llama", "smollm", "mistral", "custom"]
-    name: str
+    name: ExportName
     custom_template: str | None = None
 
 

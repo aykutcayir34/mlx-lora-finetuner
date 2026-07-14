@@ -568,6 +568,79 @@ async def test_modelfile_registers_artifact(settings, conn):
     assert artifacts[0]["path"] == str(settings.exports_dir / "my-model" / "Modelfile")
 
 
+# --------------------- exports_dir escape (defense in depth) ----------------
+#
+# The schemas reject these names at the API boundary; `model_construct`
+# bypasses pydantic validation to prove the service itself refuses to write
+# outside exports_dir.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_name", ["../../evil", "/abs/path", "nested/../../evil", ".."])
+async def test_fuse_refuses_output_name_escaping_exports_dir(settings, conn, bad_name):
+    subprocess = RecordingSubprocess()
+    service = ExportService(settings, run_subprocess=subprocess)
+    body = FuseRequest.model_construct(
+        run_id=None,
+        model_id="mlx-community/Foo-4bit",
+        adapter_path="/abs/adapters",
+        de_quantize=False,
+        output_name=bad_name,
+    )
+
+    with pytest.raises(ValidationAppError):
+        await service.start_fuse(conn, body, BackgroundTasks())
+    assert subprocess.calls == []
+
+
+@pytest.mark.asyncio
+async def test_gguf_refuses_output_name_escaping_exports_dir(settings, conn):
+    llama_dir = settings.cache_dir / "llama.cpp"
+    llama_dir.mkdir(parents=True, exist_ok=True)
+    (llama_dir / "convert_hf_to_gguf.py").write_text("# stub")
+    model_path = _make_model_dir(settings, "mlx-community/Foo", {"model_type": "llama"})
+
+    subprocess = RecordingSubprocess()
+    service = ExportService(settings, run_subprocess=subprocess)
+    body = GGUFRequest.model_construct(
+        model_path=str(model_path), outtype="f16", output_name="../../evil"
+    )
+
+    with pytest.raises(ValidationAppError):
+        await service.start_gguf(conn, body, BackgroundTasks())
+    assert subprocess.calls == []
+
+
+@pytest.mark.asyncio
+async def test_modelfile_refuses_name_escaping_exports_dir(settings, conn):
+    service = ExportService(settings, run_subprocess=RecordingSubprocess())
+    body = OllamaModelfileRequest.model_construct(
+        gguf_path="/abs/model.gguf", model_family="qwen", name="../../evil", custom_template=None
+    )
+
+    with pytest.raises(ValidationAppError):
+        await service.render_modelfile(conn, body)
+    assert not (settings.exports_dir.parent / "evil").exists()
+
+
+@pytest.mark.asyncio
+async def test_export_names_with_dots_and_dashes_still_work(settings, conn):
+    subprocess = RecordingSubprocess()
+    service = ExportService(settings, run_subprocess=subprocess)
+    body = FuseRequest(
+        model_id="mlx-community/Foo-4bit",
+        adapter_path="/abs/adapters",
+        output_name="My_Model.v1-final",
+    )
+
+    bg = BackgroundTasks()
+    await service.start_fuse(conn, body, bg)
+    await bg()
+
+    argv = subprocess.calls[0]
+    assert argv[argv.index("--save-path") + 1] == str(settings.exports_dir / "My_Model.v1-final")
+
+
 # --------------------------------- misc -----------------------------------
 
 

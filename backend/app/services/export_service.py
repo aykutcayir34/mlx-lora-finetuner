@@ -97,6 +97,22 @@ class ExportService:
                 message="Eğitim işi çalışırken export yapılamaz (Metal bellek çakışması)"
             )
 
+    def _export_output_path(self, file_name: str) -> Path:
+        """Join `file_name` onto exports_dir, refusing anything that escapes it.
+
+        Defense in depth: the schemas already reject path separators and `..`,
+        but no caller of this service may write outside exports_dir even if
+        that validation is bypassed.
+        """
+        candidate = self._settings.exports_dir / file_name
+        base = self._settings.exports_dir.resolve()
+        resolved = candidate.resolve()
+        if resolved == base or not resolved.is_relative_to(base):
+            raise ValidationAppError(
+                message=f"geçersiz çıktı adı (exports dizini dışına çıkıyor): {file_name}"
+            )
+        return candidate
+
     def _llama_cpp_dir(self) -> Path | None:
         candidates = []
         if self._settings.llama_cpp_dir is not None:
@@ -134,13 +150,13 @@ class ExportService:
     ) -> dict:
         await self._assert_training_inactive(conn)
         model_path, adapter_path, source_run_id = await self._resolve_fuse_source(conn, body)
+        save_path = self._export_output_path(body.output_name)
 
         export_id = f"ex_{uuid.uuid4().hex[:12]}"
         created_at = _now()
         await ExportsRepo(conn).insert(export_id, "fuse", "running", created_at)
         self._progress_logs[export_id] = []
 
-        save_path = self._settings.exports_dir / body.output_name
         argv = [
             sys.executable,
             "-m",
@@ -242,13 +258,13 @@ class ExportService:
 
         llama_dir = self._llama_cpp_dir()
         assert llama_dir is not None  # guaranteed by the passing preflight above
+        output_path = self._export_output_path(f"{body.output_name}.gguf")
 
         export_id = f"ex_{uuid.uuid4().hex[:12]}"
         created_at = _now()
         await ExportsRepo(conn).insert(export_id, "gguf", "running", created_at)
         self._progress_logs[export_id] = []
 
-        output_path = self._settings.exports_dir / f"{body.output_name}.gguf"
         argv = [
             sys.executable,
             str(llama_dir / "convert_hf_to_gguf.py"),
@@ -331,7 +347,7 @@ class ExportService:
             context["custom_template"] = body.custom_template
         rendered = template.render(**context)
 
-        output_dir = self._settings.exports_dir / body.name
+        output_dir = self._export_output_path(body.name)
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / "Modelfile"
         output_path.write_text(rendered)
