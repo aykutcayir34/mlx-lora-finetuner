@@ -8,6 +8,8 @@ interface QueueItem {
   frame: ChatWsClientFrame
 }
 
+const CONNECTION_LOST_MESSAGE = 'Connection lost'
+
 export interface UseChatSocketOptions {
   /** code === 'training_active' */
   onTrainingActive?: (message: string) => void
@@ -27,6 +29,8 @@ export interface UseChatSocketResult {
   cancelActive: () => void
   /** sessionId of the generation currently streaming, or null if idle. */
   activeSessionId: string | null
+  /** False while the socket is down and ReconnectingWS is retrying. */
+  isConnected: boolean
 }
 
 /**
@@ -43,6 +47,9 @@ export function useChatSocket(options: UseChatSocketOptions = {}): UseChatSocket
   const activeSessionRef = useRef<string | null>(null)
   const connectedRef = useRef(false)
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  // Starts true so the "reconnecting" UI only appears after an actual close
+  // (including a failed initial connect), not during the first handshake.
+  const [isConnected, setIsConnected] = useState(true)
 
   const dispatchNext = useCallback(() => {
     if (activeSessionRef.current) return
@@ -60,10 +67,20 @@ export function useChatSocket(options: UseChatSocketOptions = {}): UseChatSocket
       WebSocketImpl,
       onOpen: () => {
         connectedRef.current = true
+        setIsConnected(true)
         dispatchNext()
       },
       onClose: () => {
         connectedRef.current = false
+        setIsConnected(false)
+        // A drop mid-stream kills the in-flight generation server-side: mark
+        // the session errored so the user can retry, and clear the active slot
+        // so dispatchNext can resume the queue after the socket reconnects.
+        if (activeSessionRef.current) {
+          useChatStore.getState().setError(activeSessionRef.current, CONNECTION_LOST_MESSAGE)
+          activeSessionRef.current = null
+          setActiveSessionId(null)
+        }
       },
       onFrame: (frame) => {
         const store = useChatStore.getState()
@@ -128,5 +145,5 @@ export function useChatSocket(options: UseChatSocketOptions = {}): UseChatSocket
     socketRef.current?.send({ type: 'cancel' })
   }, [])
 
-  return { enqueueGenerate, cancelActive, activeSessionId }
+  return { enqueueGenerate, cancelActive, activeSessionId, isConnected }
 }

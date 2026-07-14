@@ -188,6 +188,50 @@ describe('ArenaPage', () => {
     expect(socket.sentFrames[1]).toEqual({ type: 'cancel' })
   })
 
+  it('marks active sides as errored and recovers after a reconnect when the socket drops mid-generation', async () => {
+    const { user, socket } = await renderReady()
+
+    await user.type(screen.getByLabelText('Message'), 'Hi{Enter}')
+    await waitFor(() => expect(socket.sentFrames).toHaveLength(1))
+
+    act(() => socket.emit({ type: 'side_start', side: 'a' }))
+    act(() => socket.emit({ type: 'token', side: 'a', text: 'Par' }))
+
+    act(() => socket.close())
+
+    // streaming side a and still-waiting side b are both errored
+    const columnA = screen.getByTestId('arena-column-a')
+    const columnB = screen.getByTestId('arena-column-b')
+    expect(within(columnA).getByRole('alert')).toHaveTextContent('Connection lost')
+    expect(within(columnB).getByRole('alert')).toHaveTextContent('Connection lost')
+    // the partial stream is kept as a message
+    expect(within(columnA).getByText('Par')).toBeInTheDocument()
+
+    // isGenerating resets so the user can retry, and the banner shows
+    expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument()
+    expect(screen.getByTestId('ws-reconnecting-banner')).toBeInTheDocument()
+
+    // ReconnectingWS retries with backoff and opens a fresh socket
+    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(2), { timeout: 3000 })
+    const reconnected = MockWebSocket.instances[1]
+    act(() => reconnected.open())
+    expect(screen.queryByTestId('ws-reconnecting-banner')).not.toBeInTheDocument()
+
+    // a retry goes out over the new socket
+    await user.type(screen.getByLabelText('Message'), 'Retry{Enter}')
+    await waitFor(() => expect(reconnected.sentFrames).toHaveLength(1))
+    expect(reconnected.sentFrames[0]).toMatchObject({ type: 'generate' })
+  })
+
+  it('a disconnect while idle does not mark any side as errored', async () => {
+    const { socket } = await renderReady()
+
+    act(() => socket.close())
+
+    expect(screen.getByTestId('ws-reconnecting-banner')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('shows the training_active banner without closing the socket', async () => {
     const { user, socket } = await renderReady()
 
