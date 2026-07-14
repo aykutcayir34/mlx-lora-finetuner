@@ -136,6 +136,62 @@ async def test_fuse_validation_error_shape(client, export_service):
     assert response.json()["error"]["code"] == "validation_error"
 
 
+# --------------------- output_name / name validation ------------------------
+
+BAD_EXPORT_NAMES = [
+    "../../evil",  # traversal
+    "..",  # bare traversal component
+    "/abs/path",  # absolute path
+    "a/b",  # path separator
+    "a\\b",  # backslash
+    ".hidden",  # leading dot
+    "-dash",  # leading dash
+    "",  # empty
+    "a b",  # whitespace
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_name", BAD_EXPORT_NAMES)
+async def test_fuse_rejects_unsafe_output_name(client, export_service, bad_name):
+    service, subprocess = export_service
+    response = await client.post(
+        "/api/v1/export/fuse",
+        json={
+            "model_id": "mlx-community/Foo-4bit",
+            "adapter_path": "/abs/adapters",
+            "output_name": bad_name,
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
+    assert subprocess.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_name", BAD_EXPORT_NAMES)
+async def test_gguf_rejects_unsafe_output_name(client, export_service, bad_name):
+    service, subprocess = export_service
+    response = await client.post(
+        "/api/v1/export/gguf",
+        json={"model_path": "/abs/fused", "outtype": "f16", "output_name": bad_name},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
+    assert subprocess.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_name", BAD_EXPORT_NAMES)
+async def test_ollama_modelfile_rejects_unsafe_name(client, export_service, bad_name):
+    response = await client.post(
+        "/api/v1/export/ollama-modelfile",
+        json={"gguf_path": "/abs/model.gguf", "model_family": "qwen", "name": bad_name},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
+
+
 # ------------------------------- gguf --------------------------------------
 
 

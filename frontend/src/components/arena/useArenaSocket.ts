@@ -3,6 +3,8 @@ import { ReconnectingWS } from '../../api/ws'
 import type { ArenaWsClientFrame, ArenaWsServerFrame } from '../../api/types'
 import { useArenaStore } from './arenaStore'
 
+const CONNECTION_LOST_MESSAGE = 'Connection lost'
+
 export interface UseArenaSocketOptions {
   /** code === 'training_active' (a whole-turn, side: null error) */
   onTrainingActive?: (message: string) => void
@@ -19,6 +21,8 @@ export interface UseArenaSocketResult {
   cancel: () => void
   /** True from the moment `generate` is sent until the `done` frame arrives. */
   isGenerating: boolean
+  /** False while the socket is down and ReconnectingWS is retrying. */
+  isConnected: boolean
 }
 
 /**
@@ -31,12 +35,34 @@ export function useArenaSocket(options: UseArenaSocketOptions = {}): UseArenaSoc
   const { onTrainingActive, onError, WebSocketImpl } = options
 
   const socketRef = useRef<ReconnectingWS<ArenaWsServerFrame> | null>(null)
+  const generatingRef = useRef(false)
   const [isGenerating, setIsGenerating] = useState(false)
+  // Starts true so the "reconnecting" UI only appears after an actual close
+  // (including a failed initial connect), not during the first handshake.
+  const [isConnected, setIsConnected] = useState(true)
 
   useEffect(() => {
     const socket = new ReconnectingWS<ArenaWsServerFrame>({
       path: '/api/v1/ws/arena',
       WebSocketImpl,
+      onOpen: () => {
+        setIsConnected(true)
+      },
+      onClose: () => {
+        setIsConnected(false)
+        // A drop mid-turn kills the in-flight generation server-side: mark
+        // whichever sides were still pending as errored so the user can retry.
+        if (!generatingRef.current) return
+        generatingRef.current = false
+        setIsGenerating(false)
+        const store = useArenaStore.getState()
+        if (store.sideA.status === 'waiting' || store.sideA.status === 'streaming') {
+          store.setSideError('a', CONNECTION_LOST_MESSAGE)
+        }
+        if (store.sideB.status === 'waiting' || store.sideB.status === 'streaming') {
+          store.setSideError('b', CONNECTION_LOST_MESSAGE)
+        }
+      },
       onFrame: (frame) => {
         const store = useArenaStore.getState()
         switch (frame.type) {
@@ -55,6 +81,7 @@ export function useArenaSocket(options: UseArenaSocketOptions = {}): UseArenaSoc
               break
             }
             store.resetPending()
+            generatingRef.current = false
             setIsGenerating(false)
             if (frame.code === 'training_active') {
               onTrainingActive?.(frame.message)
@@ -64,6 +91,7 @@ export function useArenaSocket(options: UseArenaSocketOptions = {}): UseArenaSoc
             break
           }
           case 'done':
+            generatingRef.current = false
             setIsGenerating(false)
             break
         }
@@ -79,6 +107,7 @@ export function useArenaSocket(options: UseArenaSocketOptions = {}): UseArenaSoc
   }, [])
 
   const sendGenerate = useCallback((frame: Extract<ArenaWsClientFrame, { type: 'generate' }>) => {
+    generatingRef.current = true
     setIsGenerating(true)
     socketRef.current?.send(frame)
   }, [])
@@ -87,5 +116,5 @@ export function useArenaSocket(options: UseArenaSocketOptions = {}): UseArenaSoc
     socketRef.current?.send({ type: 'cancel' })
   }, [])
 
-  return { sendGenerate, cancel, isGenerating }
+  return { sendGenerate, cancel, isGenerating, isConnected }
 }

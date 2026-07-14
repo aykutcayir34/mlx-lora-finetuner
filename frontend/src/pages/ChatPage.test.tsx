@@ -239,6 +239,65 @@ describe('ChatPage', () => {
     expect(within(baseColumn).getByText('base-says-hi')).toBeInTheDocument()
   })
 
+  it('marks the in-flight message as errored and recovers after a reconnect when the socket drops mid-stream', async () => {
+    const { user, socket } = await renderReady()
+
+    await user.type(screen.getByLabelText('Message'), 'Hi{Enter}')
+    await waitFor(() => expect(socket.sentFrames).toHaveLength(1))
+    act(() => socket.emit({ type: 'token', text: 'Par' }))
+
+    act(() => socket.close())
+
+    // in-flight session errored + generating flag cleared so the user can retry
+    expect(screen.getByRole('alert')).toHaveTextContent('Connection lost')
+    expect(screen.getByRole('button', { name: 'Send' })).toBeInTheDocument()
+    expect(screen.getByTestId('ws-reconnecting-banner')).toBeInTheDocument()
+
+    // ReconnectingWS retries with backoff and opens a fresh socket
+    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(2), { timeout: 3000 })
+    const reconnected = MockWebSocket.instances[1]
+    act(() => reconnected.open())
+    expect(screen.queryByTestId('ws-reconnecting-banner')).not.toBeInTheDocument()
+
+    // the queue is not blocked by the dead generation — a retry goes out
+    await user.type(screen.getByLabelText('Message'), 'Retry{Enter}')
+    await waitFor(() => expect(reconnected.sentFrames).toHaveLength(1))
+    expect(reconnected.sentFrames[0]).toMatchObject({
+      type: 'generate',
+      messages: [{ role: 'user', content: 'Hi' }, { role: 'user', content: 'Retry' }],
+    })
+  })
+
+  it('compare mode: resumes the queued base generate after reconnect when the socket drops mid-adapter-stream', async () => {
+    const { user, socket } = await renderReady()
+
+    await user.selectOptions(screen.getByLabelText('Adapter'), 'smol-lora-v1')
+    await user.click(screen.getByRole('switch', { name: 'Compare with/without adapter' }))
+    await user.type(screen.getByLabelText('Message'), 'Hi{Enter}')
+    await waitFor(() => expect(socket.sentFrames).toHaveLength(1))
+
+    act(() => socket.emit({ type: 'token', text: 'partial' }))
+    act(() => socket.close())
+
+    // only the in-flight adapter column is errored; the base half stays queued
+    const adapterColumn = screen.getByTestId(ADAPTER_COLUMN_TESTID)
+    const baseColumn = screen.getByTestId(BASE_COLUMN_TESTID)
+    expect(within(adapterColumn).getByRole('alert')).toHaveTextContent('Connection lost')
+    expect(within(baseColumn).queryByRole('alert')).not.toBeInTheDocument()
+
+    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(2), { timeout: 3000 })
+    const reconnected = MockWebSocket.instances[1]
+    act(() => reconnected.open())
+
+    // reopening dispatches the queued base generate without user action
+    await waitFor(() => expect(reconnected.sentFrames).toHaveLength(1))
+    expect(reconnected.sentFrames[0]).toMatchObject({
+      type: 'generate',
+      adapter_path: null,
+      messages: [{ role: 'user', content: 'Hi' }],
+    })
+  })
+
   it('includes prior turns as history in subsequent generate frames', async () => {
     const { user, socket } = await renderReady()
 

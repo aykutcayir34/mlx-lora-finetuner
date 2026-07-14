@@ -142,6 +142,16 @@ export function ChatPage() {
         </div>
       )}
 
+      {!chatSocket.isConnected && (
+        <div
+          data-testid="ws-reconnecting-banner"
+          role="status"
+          className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-400"
+        >
+          Connection lost — reconnecting…
+        </div>
+      )}
+
       <div className="flex items-center justify-end">
         <Button variant="secondary" size="sm" onClick={handleClear} disabled={isSending}>
           Clear conversation
