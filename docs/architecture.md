@@ -125,6 +125,11 @@ affect the contract.
    `worker.pid` as a fallback) is still alive: if so, it's terminated (TERM
    then, after a short poll, KILL if still alive) and marked `cancelled`; if
    not, the row is marked `failed` with an explanatory message.
+   The same startup hook also fails any `downloads` / `dataset_imports` /
+   `exports` / `recipe_jobs` row still `running`: those run as in-process
+   asyncio/background tasks that never survive a restart, and a stale
+   `running` row would otherwise make the `get_active_*` duplicate guards
+   return `409 conflict` for that model/dataset forever.
 
 ## WS protocols summary
 

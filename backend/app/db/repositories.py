@@ -325,6 +325,15 @@ class DownloadsRepo:
         )
         await self._conn.commit()
 
+    async def fail_stale_running(self, finished_at: str, error: str) -> int:
+        cursor = await self._conn.execute(
+            "UPDATE downloads SET status = 'failed', finished_at = ?, error = ? "
+            "WHERE status = 'running'",
+            (finished_at, error),
+        )
+        await self._conn.commit()
+        return cursor.rowcount
+
     async def get(self, download_id: str) -> dict | None:
         self._conn.row_factory = aiosqlite.Row
         cursor = await self._conn.execute(
@@ -391,6 +400,15 @@ class ExportsRepo:
         )
         await self._conn.commit()
 
+    async def fail_stale_running(self, finished_at: str, error: str) -> int:
+        cursor = await self._conn.execute(
+            "UPDATE exports SET status = 'failed', finished_at = ?, error = ? "
+            "WHERE status = 'running'",
+            (finished_at, error),
+        )
+        await self._conn.commit()
+        return cursor.rowcount
+
     async def get(self, export_id: str) -> dict | None:
         self._conn.row_factory = aiosqlite.Row
         cursor = await self._conn.execute(
@@ -435,6 +453,15 @@ class RecipeJobsRepo:
             (status, rows_emitted, preview_json, dataset_id, error, id),
         )
         await self._conn.commit()
+
+    async def fail_stale_running(self, error: str) -> int:
+        # recipe_jobs has no finished_at column.
+        cursor = await self._conn.execute(
+            "UPDATE recipe_jobs SET status = 'failed', error = ? WHERE status = 'running'",
+            (error,),
+        )
+        await self._conn.commit()
+        return cursor.rowcount
 
     async def get(self, id: str) -> dict | None:
         self._conn.row_factory = aiosqlite.Row
@@ -493,6 +520,15 @@ class DatasetImportsRepo:
             (status, dataset_id, error, finished_at, id),
         )
         await self._conn.commit()
+
+    async def fail_stale_running(self, finished_at: str, error: str) -> int:
+        cursor = await self._conn.execute(
+            "UPDATE dataset_imports SET status = 'failed', finished_at = ?, error = ? "
+            "WHERE status = 'running'",
+            (finished_at, error),
+        )
+        await self._conn.commit()
+        return cursor.rowcount
 
     async def get(self, id: str) -> dict | None:
         self._conn.row_factory = aiosqlite.Row

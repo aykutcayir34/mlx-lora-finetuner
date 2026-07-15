@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,15 +24,32 @@ ALLOWED_ORIGINS = ["http://localhost:5173"]
 
 
 async def reap_orphans() -> None:
-    """Reap orphaned training/export subprocesses left over from a previous run.
+    """Reap orphaned background work left over from a previous run.
 
-    Wave-1 T1: delegates to `JobManager.reap_orphans()`, which scans `runs`
+    Training runs: delegates to `JobManager.reap_orphans()`, which scans `runs`
     for rows still marked `queued`/`running` whose `pid` is no longer alive
     (-> `failed`) or is still alive (-> killpg + `cancelled`).
+
+    Downloads, dataset imports, exports and recipe jobs run as in-process
+    asyncio/background tasks that never survive a restart, so any row still
+    `running` at startup is unrecoverable. Mark them `failed` — otherwise the
+    `get_active_*` duplicate guards keep returning `409 conflict` for the same
+    model/dataset forever.
     """
+    from app.db.database import get_connection
+    from app.db.repositories import DatasetImportsRepo, DownloadsRepo, ExportsRepo, RecipeJobsRepo
     from app.training.manager import get_job_manager
 
     await get_job_manager().reap_orphans()
+
+    error = "interrupted by server restart"
+    finished_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+    settings = get_settings()
+    async with get_connection(settings.db_path) as conn:
+        await DownloadsRepo(conn).fail_stale_running(finished_at, error)
+        await DatasetImportsRepo(conn).fail_stale_running(finished_at, error)
+        await ExportsRepo(conn).fail_stale_running(finished_at, error)
+        await RecipeJobsRepo(conn).fail_stale_running(error)
 
 
 @asynccontextmanager
