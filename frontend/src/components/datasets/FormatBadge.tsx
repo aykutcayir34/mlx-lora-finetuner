@@ -9,7 +9,7 @@ interface FormatMeta {
 
 // Each format gets its own dot color (inline style, so it doesn't depend on
 // Tailwind's utility-ordering cascade) layered on top of the closest Badge
-// variant tint, giving six visually distinct combinations.
+// variant tint, giving visually distinct combinations.
 const FORMAT_META: Record<DatasetFormat, FormatMeta> = {
   chat: { variant: 'info', color: '#38bdf8', label: 'Chat' },
   completions: { variant: 'success', color: '#4ade80', label: 'Completions' },
@@ -17,6 +17,7 @@ const FORMAT_META: Record<DatasetFormat, FormatMeta> = {
   dpo: { variant: 'warning', color: '#fbbf24', label: 'DPO' },
   orpo: { variant: 'danger', color: '#f87171', label: 'ORPO' },
   grpo: { variant: 'info', color: '#a78bfa', label: 'GRPO' },
+  ftpo: { variant: 'warning', color: '#fb923c', label: 'FTPO' },
 }
 
 interface FormatBadgeProps {
