@@ -100,6 +100,45 @@ async def _watch_for_disconnect(websocket: WebSocket) -> None:
         return
 
 
+class _BackfillBuffer:
+    """Topic subscriber standing in for the raw websocket while the persisted
+    metric backfill is being read and sent.
+
+    Subscribing only AFTER reading the backfill loses any metric that is
+    persisted-and-broadcast in between; subscribing BEFORE means live frames
+    can overlap the backfill. So the socket subscribes this buffer first:
+    frames broadcast during the backfill window are queued, then `drain`
+    forwards them — dropping metric frames the backfill already covered —
+    and switches to direct passthrough for all later broadcasts.
+    """
+
+    def __init__(self, websocket: WebSocket) -> None:
+        self._websocket = websocket
+        self._queue: list[dict] = []
+        self._live = False
+
+    async def send_json(self, message: dict) -> None:
+        if self._live:
+            await self._websocket.send_json(message)
+        else:
+            self._queue.append(message)
+
+    async def drain(self, sent_metric_keys: set[tuple[str, int]], last_step: int) -> None:
+        while self._queue:
+            message = self._queue.pop(0)
+            if message.get("type") == "metric":
+                data = message.get("data") or {}
+                step = data.get("step")
+                if (data.get("kind"), step) in sent_metric_keys:
+                    continue  # already sent in the backfill
+                if isinstance(step, int) and step <= last_step:
+                    continue  # client already had it before reconnecting
+            await self._websocket.send_json(message)
+        # No awaits between the empty-queue check and going live, so no frame
+        # can slip into the queue and be stranded.
+        self._live = True
+
+
 @router.websocket("/ws/train/{run_id}")
 async def ws_train(
     websocket: WebSocket,
@@ -120,39 +159,49 @@ async def ws_train(
         except (TypeError, ValueError):
             last_step = 0
 
-    try:
-        run = await manager.get_run(run_id)
-    except NotFoundError:
-        await websocket.close(code=1008, reason="run not found")
-        return
-
-    metrics = await manager.get_metrics(run_id, after_step=last_step)
-    for metric in metrics:
-        await websocket.send_json({"type": "metric", "data": metric.model_dump()})
-
-    await websocket.send_json(
-        {"type": "status", "status": run.status.value, "error": run.error}
-    )
-
-    if run.status in TERMINAL_STATUSES:
-        await websocket.close()
-        return
-
     ws_manager = get_ws_manager()
     topic = f"train/{run_id}"
-    await ws_manager.subscribe(topic, websocket)
+    buffer = _BackfillBuffer(websocket)
+    # Subscribe BEFORE reading run state + persisted metrics: a metric
+    # persisted-and-broadcast between the two would otherwise never reach
+    # this client. Overlap is de-duplicated in `drain`.
+    await ws_manager.subscribe(topic, buffer)
 
-    disconnect_task = asyncio.create_task(_watch_for_disconnect(websocket))
-    done_task = asyncio.create_task(manager.done_event(run_id).wait())
     try:
-        await asyncio.wait(
-            {disconnect_task, done_task}, return_when=asyncio.FIRST_COMPLETED
+        try:
+            run = await manager.get_run(run_id)
+        except NotFoundError:
+            await websocket.close(code=1008, reason="run not found")
+            return
+
+        metrics = await manager.get_metrics(run_id, after_step=last_step)
+        sent_metric_keys: set[tuple[str, int]] = set()
+        for metric in metrics:
+            await websocket.send_json({"type": "metric", "data": metric.model_dump()})
+            sent_metric_keys.add((metric.kind, metric.step))
+
+        await websocket.send_json(
+            {"type": "status", "status": run.status.value, "error": run.error}
         )
+
+        if run.status in TERMINAL_STATUSES:
+            await websocket.close()
+            return
+
+        await buffer.drain(sent_metric_keys, last_step)
+
+        disconnect_task = asyncio.create_task(_watch_for_disconnect(websocket))
+        done_task = asyncio.create_task(manager.done_event(run_id).wait())
+        try:
+            await asyncio.wait(
+                {disconnect_task, done_task}, return_when=asyncio.FIRST_COMPLETED
+            )
+        finally:
+            for task in (disconnect_task, done_task):
+                if not task.done():
+                    task.cancel()
     finally:
-        for task in (disconnect_task, done_task):
-            if not task.done():
-                task.cancel()
-        await ws_manager.unsubscribe(topic, websocket)
+        await ws_manager.unsubscribe(topic, buffer)
 
     try:
         await websocket.close()
