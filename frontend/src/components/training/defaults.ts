@@ -27,6 +27,11 @@ export const DEFAULT_TRAINING_CONFIG: TrainingConfig = {
   temperature: null,
   max_completion_length: null,
   reward_functions: null,
+  sft_loss_type: null,
+  lambda_mse_target: null,
+  tau_mse_target: null,
+  lambda_mse: null,
+  clip_epsilon_logits: null,
 }
 
 export interface ModeOption {
@@ -35,7 +40,7 @@ export interface ModeOption {
   enabled: boolean
 }
 
-// Faz 2 (T15): all modes are wired end to end against mlx-lm-lora 2.1.0 and
+// Faz 2 (T15): all modes are wired end to end against mlx-lm-lora 3.0.0 and
 // verified with real training runs (see task report). All enabled.
 export const MODE_OPTIONS: ModeOption[] = [
   { value: 'sft', label: 'SFT', enabled: true },
@@ -43,22 +48,50 @@ export const MODE_OPTIONS: ModeOption[] = [
   { value: 'orpo', label: 'ORPO', enabled: true },
   { value: 'cpo', label: 'CPO', enabled: true },
   { value: 'grpo', label: 'GRPO', enabled: true },
+  // FTPO = final-token preference optimization (mlx-lm-lora 3.0.0).
+  { value: 'ftpo', label: 'FTPO', enabled: true },
 ]
 
-// Suggested per-mode defaults for the preference/RL-only fields, mirrored
+// Suggested per-mode defaults for the mode-specific fields, mirrored
 // from `backend/app/training/presets.py::suggest_hyperparameters`. Applied
 // when the user switches `train_mode` so the form starts from sane values;
-// fields unused by the newly selected mode are reset to `null`.
-export function defaultOverridesForMode(
-  mode: TrainMode,
-): Pick<TrainingConfig, 'beta' | 'group_size' | 'temperature' | 'max_completion_length'> {
+// fields unused by the newly selected mode are reset to `null` (the backend
+// 422s when a mode-specific field is set on the wrong mode).
+type ModeSpecificFields = Pick<
+  TrainingConfig,
+  | 'beta'
+  | 'group_size'
+  | 'temperature'
+  | 'max_completion_length'
+  | 'sft_loss_type'
+  | 'lambda_mse_target'
+  | 'tau_mse_target'
+  | 'lambda_mse'
+  | 'clip_epsilon_logits'
+>
+
+const MODE_FIELDS_CLEARED: ModeSpecificFields = {
+  beta: null,
+  group_size: null,
+  temperature: null,
+  max_completion_length: null,
+  sft_loss_type: null,
+  lambda_mse_target: null,
+  tau_mse_target: null,
+  lambda_mse: null,
+  clip_epsilon_logits: null,
+}
+
+export function defaultOverridesForMode(mode: TrainMode): ModeSpecificFields {
   if (mode === 'dpo' || mode === 'orpo' || mode === 'cpo') {
-    return { beta: 0.1, group_size: null, temperature: null, max_completion_length: null }
+    return { ...MODE_FIELDS_CLEARED, beta: 0.1 }
   }
   if (mode === 'grpo') {
-    return { beta: null, group_size: 4, temperature: 0.8, max_completion_length: 512 }
+    return { ...MODE_FIELDS_CLEARED, group_size: 4, temperature: 0.8, max_completion_length: 512 }
   }
-  return { beta: null, group_size: null, temperature: null, max_completion_length: null }
+  // sft (sft_loss_type stays null → library default nll) and ftpo (all four
+  // hyperparameters stay null → library defaults 0.05 / 1.0 / 0.4 / 2.0).
+  return { ...MODE_FIELDS_CLEARED }
 }
 
 export const TRAIN_TYPE_OPTIONS: { value: TrainType; label: string }[] = [
@@ -79,6 +112,15 @@ export const LR_SCHEDULE_OPTIONS = [
   { value: 'constant', label: 'Constant' },
 ]
 
+// '' maps to null → the backend/library default (nll), same trick as
+// LOAD_IN_BITS_OPTIONS below.
+export const SFT_LOSS_OPTIONS = [
+  { value: '', label: 'Library default (nll)' },
+  { value: 'nll', label: 'NLL' },
+  { value: 'chunked_nll', label: 'Chunked NLL' },
+  { value: 'dft', label: 'DFT (Dynamic Fine-Tuning)' },
+]
+
 export const LOAD_IN_BITS_OPTIONS = [
   { value: '', label: 'None (full precision)' },
   { value: '4', label: '4-bit' },
@@ -92,6 +134,7 @@ const MODE_COMPATIBLE_FORMATS: Record<TrainMode, DatasetFormat[]> = {
   cpo: ['dpo'],
   orpo: ['orpo', 'dpo'],
   grpo: ['grpo'],
+  ftpo: ['ftpo'],
 }
 
 export function compatibleFormatsForMode(mode: TrainMode): DatasetFormat[] {
@@ -181,6 +224,30 @@ export function validateTrainingConfig(
       (!Number.isFinite(config.max_completion_length) || config.max_completion_length < 1)
     ) {
       errors.max_completion_length = 'Max completion length must be at least 1.'
+    }
+  }
+  if (config.train_mode === 'ftpo') {
+    // All four are optional; null falls back to the library defaults.
+    if (
+      config.lambda_mse_target !== null &&
+      (!Number.isFinite(config.lambda_mse_target) || config.lambda_mse_target < 0)
+    ) {
+      errors.lambda_mse_target = 'Lambda MSE target must be zero or greater.'
+    }
+    if (
+      config.tau_mse_target !== null &&
+      (!Number.isFinite(config.tau_mse_target) || config.tau_mse_target <= 0)
+    ) {
+      errors.tau_mse_target = 'Tau MSE target must be greater than 0.'
+    }
+    if (config.lambda_mse !== null && (!Number.isFinite(config.lambda_mse) || config.lambda_mse < 0)) {
+      errors.lambda_mse = 'Lambda MSE must be zero or greater.'
+    }
+    if (
+      config.clip_epsilon_logits !== null &&
+      (!Number.isFinite(config.clip_epsilon_logits) || config.clip_epsilon_logits <= 0)
+    ) {
+      errors.clip_epsilon_logits = 'Clip epsilon must be greater than 0.'
     }
   }
 

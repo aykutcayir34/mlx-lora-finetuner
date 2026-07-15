@@ -8,7 +8,7 @@ export const handlers = [
       status: 'ok',
       version: '0.1.0',
       mlx_version: '0.20.0',
-      mlx_lm_lora_version: '0.1.0',
+      mlx_lm_lora_version: '3.0.0',
     }),
   ),
   http.get('/api/v1/system/stats', () =>

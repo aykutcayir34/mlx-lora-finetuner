@@ -7,7 +7,13 @@ import { renderWithProviders } from '../../test/render'
 import { ToastProvider } from '../common/Toast'
 import { TrainConfigForm } from './TrainConfigForm'
 import { DEFAULT_TRAINING_CONFIG } from './defaults'
-import { makeRunSummary, splitDataset, trainingHandlers, trainModel } from '../../test/handlers/training'
+import {
+  ftpoDataset,
+  makeRunSummary,
+  splitDataset,
+  trainingHandlers,
+  trainModel,
+} from '../../test/handlers/training'
 
 function renderForm(onCreated = vi.fn()) {
   server.use(...trainingHandlers)
@@ -56,6 +62,7 @@ describe('TrainConfigForm', () => {
     expect(screen.getByRole('radio', { name: 'ORPO' })).toBeEnabled()
     expect(screen.getByRole('radio', { name: 'CPO' })).toBeEnabled()
     expect(screen.getByRole('radio', { name: 'GRPO' })).toBeEnabled()
+    expect(screen.getByRole('radio', { name: 'FTPO' })).toBeEnabled()
   })
 
   it('shows no Preference/RL section for sft, a Beta field for dpo/orpo/cpo with the preset default', async () => {
@@ -142,6 +149,187 @@ describe('TrainConfigForm', () => {
         'Dataset format "chat" is not compatible with mode "dpo". Needs: dpo.',
       ),
     ).toBeInTheDocument()
+  })
+
+  it('shows the SFT loss select only for sft and submits sft_loss_type "dft" when chosen', async () => {
+    const user = userEvent.setup()
+    let capturedBody: unknown = null
+    server.use(
+      http.post('/api/v1/train/jobs', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json(makeRunSummary({ run_id: 'run_captured' }), { status: 201 })
+      }),
+    )
+    const { onCreated } = renderForm()
+    await waitForPickersLoaded()
+
+    // Defaults to the empty option (null → library default nll).
+    expect(screen.getByLabelText('SFT loss')).toHaveValue('')
+
+    await user.click(screen.getByRole('radio', { name: 'DPO' }))
+    expect(screen.queryByLabelText('SFT loss')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'SFT' }))
+    await user.selectOptions(screen.getByLabelText('SFT loss'), 'dft')
+
+    await user.type(screen.getByLabelText('Run name'), 'my-dft-run')
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-chat-data/ }))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+    expect(capturedBody).toMatchObject({ train_mode: 'sft', sft_loss_type: 'dft' })
+  })
+
+  it('never submits sft_loss_type for a non-sft mode, even after picking a loss in sft', async () => {
+    const user = userEvent.setup()
+    let capturedBody: unknown = null
+    server.use(
+      http.post('/api/v1/train/jobs', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json(makeRunSummary({ run_id: 'run_captured' }), { status: 201 })
+      }),
+    )
+    const { onCreated } = renderForm()
+    await waitForPickersLoaded()
+
+    await user.selectOptions(screen.getByLabelText('SFT loss'), 'dft')
+    await user.click(screen.getByRole('radio', { name: 'FTPO' }))
+
+    await user.type(screen.getByLabelText('Run name'), 'my-ftpo-run')
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-ftpo-data/ }))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+    expect(capturedBody).toMatchObject({ train_mode: 'ftpo', sft_loss_type: null })
+  })
+
+  it('shows the four ftpo hyperparameter fields for ftpo and submits typed values', async () => {
+    const user = userEvent.setup()
+    let capturedBody: unknown = null
+    server.use(
+      http.post('/api/v1/train/jobs', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json(makeRunSummary({ run_id: 'run_captured' }), { status: 201 })
+      }),
+    )
+    const { onCreated } = renderForm()
+    await waitForPickersLoaded()
+
+    await user.click(screen.getByRole('radio', { name: 'FTPO' }))
+
+    // All four start empty (null → library defaults) and no other
+    // preference/RL fields leak in.
+    expect(screen.getByLabelText('Lambda MSE target')).toHaveValue(null)
+    expect(screen.getByLabelText('Tau MSE target')).toHaveValue(null)
+    expect(screen.getByLabelText('Lambda MSE')).toHaveValue(null)
+    expect(screen.getByLabelText('Clip epsilon (logits)')).toHaveValue(null)
+    expect(screen.queryByLabelText('Beta')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Group size')).not.toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Lambda MSE target'), '0.1')
+    await user.type(screen.getByLabelText('Tau MSE target'), '2')
+    await user.type(screen.getByLabelText('Lambda MSE'), '0.5')
+    await user.type(screen.getByLabelText('Clip epsilon (logits)'), '3')
+
+    await user.type(screen.getByLabelText('Run name'), 'my-ftpo-run')
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-ftpo-data/ }))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+    expect(capturedBody).toMatchObject({
+      train_mode: 'ftpo',
+      lambda_mse_target: 0.1,
+      tau_mse_target: 2,
+      lambda_mse: 0.5,
+      clip_epsilon_logits: 3,
+    })
+  })
+
+  it('submits null ftpo hyperparameters when the fields are left empty', async () => {
+    const user = userEvent.setup()
+    let capturedBody: unknown = null
+    server.use(
+      http.post('/api/v1/train/jobs', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json(makeRunSummary({ run_id: 'run_captured' }), { status: 201 })
+      }),
+    )
+    const { onCreated } = renderForm()
+    await waitForPickersLoaded()
+
+    await user.click(screen.getByRole('radio', { name: 'FTPO' }))
+    await user.type(screen.getByLabelText('Run name'), 'my-ftpo-run')
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-ftpo-data/ }))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+    expect(capturedBody).toEqual({
+      ...DEFAULT_TRAINING_CONFIG,
+      name: 'my-ftpo-run',
+      model_id: trainModel.model_id,
+      dataset_id: ftpoDataset.dataset_id,
+      train_mode: 'ftpo',
+    })
+  })
+
+  it('clears ftpo hyperparameters when switching from ftpo back to sft', async () => {
+    const user = userEvent.setup()
+    let capturedBody: unknown = null
+    server.use(
+      http.post('/api/v1/train/jobs', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json(makeRunSummary({ run_id: 'run_captured' }), { status: 201 })
+      }),
+    )
+    const { onCreated } = renderForm()
+    await waitForPickersLoaded()
+
+    await user.click(screen.getByRole('radio', { name: 'FTPO' }))
+    await user.type(screen.getByLabelText('Lambda MSE target'), '0.9')
+    await user.type(screen.getByLabelText('Clip epsilon (logits)'), '5')
+
+    await user.click(screen.getByRole('radio', { name: 'SFT' }))
+    expect(screen.queryByLabelText('Lambda MSE target')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Clip epsilon (logits)')).not.toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Run name'), 'back-to-sft')
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-chat-data/ }))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+    expect(capturedBody).toMatchObject({
+      train_mode: 'sft',
+      lambda_mse_target: null,
+      tau_mse_target: null,
+      lambda_mse: null,
+      clip_epsilon_logits: null,
+    })
+  })
+
+  it('surfaces a dataset-format compatibility error when a chat dataset is selected for ftpo', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await waitForPickersLoaded()
+
+    await user.click(screen.getByRole('radio', { name: /my-chat-data/ }))
+    await user.click(screen.getByRole('radio', { name: 'FTPO' }))
+
+    expect(
+      await screen.findByText(
+        'Dataset format "chat" is not compatible with mode "ftpo". Needs: ftpo.',
+      ),
+    ).toBeInTheDocument()
+
+    // Picking the ftpo-format dataset resolves the error.
+    await user.click(screen.getByRole('radio', { name: /my-ftpo-data/ }))
+    expect(
+      screen.queryByText('Dataset format "chat" is not compatible with mode "ftpo". Needs: ftpo.'),
+    ).not.toBeInTheDocument()
   })
 
   it('blocks submit and surfaces field errors when required fields are missing', async () => {
