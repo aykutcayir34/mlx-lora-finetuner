@@ -182,6 +182,60 @@ async def test_second_job_conflicts_while_first_active(settings):
 
 
 @pytest.mark.asyncio
+async def test_concurrent_create_jobs_only_one_wins(settings, monkeypatch):
+    """Issue #4: N concurrent create_job calls -> exactly one run, N-1 409s.
+
+    The check-then-insert window is widened deterministically by making
+    `RunsRepo.list_active` yield to the event loop several times before
+    returning: without the manager's create-lock, every gathered create_job
+    would pass the empty-active check before any insert lands and all five
+    would spawn workers. No wall-clock sleeps involved.
+    """
+    from app.db import repositories
+
+    setup_model_dir(settings)
+    await setup_dataset(settings)
+
+    original_list_active = repositories.RunsRepo.list_active
+
+    async def yielding_list_active(self):
+        rows = await original_list_active(self)
+        for _ in range(10):
+            await asyncio.sleep(0)
+        return rows
+
+    monkeypatch.setattr(repositories.RunsRepo, "list_active", yielding_list_active)
+
+    # ignore_sigterm keeps the winning worker alive (it loops until killed),
+    # so the losers' active-run checks are guaranteed to see it.
+    manager = JobManager(
+        settings=settings,
+        worker_argv_factory=make_worker_argv_factory(
+            "ignore_sigterm", FAKE_WORKER_ITERS=1000, FAKE_WORKER_STEP_DELAY=0.01
+        ),
+        cancel_grace_seconds=0.2,
+    )
+
+    results = await asyncio.gather(
+        *(manager.create_job(make_config(name=f"job-{i}")) for i in range(5)),
+        return_exceptions=True,
+    )
+
+    winners = [r for r in results if not isinstance(r, BaseException)]
+    losers = [r for r in results if isinstance(r, BaseException)]
+    assert len(winners) == 1
+    assert all(isinstance(exc, TrainingActiveError) for exc in losers)
+    assert len(losers) == 4
+
+    _, total = await manager.list_runs()
+    assert total == 1  # exactly one row ever hit the DB
+
+    # Cleanup: don't leak the lingering ignore-SIGTERM subprocess.
+    await manager.cancel(winners[0].run_id)
+    await _run_to_completion(manager, winners[0].run_id, timeout=5.0)
+
+
+@pytest.mark.asyncio
 async def test_cancel_graceful_term_is_honored_quickly(settings):
     setup_model_dir(settings)
     await setup_dataset(settings)
@@ -269,6 +323,51 @@ async def test_garbage_lines_become_log_lines_and_job_still_completes(settings):
 
     final = await manager.get_run(summary.run_id)
     assert final.status.value == "completed"
+
+
+@pytest.mark.asyncio
+async def test_null_field_metrics_are_stored_not_dropped(settings):
+    """Issue #6: metrics with null rate/memory fields survive end to end.
+
+    The worker forwards `train_info.get(...)` values that are None whenever
+    mlx-lm-lora omits a key; such lines must land in the metrics DB and the
+    ring buffer as metrics (with None fields), not degrade to log_lines.
+    A line whose *loss* is null stays a log_line — that is the documented
+    fallback for a genuinely unusable metric.
+    """
+    setup_model_dir(settings)
+    await setup_dataset(settings)
+    manager = JobManager(
+        settings=settings,
+        worker_argv_factory=make_worker_argv_factory("null_metrics", FAKE_WORKER_STEP_DELAY=0.0),
+    )
+    summary = await manager.create_job(make_config())
+    await _run_to_completion(manager, summary.run_id)
+
+    final = await manager.get_run(summary.run_id)
+    assert final.status.value == "completed"
+
+    # Steps 1 (full) and 2 (null rates) are persisted; step 3 (null loss) is not.
+    metrics = await manager.get_metrics(summary.run_id, kind="train")
+    assert [m.step for m in metrics] == [1, 2]
+    null_metric = metrics[1]
+    assert null_metric.loss == 2.4
+    assert null_metric.learning_rate is None
+    assert null_metric.it_per_sec is None
+    assert null_metric.tokens_per_sec is None
+    assert null_metric.peak_memory_gb is None
+
+    # Same frames went to the ring buffer (== what the WS broadcast carried).
+    ring = manager._ring_buffers[summary.run_id]
+    metric_frames = [f for f in ring if f["type"] == "metric" and f["data"]["kind"] == "train"]
+    assert [f["data"]["step"] for f in metric_frames] == [1, 2]
+    assert metric_frames[1]["data"]["loss"] == 2.4
+    assert metric_frames[1]["data"]["tokens_per_sec"] is None
+    assert metric_frames[1]["data"]["peak_memory_gb"] is None
+
+    # The loss-null line fell back to a raw log_line frame.
+    log_frames = [f for f in ring if f["type"] == "log_line"]
+    assert any('"step": 3' in f["line"] and '"loss": null' in f["line"] for f in log_frames)
 
 
 @pytest.mark.asyncio

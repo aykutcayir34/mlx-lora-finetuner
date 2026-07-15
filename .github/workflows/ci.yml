@@ -4,12 +4,21 @@ on:
   push:
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
     defaults:
       run:
         working-directory: backend
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -17,17 +26,19 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           version: "latest"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: uv sync
 
       - name: Ruff check
-        run: uv run ruff check .
+        run: uv run ruff check . ../e2e
 
       - name: Pytest
         run: uv run pytest
@@ -53,5 +64,11 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Oxlint
+        run: npx oxlint
+
       - name: Vitest
         run: npx vitest run
+
+      - name: Build
+        run: npm run build

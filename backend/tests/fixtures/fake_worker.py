@@ -8,7 +8,8 @@ dependency. Driven entirely by environment variables so
 `[sys.executable, str(fake_worker.py)]` form.
 
 Env vars:
-  FAKE_WORKER_SCENARIO: happy | crash | ignore_sigterm | garbage (default: happy)
+  FAKE_WORKER_SCENARIO: happy | crash | ignore_sigterm | garbage | null_metrics
+      (default: happy)
   FAKE_WORKER_ITERS: number of training metric steps to emit (default: 3)
   FAKE_WORKER_STEP_DELAY: seconds to sleep between emitted lines (default: 0.01)
   FAKE_WORKER_ADAPTER_PATH: adapter_path reported in checkpoint/done events
@@ -103,6 +104,41 @@ def _run_ignore_sigterm(iters: int) -> None:
         time.sleep(0.05)
 
 
+def _run_null_metrics(iters: int) -> None:  # noqa: ARG001 — scripted, fixed line count
+    """Metric lines with null optional fields (mlx-lm-lora omitted keys).
+
+    Emits: one fully-populated metric, one metric whose rate/memory fields
+    are all null (must still parse as a metric), and one "metric" whose loss
+    is null (must fall back to a log_line), then done.
+    """
+    _emit({"event": "started", "pid": os.getpid()})
+    _sleep()
+    _emit(_metric_frame(1, 2.5))
+    _sleep()
+    _emit(
+        {
+            "event": "metric",
+            "step": 2,
+            "loss": 2.4,
+            "learning_rate": None,
+            "it_per_sec": None,
+            "tokens_per_sec": None,
+            "peak_memory_gb": None,
+        }
+    )
+    _sleep()
+    _emit({"event": "metric", "step": 3, "loss": None})
+    _sleep()
+    _emit(
+        {
+            "event": "done",
+            "adapter_path": _adapter_path(),
+            "final_train_loss": 2.4,
+            "final_val_loss": None,
+        }
+    )
+
+
 def _run_garbage(iters: int) -> None:
     _emit({"event": "started", "pid": os.getpid()})
     _sleep()
@@ -129,6 +165,7 @@ _SCENARIOS = {
     "crash": _run_crash,
     "ignore_sigterm": _run_ignore_sigterm,
     "garbage": _run_garbage,
+    "null_metrics": _run_null_metrics,
 }
 
 

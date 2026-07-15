@@ -1,4 +1,4 @@
-.PHONY: install dev test test-backend test-frontend lint e2e e2e-faz2
+.PHONY: install dev build test test-backend test-frontend lint e2e e2e-faz2
 
 install:
 	cd backend && uv sync --all-extras --all-groups
@@ -10,6 +10,11 @@ dev:
 	( cd frontend && npm run dev -- --port 5173 ) & \
 	wait
 
+# Production build of the frontend (type-checks via `tsc -b`, then bundles
+# with Vite). The backend has no build step; it runs from source.
+build:
+	cd frontend && npm run build
+
 test: test-backend test-frontend
 
 test-backend:
@@ -19,8 +24,9 @@ test-frontend:
 	cd frontend && npx vitest run
 
 lint:
-	cd backend && uv run ruff check .
+	cd backend && uv run ruff check . ../e2e
 	cd frontend && npx tsc --noEmit
+	cd frontend && npx oxlint
 
 # Real end-to-end smoke test against the MLX runtime: downloads a tiny model,
 # trains a LoRA adapter, chats with it, and fuses the result. Needs Apple
