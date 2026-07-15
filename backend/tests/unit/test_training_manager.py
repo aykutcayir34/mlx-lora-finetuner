@@ -85,6 +85,43 @@ async def test_create_job_incompatible_dataset_format_raises_422(settings):
 
 
 @pytest.mark.asyncio
+async def test_create_job_ftpo_mode_requires_ftpo_dataset(settings):
+    setup_model_dir(settings)
+    await setup_dataset(settings, fmt="chat")
+    manager = JobManager(settings=settings, worker_argv_factory=make_worker_argv_factory("happy"))
+    with pytest.raises(ValidationAppError):
+        await manager.create_job(make_config(train_mode="ftpo"))
+
+
+@pytest.mark.asyncio
+async def test_create_job_ftpo_dataset_incompatible_with_other_modes(settings):
+    setup_model_dir(settings)
+    await setup_dataset(settings, fmt="ftpo")
+    manager = JobManager(settings=settings, worker_argv_factory=make_worker_argv_factory("happy"))
+    with pytest.raises(ValidationAppError):
+        await manager.create_job(make_config(train_mode="dpo", beta=0.1))
+
+
+@pytest.mark.asyncio
+async def test_create_job_ftpo_mode_accepts_ftpo_dataset(settings):
+    setup_model_dir(settings)
+    await setup_dataset(settings, fmt="ftpo")
+    manager = JobManager(
+        settings=settings,
+        worker_argv_factory=make_worker_argv_factory(
+            "happy", FAKE_WORKER_ITERS=1, FAKE_WORKER_STEP_DELAY=0.0
+        ),
+    )
+
+    summary = await manager.create_job(make_config(train_mode="ftpo", iters=1))
+    assert summary.status.value in ("queued", "running")
+    await _run_to_completion(manager, summary.run_id)
+
+    final = await manager.get_run(summary.run_id)
+    assert final.status.value == "completed"
+
+
+@pytest.mark.asyncio
 async def test_happy_path_state_machine_and_metrics_and_ring_buffer(settings):
     setup_model_dir(settings)
     await setup_dataset(settings)

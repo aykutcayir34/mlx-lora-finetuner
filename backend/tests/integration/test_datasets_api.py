@@ -35,6 +35,7 @@ async def _upload(client, fixture_name: str, name: str | None = None, filename: 
         ("dpo_valid.jsonl", "dpo", 2),
         ("orpo_valid.jsonl", "orpo", 2),
         ("grpo_valid.jsonl", "grpo", 2),
+        ("ftpo_valid.jsonl", "ftpo", 2),
     ],
 )
 async def test_upload_detects_each_format(client, fixture_name, expected_format, expected_rows):

@@ -47,13 +47,15 @@ RING_BUFFER_SIZE = 2000
 DEFAULT_CANCEL_GRACE_SECONDS = 10.0
 ORPHAN_KILL_POLL_SECONDS = 0.1
 
-# docs/api.md: sft: chat|completions|text; dpo|cpo: dpo; orpo: orpo|dpo; grpo: grpo
+# docs/api.md: sft: chat|completions|text; dpo|cpo: dpo; orpo: orpo|dpo;
+# grpo: grpo; ftpo: ftpo
 DATASET_FORMAT_COMPAT: dict[str, set[str]] = {
     "sft": {"chat", "completions", "text"},
     "dpo": {"dpo"},
     "cpo": {"dpo"},
     "orpo": {"orpo", "dpo"},
     "grpo": {"grpo"},
+    "ftpo": {"ftpo"},
 }
 
 

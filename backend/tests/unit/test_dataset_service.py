@@ -75,6 +75,18 @@ class TestDetectRowFormat:
     def test_grpo_detected(self):
         assert _detect_row_format({"prompt": "p", "answer": "a"}) == DatasetFormat.GRPO
 
+    def test_ftpo_detected(self):
+        obj = {
+            "context_with_chat_template": "c",
+            "rejected_decoded": " a",
+            "multi_chosen_decoded": [" b"],
+        }
+        assert _detect_row_format(obj) == DatasetFormat.FTPO
+
+    def test_ftpo_not_detected_when_a_key_is_missing(self):
+        obj = {"context_with_chat_template": "c", "multi_chosen_decoded": [" b"]}
+        assert _detect_row_format(obj) is None
+
     def test_unrecognized_keys_return_none(self):
         assert _detect_row_format({"foo": "bar"}) is None
 
@@ -169,6 +181,30 @@ async def test_validate_orpo_score_out_of_range_is_error(data_dir):
         assert 2 in errors_by_line  # preference_score 1.5 out of [0,1]
         assert 3 in errors_by_line  # missing preference_score
         assert 4 in errors_by_line  # garbage json
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_validate_ftpo_reports_line_precise_errors(data_dir):
+    conn = await _repo(data_dir)
+    try:
+        settings = get_settings()
+        await _seed_dataset(
+            conn, "ds_ftpo", DatasetFormat.FTPO, "ftpo_broken.jsonl", settings.datasets_dir / "ds_ftpo"
+        )
+        service = get_dataset_service()
+        report = await service.validate(DatasetsRepo(conn), "ds_ftpo")
+
+        assert report.total_rows == 5
+        assert report.valid_rows == 1
+        errors_by_line = {e.line: e.message for e in report.errors}
+        assert 2 in errors_by_line  # missing rejected_decoded
+        assert "rejected_decoded" in errors_by_line[2]
+        assert 3 in errors_by_line  # multi_chosen_decoded is a str, not a list
+        assert "multi_chosen_decoded" in errors_by_line[3]
+        assert 4 in errors_by_line  # empty multi_chosen_decoded list
+        assert 5 in errors_by_line  # garbage json
     finally:
         await conn.close()
 

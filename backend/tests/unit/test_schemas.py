@@ -57,6 +57,74 @@ class TestTrainingConfigValidation:
         )
         assert config.group_size == 4
 
+    def test_ftpo_minimal_config_is_valid(self):
+        config = TrainingConfig(
+            name="my-run",
+            model_id="mlx-community/x",
+            dataset_id="ds_1",
+            train_mode="ftpo",
+        )
+        assert config.train_mode == "ftpo"
+        assert config.lambda_mse_target is None
+        assert config.clip_epsilon_logits is None
+
+    def test_ftpo_accepts_its_optional_hyperparameters(self):
+        config = TrainingConfig(
+            name="my-run",
+            model_id="mlx-community/x",
+            dataset_id="ds_1",
+            train_mode="ftpo",
+            lambda_mse_target=0.1,
+            tau_mse_target=2.0,
+            lambda_mse=0.5,
+            clip_epsilon_logits=3.0,
+        )
+        assert config.lambda_mse == 0.5
+
+    @pytest.mark.parametrize(
+        "field", ["lambda_mse_target", "tau_mse_target", "lambda_mse", "clip_epsilon_logits"]
+    )
+    def test_ftpo_params_rejected_on_non_ftpo_mode(self, field):
+        with pytest.raises(ValidationError, match="only accepted for ftpo"):
+            TrainingConfig(
+                name="my-run",
+                model_id="mlx-community/x",
+                dataset_id="ds_1",
+                train_mode="sft",
+                **{field: 0.5},
+            )
+
+    def test_sft_loss_type_accepted_on_sft(self):
+        config = TrainingConfig(
+            name="my-run",
+            model_id="mlx-community/x",
+            dataset_id="ds_1",
+            train_mode="sft",
+            sft_loss_type="dft",
+        )
+        assert config.sft_loss_type == "dft"
+
+    def test_sft_loss_type_rejected_on_non_sft_mode(self):
+        with pytest.raises(ValidationError, match="only accepted for sft"):
+            TrainingConfig(
+                name="my-run",
+                model_id="mlx-community/x",
+                dataset_id="ds_1",
+                train_mode="dpo",
+                beta=0.1,
+                sft_loss_type="nll",
+            )
+
+    def test_sft_loss_type_unknown_value_rejected(self):
+        with pytest.raises(ValidationError):
+            TrainingConfig(
+                name="my-run",
+                model_id="mlx-community/x",
+                dataset_id="ds_1",
+                train_mode="sft",
+                sft_loss_type="not-a-loss",
+            )
+
 
 class TestParseWorkerLine:
     def test_valid_metric_event_parses_to_worker_metric(self):
@@ -84,9 +152,9 @@ class TestParseWorkerLine:
 
 
 class TestDatasetFormat:
-    def test_has_exactly_six_members(self):
-        assert len(DatasetFormat) == 6
+    def test_has_exactly_seven_members(self):
+        assert len(DatasetFormat) == 7
 
     def test_member_values(self):
         values = {member.value for member in DatasetFormat}
-        assert values == {"chat", "completions", "text", "dpo", "orpo", "grpo"}
+        assert values == {"chat", "completions", "text", "dpo", "orpo", "grpo", "ftpo"}

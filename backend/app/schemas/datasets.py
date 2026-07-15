@@ -10,6 +10,7 @@ class DatasetFormat(str, Enum):
     DPO = "dpo"
     ORPO = "orpo"
     GRPO = "grpo"
+    FTPO = "ftpo"
 
 
 class DatasetInfo(BaseModel):

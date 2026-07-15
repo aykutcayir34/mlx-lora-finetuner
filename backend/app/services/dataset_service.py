@@ -82,6 +82,20 @@ class GrpoRow(BaseModel):
     system: str | None = None
 
 
+class FtpoRow(BaseModel):
+    """Final-token preference row (mlx-lm-lora FTPODataset).
+
+    `rejected_decoded` must tokenize to exactly one token and every
+    `multi_chosen_decoded` entry to one token each — that needs the model's
+    tokenizer, which validation never loads, so only the structure is checked
+    here (like every other format).
+    """
+
+    context_with_chat_template: str = Field(min_length=1)
+    rejected_decoded: str = Field(min_length=1)
+    multi_chosen_decoded: list[str] = Field(min_length=1)
+
+
 _ROW_MODELS: dict[DatasetFormat, type[BaseModel]] = {
     DatasetFormat.CHAT: ChatRow,
     DatasetFormat.COMPLETIONS: CompletionsRow,
@@ -89,6 +103,7 @@ _ROW_MODELS: dict[DatasetFormat, type[BaseModel]] = {
     DatasetFormat.DPO: DpoRow,
     DatasetFormat.ORPO: OrpoRow,
     DatasetFormat.GRPO: GrpoRow,
+    DatasetFormat.FTPO: FtpoRow,
 }
 
 
@@ -104,6 +119,8 @@ def _detect_row_format(obj: object) -> DatasetFormat | None:
     keys = set(obj.keys())
     if "messages" in keys:
         return DatasetFormat.CHAT
+    if {"context_with_chat_template", "rejected_decoded", "multi_chosen_decoded"} <= keys:
+        return DatasetFormat.FTPO
     if {"prompt", "chosen", "rejected"} <= keys:
         return DatasetFormat.ORPO if "preference_score" in keys else DatasetFormat.DPO
     if {"prompt", "completion"} <= keys:
@@ -138,6 +155,11 @@ def _row_char_count(fmt: DatasetFormat, row: BaseModel) -> int:
         if system:
             total += len(system)
         return total
+    if fmt == DatasetFormat.FTPO:
+        return len(row.context_with_chat_template) + len(row.rejected_decoded) + sum(  # type: ignore[attr-defined]
+            len(s)
+            for s in row.multi_chosen_decoded  # type: ignore[attr-defined]
+        )
     return 0
 
 
