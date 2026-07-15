@@ -349,3 +349,70 @@ async def test_reap_orphans_alive_process_marks_cancelled(settings):
         if proc.poll() is None:
             proc.kill()
             proc.wait()
+
+
+# ---------------------------------------------------------------------------
+# Log rotation + efficient tail (issue #7)
+# ---------------------------------------------------------------------------
+
+
+def test_append_log_line_rotates_past_cap(tmp_path, monkeypatch):
+    from app.training import manager as manager_module
+    from app.training.manager import LOG_ROTATION_NOTICE, _append_log_line
+
+    monkeypatch.setattr(manager_module, "MAX_TRAIN_LOG_BYTES", 200)
+    log_path = tmp_path / "train.log"
+    rotated_path = tmp_path / "train.log.1"
+
+    lines = [f"line-{i:03d} {'x' * 20}" for i in range(30)]
+    for line in lines:
+        _append_log_line(log_path, rotated_path, line)
+
+    assert rotated_path.is_file()
+    current = log_path.read_text().splitlines()
+    assert current[0] == LOG_ROTATION_NOTICE
+
+    # Nothing that survives rotation is lost or reordered: the rotated file
+    # plus the current file cover a contiguous suffix of what was written.
+    kept = [
+        line
+        for line in rotated_path.read_text().splitlines() + current
+        if line != LOG_ROTATION_NOTICE
+    ]
+    assert kept == lines[len(lines) - len(kept):]
+    # And the current file is small again (fresh after the last rotation).
+    assert log_path.stat().st_size < 200
+
+
+def test_tail_lines_returns_exact_suffix(tmp_path):
+    from app.training.manager import _tail_lines
+
+    path = tmp_path / "train.log"
+    lines = [f"line-{i:05d}" for i in range(5000)]
+    path.write_text("\n".join(lines) + "\n")
+
+    assert _tail_lines(path, 200) == lines[-200:]
+    assert _tail_lines(path, 5) == lines[-5:]
+    assert _tail_lines(path, 10_000) == lines  # tail larger than the file
+
+
+@pytest.mark.asyncio
+async def test_get_logs_tail_spans_rotation(settings):
+    manager = JobManager(settings=settings)
+    run_dir = settings.runs_dir / "run_rotated"
+    run_dir.mkdir(parents=True)
+
+    rotated_lines = [f"old-{i:03d}" for i in range(100)]
+    (run_dir / "train.log.1").write_text("\n".join(rotated_lines) + "\n")
+    current_lines = ["[log rotated: older lines moved to train.log.1]"] + [
+        f"new-{i:03d}" for i in range(10)
+    ]
+    (run_dir / "train.log").write_text("\n".join(current_lines) + "\n")
+
+    tail = await manager.get_logs("run_rotated", tail=50)
+    assert len(tail) == 50
+    assert tail == rotated_lines[-39:] + current_lines
+
+    # A tail smaller than the current file never touches the rotated log.
+    short = await manager.get_logs("run_rotated", tail=5)
+    assert short == current_lines[-5:]

@@ -93,7 +93,10 @@ affect the contract.
    (with `message`/`traceback`) line is always emitted, `flush=True`.
 4. **Event pump** — `JobManager._pump` reads the worker's stdout line by line
    in a thread-pool executor (`proc.stdout.readline` is blocking I/O). Every
-   line is appended to `runs/<run_id>/train.log` verbatim. It's then parsed by
+   line is appended to `runs/<run_id>/train.log` verbatim (rotated once to
+   `train.log.1` past 10 MiB, so a chatty run can't grow the log unbounded;
+   the logs endpoint tails by seeking from the end and spans the rotation
+   boundary when needed). It's then parsed by
    `schemas.events.parse_worker_line` (a discriminated-union `TypeAdapter`); a
    line that isn't valid JSON with a known `event` key is treated as a plain
    `log_line` (so third-party library log spam is forwarded, not dropped).

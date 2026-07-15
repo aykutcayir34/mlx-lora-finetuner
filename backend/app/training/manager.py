@@ -45,6 +45,11 @@ from app.schemas.training import JobStatus, MetricEvent, RunSummary, TrainingCon
 logger = logging.getLogger(__name__)
 
 RING_BUFFER_SIZE = 2000
+
+# `train.log` rotates to `train.log.1` (replacing any previous rotation) once
+# it grows past this size, so a chatty or very long run cannot fill the disk.
+MAX_TRAIN_LOG_BYTES = 10 * 1024 * 1024
+LOG_ROTATION_NOTICE = "[log rotated: older lines moved to train.log.1]"
 DEFAULT_CANCEL_GRACE_SECONDS = 10.0
 ORPHAN_KILL_POLL_SECONDS = 0.1
 
@@ -62,6 +67,38 @@ DATASET_FORMAT_COMPAT: dict[str, set[str]] = {
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
+def _append_log_line(log_path: Path, rotated_path: Path, line: str) -> None:
+    """Append one line to the on-disk log, rotating once past the size cap."""
+    with log_path.open("ab") as f:
+        f.write((line + "\n").encode("utf-8"))
+        size = f.tell()
+    if size >= MAX_TRAIN_LOG_BYTES:
+        log_path.replace(rotated_path)
+        log_path.write_text(LOG_ROTATION_NOTICE + "\n")
+
+
+def _tail_lines(path: Path, max_lines: int) -> list[str]:
+    """Read the last `max_lines` lines by seeking from the end of the file.
+
+    Reads backwards in fixed-size chunks instead of loading the whole file —
+    `train.log` can be up to MAX_TRAIN_LOG_BYTES while a typical tail is a few
+    hundred lines. A decode error from starting mid-multibyte-char can only
+    affect the earliest, sliced-off portion of the buffer.
+    """
+    chunk_size = 8192
+    buf = b""
+    with path.open("rb") as f:
+        f.seek(0, 2)  # os.SEEK_END
+        pos = f.tell()
+        while pos > 0 and buf.count(b"\n") <= max_lines:
+            read_size = min(chunk_size, pos)
+            pos -= read_size
+            f.seek(pos)
+            buf = f.read(read_size) + buf
+    lines = buf.decode("utf-8", errors="replace").splitlines()
+    return lines[-max_lines:]
 
 
 def _default_worker_argv() -> list[str]:
@@ -194,9 +231,17 @@ class JobManager:
         log_path = run_dir / "train.log"
         if not log_path.is_file():
             return []
-        lines = log_path.read_text().splitlines()
+        rotated_path = run_dir / "train.log.1"
         if tail and tail > 0:
-            lines = lines[-tail:]
+            lines = _tail_lines(log_path, tail)
+            if len(lines) < tail and rotated_path.is_file():
+                lines = _tail_lines(rotated_path, tail - len(lines)) + lines
+            return lines
+        # tail <= 0: everything we still have on disk (bounded by rotation).
+        lines = []
+        if rotated_path.is_file():
+            lines.extend(rotated_path.read_text(errors="replace").splitlines())
+        lines.extend(log_path.read_text(errors="replace").splitlines())
         return lines
 
     async def cancel(self, run_id: str) -> RunSummary:
@@ -327,9 +372,10 @@ class JobManager:
         last_raw_lines: deque[str] = deque(maxlen=50)
         saw_terminal_event = False
 
+        rotated_log_path = run_dir / "train.log.1"
+
         def _append_log(line: str) -> None:
-            with log_path.open("a") as f:
-                f.write(line + "\n")
+            _append_log_line(log_path, rotated_log_path, line)
 
         try:
             while True:
