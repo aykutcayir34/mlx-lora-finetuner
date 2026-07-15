@@ -16,9 +16,9 @@ import pytest
 from starlette.testclient import TestClient
 
 from app.config import get_settings
+from app.core.paths import model_dirname
 from app.main import create_app
 from app.services import inference_service as svc
-from app.services.arena_service import _model_dir_name
 
 MODEL_A = "mlx-community/SmolLM-135M-Instruct-4bit"
 MODEL_B = "mlx-community/Qwen2.5-0.5B-Instruct-4bit"
@@ -102,7 +102,7 @@ def _drain_until_done(ws) -> list[dict]:
 
 def _mkdirs(settings, *model_ids: str) -> None:
     for model_id in model_ids:
-        (settings.models_dir / _model_dir_name(model_id)).mkdir(parents=True, exist_ok=True)
+        (settings.models_dir / model_dirname(model_id)).mkdir(parents=True, exist_ok=True)
 
 
 def test_happy_path_frame_order(data_dir, patched_mlx):

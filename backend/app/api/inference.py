@@ -1,6 +1,7 @@
 # Wave-1 T4: chat inference (mlx_lm generate loop) ve adapter listeleme.
 
 import asyncio
+import logging
 import threading
 from pathlib import Path
 from typing import Annotated
@@ -10,20 +11,19 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, ValidationError
 
 from app.config import Settings
+from app.core.paths import model_dirname
 from app.db.repositories import RunsRepo
 from app.deps import get_current_user, get_db, get_settings
 from app.schemas.inference import AdapterInfo, ChatGenerateFrame
 from app.services.inference_service import get_inference_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
 class AdaptersListResponse(BaseModel):
     adapters: list[AdapterInfo]
-
-
-def _model_dir_name(model_id: str) -> str:
-    return model_id.replace("/", "__", 1)
 
 
 @router.get("/adapters", response_model=AdaptersListResponse)
@@ -67,7 +67,7 @@ async def ws_chat(
     async def _run_generation(frame: ChatGenerateFrame, cancel_event: threading.Event) -> None:
         nonlocal generating
         try:
-            model_dir = settings.models_dir / _model_dir_name(frame.model_id)
+            model_dir = settings.models_dir / model_dirname(frame.model_id)
             if not model_dir.exists():
                 await websocket.send_json(
                     {
@@ -107,10 +107,13 @@ async def ws_chat(
                 cancel_event=cancel_event,
             ):
                 await websocket.send_json(out_frame)
-        except Exception as exc:  # noqa: BLE001 - forwarded to client as an error frame
+        except Exception:  # noqa: BLE001 - reported to the client as a generic error frame
+            # Log the real exception server-side; never leak its text
+            # (filesystem paths etc.) to the client.
+            logger.exception("unexpected error during chat generation")
             try:
                 await websocket.send_json(
-                    {"type": "error", "code": "internal", "message": str(exc)}
+                    {"type": "error", "code": "internal", "message": "internal error"}
                 )
             except Exception:
                 pass

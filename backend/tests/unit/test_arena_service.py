@@ -41,7 +41,7 @@ class FakeInferenceService:
         yield {"type": "done", "usage": usage}
 
 
-def _frame(model_a: str = "model-a", model_b: str = "model-b") -> ArenaGenerateFrame:
+def _frame(model_a: str = "org/model-a", model_b: str = "org/model-b") -> ArenaGenerateFrame:
     return ArenaGenerateFrame(
         type="generate",
         side_a=ArenaSideSpec(model_id=model_a),
@@ -53,13 +53,13 @@ def _frame(model_a: str = "model-a", model_b: str = "model-b") -> ArenaGenerateF
 
 @pytest.mark.asyncio
 async def test_happy_path_frame_order(tmp_path):
-    (tmp_path / "model-a").mkdir()
-    (tmp_path / "model-b").mkdir()
+    (tmp_path / "org__model-a").mkdir()
+    (tmp_path / "org__model-b").mkdir()
     settings = SimpleNamespace(models_dir=tmp_path)
     fake = FakeInferenceService(
         {
-            str(tmp_path / "model-a"): ["Hi", "!"],
-            str(tmp_path / "model-b"): ["Yo"],
+            str(tmp_path / "org__model-a"): ["Hi", "!"],
+            str(tmp_path / "org__model-b"): ["Yo"],
         }
     )
     service = ArenaService(fake)
@@ -89,14 +89,14 @@ async def test_happy_path_frame_order(tmp_path):
     assert frames[3]["usage"] == {"prompt_tokens": 1, "completion_tokens": 2, "tokens_per_sec": 1.0}
     assert frames[4]["side"] == "b"
     assert frames[6]["side"] == "b"
-    assert fake.calls == [str(tmp_path / "model-a"), str(tmp_path / "model-b")]
+    assert fake.calls == [str(tmp_path / "org__model-a"), str(tmp_path / "org__model-b")]
 
 
 @pytest.mark.asyncio
 async def test_side_a_model_not_found_continues_to_side_b(tmp_path):
-    (tmp_path / "model-b").mkdir()
+    (tmp_path / "org__model-b").mkdir()
     settings = SimpleNamespace(models_dir=tmp_path)
-    fake = FakeInferenceService({str(tmp_path / "model-b"): ["ok"]})
+    fake = FakeInferenceService({str(tmp_path / "org__model-b"): ["ok"]})
     service = ArenaService(fake)
 
     frames = [
@@ -113,11 +113,11 @@ async def test_side_a_model_not_found_continues_to_side_b(tmp_path):
         "type": "error",
         "side": "a",
         "code": "model_not_found",
-        "message": "model 'model-a' not found",
+        "message": "model 'org/model-a' not found",
     }
     assert frames[1] == {"type": "side_start", "side": "b"}
     assert frames[-1] == {"type": "done"}
-    assert fake.calls == [str(tmp_path / "model-b")]
+    assert fake.calls == [str(tmp_path / "org__model-b")]
 
 
 @pytest.mark.asyncio
@@ -150,13 +150,13 @@ async def test_training_active_ends_turn_before_side_a(tmp_path):
 
 @pytest.mark.asyncio
 async def test_cancel_mid_side_a_skips_side_b(tmp_path):
-    (tmp_path / "model-a").mkdir()
-    (tmp_path / "model-b").mkdir()
+    (tmp_path / "org__model-a").mkdir()
+    (tmp_path / "org__model-b").mkdir()
     settings = SimpleNamespace(models_dir=tmp_path)
     fake = FakeInferenceService(
         {
-            str(tmp_path / "model-a"): ["t1", "t2", "t3"],
-            str(tmp_path / "model-b"): ["should-not-appear"],
+            str(tmp_path / "org__model-a"): ["t1", "t2", "t3"],
+            str(tmp_path / "org__model-b"): ["should-not-appear"],
         }
     )
     service = ArenaService(fake)
@@ -174,4 +174,42 @@ async def test_cancel_mid_side_a_skips_side_b(tmp_path):
             registered_callbacks[-1]()
 
     assert [f["type"] for f in frames] == ["side_start", "token", "side_done", "done"]
-    assert fake.calls == [str(tmp_path / "model-a")]
+    assert fake.calls == [str(tmp_path / "org__model-a")]
+
+
+class ExplodingInferenceService:
+    """Raises an internal exception (with sensitive detail) mid-generation."""
+
+    def __init__(self, secret: str) -> None:
+        self._secret = secret
+
+    async def stream_chat(self, *, model_path, adapter_path, messages, params, cancel_event):
+        raise RuntimeError(self._secret)
+        yield  # pragma: no cover — makes this an async generator
+
+
+@pytest.mark.asyncio
+async def test_unexpected_side_error_is_generic(tmp_path):
+    (tmp_path / "org__model-a").mkdir()
+    (tmp_path / "org__model-b").mkdir()
+    settings = SimpleNamespace(models_dir=tmp_path)
+    secret = "mlx blew up at /Users/someone/.cache/private-path"
+    service = ArenaService(ExplodingInferenceService(secret))
+
+    frames = [
+        f
+        async for f in service.run_turn(
+            settings=settings,
+            frame=_frame(),
+            runs_repo=FakeRunsRepo(),
+            register_cancel=lambda cb: None,
+        )
+    ]
+
+    errors = [f for f in frames if f["type"] == "error"]
+    assert [e["side"] for e in errors] == ["a", "b"]
+    for error in errors:
+        assert error["code"] == "internal"
+        assert error["message"] == "internal error"
+        assert secret not in error["message"]
+    assert frames[-1] == {"type": "done"}

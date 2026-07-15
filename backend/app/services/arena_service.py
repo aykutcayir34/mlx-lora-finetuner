@@ -10,18 +10,18 @@ there is only one Metal GPU to share.
 
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 
 from app.config import Settings
+from app.core.paths import model_dirname
 from app.db.repositories import RunsRepo
 from app.schemas.arena import ArenaGenerateFrame
 from app.services.inference_service import InferenceService
 
-
-def _model_dir_name(model_id: str) -> str:
-    return model_id.replace("/", "__", 1)
+logger = logging.getLogger(__name__)
 
 
 class ArenaService:
@@ -74,7 +74,7 @@ class ArenaService:
                 worker_event = threading.Event()
                 current_worker_event = worker_event
 
-                model_dir = settings.models_dir / _model_dir_name(spec.model_id)
+                model_dir = settings.models_dir / model_dirname(spec.model_id)
                 if not model_dir.exists():
                     yield {
                         "type": "error",
@@ -105,8 +105,16 @@ class ArenaService:
                             yield {"type": "token", "side": side, "text": out["text"]}
                         elif out["type"] == "done":
                             yield {"type": "side_done", "side": side, "usage": out["usage"]}
-                except Exception as exc:  # noqa: BLE001 - forwarded as a per-side error frame
-                    yield {"type": "error", "side": side, "code": "internal", "message": str(exc)}
+                except Exception:  # noqa: BLE001 - reported as a generic per-side error frame
+                    # Log the real exception server-side; never leak its text
+                    # (filesystem paths etc.) to the client.
+                    logger.exception("unexpected error while generating arena side %r", side)
+                    yield {
+                        "type": "error",
+                        "side": side,
+                        "code": "internal",
+                        "message": "internal error",
+                    }
 
                 if turn_cancelled.is_set():
                     break

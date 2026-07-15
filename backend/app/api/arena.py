@@ -1,6 +1,7 @@
 # Faz-2 T17: side-by-side model arena WS (docs/api.md "Arena" section).
 
 import asyncio
+import logging
 from collections.abc import Callable
 from typing import Annotated
 
@@ -14,6 +15,8 @@ from app.deps import get_current_user, get_db, get_settings
 from app.schemas.arena import ArenaGenerateFrame
 from app.services.arena_service import ArenaService
 from app.services.inference_service import get_inference_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
@@ -46,10 +49,13 @@ async def ws_arena(
                 register_cancel=_register_cancel,
             ):
                 await websocket.send_json(out_frame)
-        except Exception as exc:  # noqa: BLE001 - forwarded to client as an error frame
+        except Exception:  # noqa: BLE001 - reported to the client as a generic error frame
+            # Log the real exception server-side; never leak its text
+            # (filesystem paths etc.) to the client.
+            logger.exception("unexpected error during arena turn")
             try:
                 await websocket.send_json(
-                    {"type": "error", "side": None, "code": "internal", "message": str(exc)}
+                    {"type": "error", "side": None, "code": "internal", "message": "internal error"}
                 )
             except Exception:
                 pass

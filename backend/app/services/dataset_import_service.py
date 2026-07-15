@@ -215,7 +215,9 @@ class DatasetImportService:
                 stream = await asyncio.to_thread(_load_dataset_stream, hf_dataset_id, config, split)
                 iterator = iter(stream)
             except Exception as exc:
-                await repo.finish(import_id, "failed", None, f"dataset yüklenemedi: {exc}", _now())
+                await repo.finish_if_active(
+                    import_id, "failed", None, f"dataset yüklenemedi: {exc}", _now()
+                )
                 self._cleanup(import_id)
                 return
 
@@ -231,7 +233,7 @@ class DatasetImportService:
                         try:
                             line = json.dumps(row, ensure_ascii=False)
                         except TypeError:
-                            await repo.finish(
+                            await repo.finish_if_active(
                                 import_id,
                                 "failed",
                                 None,
@@ -248,18 +250,23 @@ class DatasetImportService:
                         if max_rows is not None and count >= max_rows:
                             break
             except Exception as exc:
-                await repo.finish(import_id, "failed", None, str(exc), _now())
+                await repo.finish_if_active(import_id, "failed", None, str(exc), _now())
                 self._cleanup(import_id)
                 return
 
             if cancel_event.is_set():
+                # The worker (this coroutine) is the single owner of the
+                # terminal DB write and the temp-dir cleanup on cancellation;
+                # `cancel_import` only sets the event.
                 await repo.update_progress(import_id, count)
-                await repo.finish(import_id, "cancelled", None, None, _now())
+                await repo.finish_if_active(import_id, "cancelled", None, None, _now())
                 self._cleanup(import_id)
                 return
 
             if count == 0:
-                await repo.finish(import_id, "failed", None, "dataset'ten hiç satır okunamadı", _now())
+                await repo.finish_if_active(
+                    import_id, "failed", None, "dataset'ten hiç satır okunamadı", _now()
+                )
                 self._cleanup(import_id)
                 return
 
@@ -272,12 +279,14 @@ class DatasetImportService:
             except ValidationAppError as exc:
                 keys = _first_row_keys(output_path)
                 keys_msg = f" (bulunan kolon adları: {', '.join(keys)})" if keys else ""
-                await repo.finish(import_id, "failed", None, f"{exc.message}{keys_msg}", _now())
+                await repo.finish_if_active(
+                    import_id, "failed", None, f"{exc.message}{keys_msg}", _now()
+                )
                 self._cleanup(import_id)
                 return
 
             await repo.update_progress(import_id, count)
-            await repo.finish(import_id, "completed", dataset_info.dataset_id, None, _now())
+            await repo.finish_if_active(import_id, "completed", dataset_info.dataset_id, None, _now())
             self._cleanup(import_id)
         finally:
             await conn.close()
@@ -320,11 +329,22 @@ class DatasetImportService:
 
         event = self._cancel_events.get(import_id)
         if event is not None:
+            # A live worker in this process owns the terminal DB write and the
+            # temp-dir cleanup (see `_run_job`) — writing/cleaning here would
+            # race its in-flight writes to `output.jsonl` and its own
+            # `finish(...)` (a user-cancelled import could flip back to
+            # `completed`, or the writer could crash when its directory
+            # disappears under it). Only signal it and report current state;
+            # the row flips to `cancelled` once the worker observes the event.
             event.set()
-
-        finished_at = _now()
-        await repo.finish(import_id, "cancelled", None, None, finished_at)
-        shutil.rmtree(self._job_dir(import_id), ignore_errors=True)
+        else:
+            # No live worker in this process (e.g. a `running` row left over
+            # from a previous process, or the event was already dropped) — the
+            # cancel would otherwise never terminalize, so finalize here.
+            # `finish_if_active` guards the race where the worker terminalized
+            # the row between our status check above and this write.
+            await repo.finish_if_active(import_id, "cancelled", None, None, _now())
+            self._cleanup(import_id)
 
         updated = await repo.get(import_id)
         assert updated is not None

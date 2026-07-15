@@ -25,6 +25,7 @@ affect the contract.
 | `api/recipes.py` | `POST /recipes/convert`, `GET /recipes/jobs/{id}` — document→dataset conversion jobs. Thin wrapper over `services/recipe_service.py`. |
 | `api/history.py` | `GET /runs/history` (filter/sort/paginate) and `POST /train/jobs/{run_id}/clone`. No dedicated service — talks to `RunsRepo` directly, same pattern as `api/system.py`. |
 | `core/errors.py` | `AppError` hierarchy (`NotFoundError`, `ConflictError`, `ValidationAppError`, `TrainingActiveError`, `InternalError`) and the exception handlers that turn them (plus `RequestValidationError` and any uncaught exception) into the `{"error": {code, message, detail}}` shape from `docs/api.md`. |
+| `core/paths.py` | Canonical `model_id` ↔ on-disk directory-name mapping (`model_dirname` / `model_id_from_dirname`), shared by the registry, training manager, export, chat and arena so every component resolves the same directories. |
 | `core/process.py` | Process-group spawn/kill helpers (`spawn_process_group`, `terminate_process_group`, `kill_process_group`, PID-file read/write, liveness check). Used by both the training worker and orphan reaping. |
 | `core/ws.py` | `ConnectionManager` — topic-based WebSocket pub/sub (`subscribe`/`unsubscribe`/`broadcast`), used by the training WS. Downloads and chat WS use their own local queue-based mechanisms instead. |
 | `db/database.py` | SQLite schema + versioned migrations (`MIGRATIONS` list, `schema_version` table), `init_db`, `get_connection`. |

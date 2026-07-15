@@ -521,6 +521,30 @@ class DatasetImportsRepo:
         )
         await self._conn.commit()
 
+    async def finish_if_active(
+        self,
+        id: str,
+        status: str,
+        dataset_id: str | None,
+        error: str | None,
+        finished_at: str,
+    ) -> bool:
+        """`finish`, but refuses to overwrite a row already in a terminal
+        status (completed/failed/cancelled). Returns True if the row was
+        updated. Guards the import-cancel race: last-writer-wins double
+        finishes could otherwise flip e.g. a cancelled import back to
+        completed."""
+        cursor = await self._conn.execute(
+            """
+            UPDATE dataset_imports
+            SET status = ?, dataset_id = ?, error = ?, finished_at = ?
+            WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled')
+            """,
+            (status, dataset_id, error, finished_at, id),
+        )
+        await self._conn.commit()
+        return cursor.rowcount > 0
+
     async def fail_stale_running(self, finished_at: str, error: str) -> int:
         cursor = await self._conn.execute(
             "UPDATE dataset_imports SET status = 'failed', finished_at = ?, error = ? "

@@ -26,27 +26,13 @@ from tqdm import tqdm
 
 from app.config import Settings
 from app.core.errors import ConflictError, InternalError, NotFoundError, TrainingActiveError
+from app.core.paths import model_dirname, model_id_from_dirname
 from app.db.database import get_connection
 from app.db.repositories import DownloadsRepo, RunsRepo
 from app.schemas.models import DownloadInfo, HFSearchResult, ModelInfo, Quantization
 
 # Minimum interval between DB progress snapshots for a single in-flight download.
 _PERSIST_INTERVAL_SECONDS = 0.5
-
-
-def _dirname_for_model_id(model_id: str) -> str:
-    org, _, name = model_id.partition("/")
-    if not name:
-        # No "/" in model_id — fall back to using the whole string as the name.
-        return f"_{org}"
-    return f"{org}__{name}"
-
-
-def _model_id_for_dirname(dirname: str) -> str:
-    org, sep, name = dirname.partition("__")
-    if not sep:
-        return dirname
-    return f"{org}/{name}"
 
 
 def _now_iso() -> str:
@@ -148,7 +134,7 @@ class ModelRegistry:
 
         stat = model_dir.stat()
         return ModelInfo(
-            model_id=_model_id_for_dirname(model_dir.name),
+            model_id=model_id_from_dirname(model_dir.name),
             path=str(model_dir.resolve()),
             size_bytes=self._dir_size_bytes(model_dir),
             model_type=model_type,
@@ -176,7 +162,7 @@ class ModelRegistry:
         return {m.model_id for m in await self.list_local_models()}
 
     def _local_model_dir(self, model_id: str) -> Path:
-        return self._settings.models_dir / _dirname_for_model_id(model_id)
+        return self._settings.models_dir / model_dirname(model_id)
 
     # ------------------------------------------------------------------ #
     # HF Hub search
