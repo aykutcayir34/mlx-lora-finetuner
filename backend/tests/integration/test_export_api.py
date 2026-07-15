@@ -241,6 +241,48 @@ async def test_gguf_start_422_on_failing_preflight(client, export_service, data_
 
 
 @pytest.mark.asyncio
+async def test_gguf_preflight_corrupt_config_returns_ok_false_not_500(
+    client, export_service, data_dir
+):
+    settings = get_settings()
+    llama_dir = settings.cache_dir / "llama.cpp"
+    llama_dir.mkdir(parents=True, exist_ok=True)
+    (llama_dir / "convert_hf_to_gguf.py").write_text("# stub")
+    model_dir = settings.models_dir / "corrupt__model"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "config.json").write_text("{not valid json")
+
+    response = await client.get(
+        "/api/v1/export/gguf/preflight", params={"model_path": str(model_dir)}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ok"] is False
+    failing = [c for c in data["checks"] if not c["ok"]]
+    assert any("config.json is not valid JSON" in c["message"] for c in failing)
+
+
+@pytest.mark.asyncio
+async def test_gguf_start_corrupt_config_is_422_not_500(client, export_service, data_dir):
+    settings = get_settings()
+    llama_dir = settings.cache_dir / "llama.cpp"
+    llama_dir.mkdir(parents=True, exist_ok=True)
+    (llama_dir / "convert_hf_to_gguf.py").write_text("# stub")
+    model_dir = settings.models_dir / "corrupt__model"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "config.json").write_text("{not valid json")
+
+    response = await client.post(
+        "/api/v1/export/gguf",
+        json={"model_path": str(model_dir), "outtype": "f16", "output_name": "out"},
+    )
+    assert response.status_code == 422
+    data = response.json()
+    assert data["error"]["code"] == "validation_error"
+    assert "checks" in data["error"]["detail"]
+
+
+@pytest.mark.asyncio
 async def test_gguf_end_to_end_via_api(client, export_service, data_dir):
     service, subprocess = export_service
     settings = get_settings()

@@ -358,6 +358,44 @@ async def test_preflight_missing_config_fails_arch_and_weights(settings, tmp_pat
 
 
 @pytest.mark.asyncio
+async def test_preflight_corrupt_config_fails_instead_of_raising(settings, tmp_path):
+    llama_dir = settings.cache_dir / "llama.cpp"
+    llama_dir.mkdir(parents=True, exist_ok=True)
+    (llama_dir / "convert_hf_to_gguf.py").write_text("# stub")
+    model_dir = tmp_path / "corrupt-config-model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text("{not valid json")
+
+    service = ExportService(settings, run_subprocess=RecordingSubprocess())
+    report = await service.preflight_gguf(str(model_dir))
+
+    assert report.ok is False
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["arch_supported"].ok is False
+    assert "config.json is not valid JSON" in by_name["arch_supported"].message
+    assert by_name["weights_dequantized"].ok is False
+    assert "config.json is not valid JSON" in by_name["weights_dequantized"].message
+
+
+@pytest.mark.asyncio
+async def test_preflight_non_object_config_fails_instead_of_raising(settings, tmp_path):
+    llama_dir = settings.cache_dir / "llama.cpp"
+    llama_dir.mkdir(parents=True, exist_ok=True)
+    (llama_dir / "convert_hf_to_gguf.py").write_text("# stub")
+    model_dir = tmp_path / "list-config-model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text("[1, 2, 3]")
+
+    service = ExportService(settings, run_subprocess=RecordingSubprocess())
+    report = await service.preflight_gguf(str(model_dir))
+
+    assert report.ok is False
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["arch_supported"].ok is False
+    assert by_name["weights_dequantized"].ok is False
+
+
+@pytest.mark.asyncio
 async def test_preflight_respects_explicit_llama_cpp_dir_setting(settings, tmp_path):
     custom_dir = tmp_path / "custom-llama-cpp"
     custom_dir.mkdir()
@@ -420,6 +458,29 @@ async def test_gguf_422_when_preflight_fails(settings, conn):
         await service.start_gguf(conn, body, BackgroundTasks())
 
     assert "checks" in excinfo.value.detail
+
+
+@pytest.mark.asyncio
+async def test_gguf_start_corrupt_config_raises_validation_error_not_500(settings, conn, tmp_path):
+    # A corrupt config.json must surface as the normal preflight-failure 422,
+    # never as an unhandled JSONDecodeError (raw 500).
+    llama_dir = settings.cache_dir / "llama.cpp"
+    llama_dir.mkdir(parents=True, exist_ok=True)
+    (llama_dir / "convert_hf_to_gguf.py").write_text("# stub")
+    model_dir = tmp_path / "corrupt-config-model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text("{not valid json")
+
+    subprocess = RecordingSubprocess()
+    service = ExportService(settings, run_subprocess=subprocess)
+    body = GGUFRequest(model_path=str(model_dir), outtype="f16", output_name="my-gguf")
+
+    with pytest.raises(ValidationAppError) as excinfo:
+        await service.start_gguf(conn, body, BackgroundTasks())
+
+    failing = excinfo.value.detail["checks"]
+    assert any("config.json is not valid JSON" in c["message"] for c in failing)
+    assert subprocess.calls == []
 
 
 @pytest.mark.asyncio

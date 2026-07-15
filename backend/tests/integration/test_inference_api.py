@@ -20,8 +20,8 @@ from types import SimpleNamespace
 import pytest
 from starlette.testclient import TestClient
 
-from app.api.inference import _model_dir_name
 from app.config import get_settings
+from app.core.paths import model_dirname
 from app.main import create_app
 from app.services import inference_service as svc
 
@@ -111,7 +111,7 @@ def test_training_active_then_success(data_dir, patched_mlx):
         db_path = settings.db_path
         _insert_run(db_path, "run_1", status="running")
 
-        model_dir = settings.models_dir / _model_dir_name(MODEL_ID)
+        model_dir = settings.models_dir / model_dirname(MODEL_ID)
         model_dir.mkdir(parents=True, exist_ok=True)
 
         def fake_stream_generate(model, tokenizer, prompt, **kwargs):
@@ -157,7 +157,7 @@ def test_model_not_found(data_dir, patched_mlx):
 def test_missing_adapter_path(data_dir, patched_mlx):
     settings = get_settings()
     with TestClient(create_app()) as client:
-        model_dir = settings.models_dir / _model_dir_name(MODEL_ID)
+        model_dir = settings.models_dir / model_dirname(MODEL_ID)
         model_dir.mkdir(parents=True, exist_ok=True)
 
         with client.websocket_connect("/api/v1/ws/chat") as ws:
@@ -170,7 +170,7 @@ def test_missing_adapter_path(data_dir, patched_mlx):
 def test_concurrent_generate_rejected(data_dir, patched_mlx):
     settings = get_settings()
     with TestClient(create_app()) as client:
-        model_dir = settings.models_dir / _model_dir_name(MODEL_ID)
+        model_dir = settings.models_dir / model_dirname(MODEL_ID)
         model_dir.mkdir(parents=True, exist_ok=True)
 
         gate = threading.Event()
@@ -208,7 +208,7 @@ def test_concurrent_generate_rejected(data_dir, patched_mlx):
 def test_cancel_stops_stream(data_dir, patched_mlx):
     settings = get_settings()
     with TestClient(create_app()) as client:
-        model_dir = settings.models_dir / _model_dir_name(MODEL_ID)
+        model_dir = settings.models_dir / model_dirname(MODEL_ID)
         model_dir.mkdir(parents=True, exist_ok=True)
 
         gate = threading.Event()
@@ -231,6 +231,29 @@ def test_cancel_stops_stream(data_dir, patched_mlx):
 
             done = ws.receive_json()
             assert done["type"] == "done"
+
+
+def test_unexpected_generation_error_is_generic(data_dir, patched_mlx):
+    settings = get_settings()
+    with TestClient(create_app()) as client:
+        model_dir = settings.models_dir / model_dirname(MODEL_ID)
+        model_dir.mkdir(parents=True, exist_ok=True)
+
+        secret = "boom at /Users/someone/.cache/private-model-path"
+
+        def exploding_stream_generate(model, tokenizer, prompt, **kwargs):
+            raise RuntimeError(secret)
+            yield  # pragma: no cover — makes this a generator
+
+        patched_mlx.setattr(svc, "_stream_generate_fn", exploding_stream_generate)
+
+        with client.websocket_connect("/api/v1/ws/chat") as ws:
+            ws.send_json(_generate_frame())
+            msg = ws.receive_json()
+            assert msg["type"] == "error"
+            assert msg["code"] == "internal"
+            assert msg["message"] == "internal error"
+            assert secret not in msg["message"]
 
 
 @pytest.mark.asyncio

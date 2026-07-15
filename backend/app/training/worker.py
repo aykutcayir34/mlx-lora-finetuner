@@ -96,12 +96,13 @@ def _build_worker_args(run_dir: Path, config, train_mod=None):
     import types
 
     from app.config import get_settings
+    from app.core.paths import model_dirname
 
     if train_mod is None:
         train_mod = _import_mlx_train_module()
 
     settings = get_settings()
-    model_path = str(settings.models_dir / config.model_id.replace("/", "__"))
+    model_path = str(settings.models_dir / model_dirname(config.model_id))
     dataset_data_dir = str(settings.datasets_dir / config.dataset_id / "data")
     adapter_path = str(run_dir / "adapters")
 

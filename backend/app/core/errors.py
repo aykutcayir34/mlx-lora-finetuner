@@ -1,7 +1,11 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 
 class AppError(Exception):
@@ -74,7 +78,14 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        # Log the real exception server-side; the client only gets a generic
+        # message so internal details (filesystem paths etc.) never leak.
+        logger.exception(
+            "unhandled exception while handling %s %s", request.method, request.url.path
+        )
         return JSONResponse(
             status_code=500,
-            content={"error": {"code": "internal", "message": str(exc), "detail": {}}},
+            content={
+                "error": {"code": "internal", "message": "internal server error", "detail": {}}
+            },
         )

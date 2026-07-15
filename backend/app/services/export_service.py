@@ -23,6 +23,7 @@ from jinja2 import Environment, FileSystemLoader
 
 from app.config import Settings, get_settings
 from app.core.errors import NotFoundError, TrainingActiveError, ValidationAppError
+from app.core.paths import model_dirname
 from app.db.repositories import ArtifactsRepo, ExportsRepo, RunsRepo
 from app.schemas.export import (
     ExportArtifact,
@@ -86,9 +87,7 @@ class ExportService:
         return conn
 
     def _model_path_for_id(self, model_id: str) -> Path:
-        org, sep, name = model_id.partition("/")
-        dirname = f"{org}__{name}" if sep else org
-        return self._settings.models_dir / dirname
+        return self._settings.models_dir / model_dirname(model_id)
 
     async def _assert_training_inactive(self, conn: aiosqlite.Connection) -> None:
         active = await RunsRepo(conn).list_active()
@@ -202,12 +201,28 @@ class ExportService:
             )
 
         config_path = Path(model_path) / "config.json"
+        config: dict[str, Any] | None = None
         if not config_path.is_file():
             message = f"config.json bulunamadı: {config_path}"
+        else:
+            try:
+                parsed = json.loads(config_path.read_text())
+            except (OSError, UnicodeDecodeError, ValueError) as exc:
+                # ValueError covers json.JSONDecodeError.
+                message = f"config.json is not valid JSON: {exc}"
+            else:
+                if isinstance(parsed, dict):
+                    config = parsed
+                else:
+                    message = (
+                        "config.json is not valid JSON: expected a JSON object, "
+                        f"got {type(parsed).__name__}"
+                    )
+
+        if config is None:
             checks.append(PreflightCheck(name="arch_supported", ok=False, message=message))
             checks.append(PreflightCheck(name="weights_dequantized", ok=False, message=message))
         else:
-            config = json.loads(config_path.read_text())
             model_type = config.get("model_type")
             if model_type in CURATED_ARCHS:
                 checks.append(

@@ -27,6 +27,7 @@ from pathlib import Path
 
 from app.config import Settings, get_settings
 from app.core.errors import NotFoundError, TrainingActiveError, ValidationAppError
+from app.core.paths import model_dirname
 from app.core.process import (
     is_pid_alive,
     kill_process_group,
@@ -114,7 +115,7 @@ class JobManager:
     # ------------------------------------------------------------------
 
     async def create_job(self, config: TrainingConfig) -> RunSummary:
-        model_dir = self._settings.models_dir / config.model_id.replace("/", "__")
+        model_dir = self._settings.models_dir / model_dirname(config.model_id)
         if not model_dir.is_dir():
             raise NotFoundError(f"model '{config.model_id}' not found")
 
