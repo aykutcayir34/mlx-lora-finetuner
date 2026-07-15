@@ -15,7 +15,7 @@ Screenshots: coming soon.
   supported formats (`chat`, `completions`, `text`, `dpo`, `orpo`, `grpo`), per-row
   validation with errors/warnings, train/valid/test splitting, and a paginated
   preview per split.
-- **Train** — SFT, DPO, ORPO, CPO, and GRPO training modes, LoRA/DoRA/full
+- **Train** — SFT, DPO, ORPO, CPO, GRPO, and FTPO training modes, LoRA/DoRA/full
   fine-tuning, QLoRA-style 4/6/8-bit quantized loading, and a live run monitor
   with loss/learning-rate/memory charts and a log tail streamed over
   WebSocket.
@@ -121,7 +121,7 @@ React/Vite frontend  ──REST + WebSocket──▶  FastAPI (/api/v1)
                                      worker subprocess (app.training.worker)
                                                  │  JSONL events on stdout
                                                  ▼
-                                     mlx-lm-lora (SFT/DPO/ORPO/CPO/GRPO)
+                                     mlx-lm-lora (SFT/DPO/ORPO/CPO/GRPO/FTPO)
 
 Event pump ─▶ SQLite (runs/metrics/datasets/downloads/exports/artifacts)
            ─▶ in-memory ring buffer (WS backfill)
@@ -149,5 +149,5 @@ MIT — see [`LICENSE`](LICENSE).
 ## Built on
 
 - [MLX](https://github.com/ml-explore/mlx) and [mlx-lm](https://github.com/ml-explore/mlx-lm) — Apple's array framework and LLM tooling for Apple Silicon.
-- [mlx-lm-lora](https://github.com/Goekdeniz-Guelmez/mlx-lm-lora) — the LoRA/DoRA/full fine-tuning and SFT/DPO/ORPO/CPO/GRPO training engine this app orchestrates.
+- [mlx-lm-lora](https://github.com/Goekdeniz-Guelmez/mlx-lm-lora) — the LoRA/DoRA/full fine-tuning and SFT/DPO/ORPO/CPO/GRPO/FTPO training engine this app orchestrates.
 - Inspired by [Unsloth Studio](https://unsloth.ai/)'s workflow, reimagined for a fully local, MLX-native stack.
