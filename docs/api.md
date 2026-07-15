@@ -81,7 +81,10 @@ No client frames. Socket closes after terminal frame.
 
 Detected formats (enum `DatasetFormat`): `chat` (`{"messages": [...]}`), `completions`
 (`{"prompt","completion"}`), `text` (`{"text"}`), `dpo` (`{"prompt","chosen","rejected"}`),
-`orpo` (dpo + `"preference_score"`), `grpo` (`{"prompt","answer"}`, optional `"system"`).
+`orpo` (dpo + `"preference_score"`), `grpo` (`{"prompt","answer"}`, optional `"system"`),
+`ftpo` (`{"context_with_chat_template","rejected_decoded","multi_chosen_decoded"}` —
+final-token preference rows; `rejected_decoded` is a single-token string,
+`multi_chosen_decoded` a list of single-token alternatives).
 
 ### DatasetInfo
 ```json
@@ -151,7 +154,8 @@ partial temp output is removed). `409 conflict` if already terminal; `404` if un
 ## Training
 
 ### Enums
-- `TrainMode`: `sft | dpo | orpo | cpo | grpo`  (Faz 1 sadece `sft`'yi UI'da açar; şema hepsini tanımlar)
+- `TrainMode`: `sft | dpo | orpo | cpo | grpo | ftpo`
+- `SftLossType`: `nll | chunked_nll | dft`  (sft-only knob; `dft` = Dynamic Fine-Tuning)
 - `TrainType`: `lora | dora | full`
 - `JobStatus`: `queued | running | completed | failed | cancelled`
 
@@ -169,12 +173,18 @@ partial temp output is removed). `409 conflict` if already terminal; `404` if un
   "save_every": 100, "steps_per_report": 10, "steps_per_eval": 100,
   "val_batches": 25, "seed": 42,
   "beta": null, "group_size": null, "temperature": null,
-  "max_completion_length": null, "reward_functions": null
+  "max_completion_length": null, "reward_functions": null,
+  "sft_loss_type": null,
+  "lambda_mse_target": null, "tau_mse_target": null,
+  "lambda_mse": null, "clip_epsilon_logits": null
 }
 ```
 Conditional validation: `dpo|orpo|cpo` require `beta`; `grpo` requires `group_size`.
+`sft_loss_type` is only accepted for `sft` (null → library default `nll`).
+`lambda_mse_target`, `tau_mse_target`, `lambda_mse`, `clip_epsilon_logits` are only
+accepted for `ftpo` and are all optional (null → library defaults 0.05 / 1.0 / 0.4 / 2.0).
 Dataset format must be compatible with mode (sft: chat/completions/text; dpo/cpo: dpo;
-orpo: orpo|dpo; grpo: grpo) → else 422.
+orpo: orpo|dpo; grpo: grpo; ftpo: ftpo) → else 422.
 
 ### RunSummary
 ```json

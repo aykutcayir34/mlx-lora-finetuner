@@ -4,7 +4,7 @@ import { useModels } from '../../api/queries/models'
 import { useDatasets } from '../../api/queries/datasets'
 import { useCreateRun } from '../../api/queries/training'
 import { ApiError } from '../../api/client'
-import type { LoraParams, TrainingConfig, TrainMode, TrainType } from '../../api/types'
+import type { LoraParams, SftLossType, TrainingConfig, TrainMode, TrainType } from '../../api/types'
 import { Card } from '../common/Card'
 import { Field } from '../common/Field'
 import { Input } from '../common/Input'
@@ -20,6 +20,7 @@ import {
   LR_SCHEDULE_OPTIONS,
   MODE_OPTIONS,
   OPTIMIZER_OPTIONS,
+  SFT_LOSS_OPTIONS,
   TRAIN_TYPE_OPTIONS,
   validateTrainingConfig,
 } from './defaults'
@@ -214,6 +215,23 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
         </div>
       </Card>
 
+      {config.train_mode === 'sft' && (
+        <Card title="SFT">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="SFT loss" htmlFor="sft-loss-type">
+              <Select
+                id="sft-loss-type"
+                options={SFT_LOSS_OPTIONS}
+                value={config.sft_loss_type ?? ''}
+                onChange={(e) =>
+                  update('sft_loss_type', e.target.value === '' ? null : (e.target.value as SftLossType))
+                }
+              />
+            </Field>
+          </div>
+        </Card>
+      )}
+
       {(config.train_mode === 'dpo' || config.train_mode === 'orpo' || config.train_mode === 'cpo') && (
         <Card title="Preference / RL">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -265,6 +283,76 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
                 value={config.max_completion_length ?? ''}
                 onChange={(e) =>
                   update('max_completion_length', e.target.value === '' ? null : Number(e.target.value))
+                }
+              />
+            </Field>
+          </div>
+        </Card>
+      )}
+
+      {config.train_mode === 'ftpo' && (
+        <Card title="Preference / RL">
+          <p className="mb-4 text-xs text-text-muted">
+            All optional — leave empty to use the library defaults.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              label="Lambda MSE target"
+              htmlFor="lambda-mse-target"
+              error={touched ? errors.lambda_mse_target : undefined}
+            >
+              <Input
+                id="lambda-mse-target"
+                type="number"
+                step="0.01"
+                placeholder="0.05 (default)"
+                value={config.lambda_mse_target ?? ''}
+                onChange={(e) =>
+                  update('lambda_mse_target', e.target.value === '' ? null : Number(e.target.value))
+                }
+              />
+            </Field>
+            <Field
+              label="Tau MSE target"
+              htmlFor="tau-mse-target"
+              error={touched ? errors.tau_mse_target : undefined}
+            >
+              <Input
+                id="tau-mse-target"
+                type="number"
+                step="0.1"
+                placeholder="1.0 (default)"
+                value={config.tau_mse_target ?? ''}
+                onChange={(e) =>
+                  update('tau_mse_target', e.target.value === '' ? null : Number(e.target.value))
+                }
+              />
+            </Field>
+            <Field label="Lambda MSE" htmlFor="lambda-mse" error={touched ? errors.lambda_mse : undefined}>
+              <Input
+                id="lambda-mse"
+                type="number"
+                step="0.1"
+                placeholder="0.4 (default)"
+                value={config.lambda_mse ?? ''}
+                onChange={(e) =>
+                  update('lambda_mse', e.target.value === '' ? null : Number(e.target.value))
+                }
+              />
+            </Field>
+            <Field
+              label="Clip epsilon (logits)"
+              htmlFor="clip-epsilon-logits"
+              error={touched ? errors.clip_epsilon_logits : undefined}
+            >
+              <Input
+                id="clip-epsilon-logits"
+                type="number"
+                step="0.1"
+                placeholder="2.0 (default)"
+                value={config.clip_epsilon_logits ?? ''}
+                onChange={(e) =>
+                  update('clip_epsilon_logits', e.target.value === '' ? null : Number(e.target.value))
                 }
               />
             </Field>

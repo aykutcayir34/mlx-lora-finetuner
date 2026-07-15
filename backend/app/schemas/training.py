@@ -9,6 +9,13 @@ class TrainMode(str, Enum):
     ORPO = "orpo"
     CPO = "cpo"
     GRPO = "grpo"
+    FTPO = "ftpo"
+
+
+class SftLossType(str, Enum):
+    NLL = "nll"
+    CHUNKED_NLL = "chunked_nll"
+    DFT = "dft"
 
 
 class TrainType(str, Enum):
@@ -57,13 +64,32 @@ class TrainingConfig(BaseModel):
     temperature: float | None = None
     max_completion_length: int | None = None
     reward_functions: list[str] | None = None
+    sft_loss_type: SftLossType | None = None
+    lambda_mse_target: float | None = None
+    tau_mse_target: float | None = None
+    lambda_mse: float | None = None
+    clip_epsilon_logits: float | None = None
 
     @model_validator(mode="after")
-    def check_beta_and_group_size(self) -> "TrainingConfig":
+    def check_mode_conditional_fields(self) -> "TrainingConfig":
         if self.train_mode in (TrainMode.DPO, TrainMode.ORPO, TrainMode.CPO) and self.beta is None:
             raise ValueError("beta is required for dpo/orpo/cpo train_mode")
         if self.train_mode == TrainMode.GRPO and self.group_size is None:
             raise ValueError("group_size is required for grpo train_mode")
+        if self.sft_loss_type is not None and self.train_mode != TrainMode.SFT:
+            raise ValueError("sft_loss_type is only accepted for sft train_mode")
+        if self.train_mode != TrainMode.FTPO:
+            ftpo_only = {
+                "lambda_mse_target": self.lambda_mse_target,
+                "tau_mse_target": self.tau_mse_target,
+                "lambda_mse": self.lambda_mse,
+                "clip_epsilon_logits": self.clip_epsilon_logits,
+            }
+            offending = sorted(name for name, value in ftpo_only.items() if value is not None)
+            if offending:
+                raise ValueError(
+                    f"{', '.join(offending)} only accepted for ftpo train_mode"
+                )
         return self
 
 

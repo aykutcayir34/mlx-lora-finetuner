@@ -61,6 +61,11 @@ function buildGroups(config: TrainingConfig): ConfigGroup[] {
         ['temperature', config.temperature],
         ['max_completion_length', config.max_completion_length],
         ['reward_functions', config.reward_functions],
+        ['sft_loss_type', config.sft_loss_type],
+        ['lambda_mse_target', config.lambda_mse_target],
+        ['tau_mse_target', config.tau_mse_target],
+        ['lambda_mse', config.lambda_mse],
+        ['clip_epsilon_logits', config.clip_epsilon_logits],
       ],
     },
   ]

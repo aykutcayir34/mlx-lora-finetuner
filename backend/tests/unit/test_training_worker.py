@@ -67,6 +67,12 @@ class FakeTrainModuleWithLibraryDefaults(FakeTrainModule):
         parser.add_argument("--group-size", type=int, default=4)
         parser.add_argument("--max-completion-length", type=int, default=512)
         parser.add_argument("--temperature", type=float, default=1.0)
+        # v3 additions (same defaults as mlx_lm_lora.train.CONFIG_DEFAULTS).
+        parser.add_argument("--sft-loss-type", type=str, default="nll")
+        parser.add_argument("--lambda-mse-target", type=float, default=0.05)
+        parser.add_argument("--tau-mse-target", type=float, default=1.0)
+        parser.add_argument("--lambda-mse", type=float, default=0.4)
+        parser.add_argument("--clip-epsilon-logits", type=float, default=2.0)
         return parser
 
 
@@ -202,6 +208,67 @@ def test_build_worker_args_dpo_reference_model_path_left_unset_for_base_model_de
     args = worker._build_worker_args(run_dir, config, train_mod=FakeTrainModule)
 
     assert not hasattr(args, "reference_model_path") or args.reference_model_path is None
+
+
+def test_build_worker_args_maps_ftpo_params_when_set(settings, tmp_path):
+    run_dir = tmp_path / "runs" / "run_ftpo"
+    run_dir.mkdir(parents=True)
+    config = make_config(
+        train_mode="ftpo",
+        lambda_mse_target=0.1,
+        tau_mse_target=2.0,
+        lambda_mse=0.5,
+        clip_epsilon_logits=3.0,
+    )
+
+    args = worker._build_worker_args(run_dir, config, train_mod=FakeTrainModule)
+
+    assert args.train_mode == "ftpo"
+    assert args.lambda_mse_target == 0.1
+    assert args.tau_mse_target == 2.0
+    assert args.lambda_mse == 0.5
+    assert args.clip_epsilon_logits == 3.0
+
+
+def test_build_worker_args_ftpo_falls_back_to_library_defaults_when_unset(settings, tmp_path):
+    run_dir = tmp_path / "runs" / "run_ftpo_defaults"
+    run_dir.mkdir(parents=True)
+    config = make_config(train_mode="ftpo")  # all four ftpo knobs left None
+
+    args = worker._build_worker_args(
+        run_dir, config, train_mod=FakeTrainModuleWithLibraryDefaults
+    )
+
+    assert args.train_mode == "ftpo"
+    assert args.lambda_mse_target == 0.05
+    assert args.tau_mse_target == 1.0
+    assert args.lambda_mse == 0.4
+    assert args.clip_epsilon_logits == 2.0
+
+
+def test_build_worker_args_maps_sft_loss_type_as_plain_string_when_set(settings, tmp_path):
+    run_dir = tmp_path / "runs" / "run_sft_loss"
+    run_dir.mkdir(parents=True)
+    config = make_config(train_mode="sft", sft_loss_type="dft")
+
+    args = worker._build_worker_args(run_dir, config, train_mod=FakeTrainModule)
+
+    assert args.sft_loss_type == "dft"
+    assert isinstance(args.sft_loss_type, str) and not hasattr(args.sft_loss_type, "value")
+
+
+def test_build_worker_args_sft_loss_type_falls_back_to_library_default_when_unset(
+    settings, tmp_path
+):
+    run_dir = tmp_path / "runs" / "run_sft_loss_default"
+    run_dir.mkdir(parents=True)
+    config = make_config(train_mode="sft")  # sft_loss_type left None
+
+    args = worker._build_worker_args(
+        run_dir, config, train_mod=FakeTrainModuleWithLibraryDefaults
+    )
+
+    assert args.sft_loss_type == "nll"
 
 
 @pytest.mark.parametrize(

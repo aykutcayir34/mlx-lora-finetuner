@@ -1,0 +1,5 @@
+{"context_with_chat_template": "<|user|>ok<|assistant|>x", "rejected_decoded": " a", "multi_chosen_decoded": [" b"]}
+{"context_with_chat_template": "<|user|>missing rejected<|assistant|>x", "multi_chosen_decoded": [" b"]}
+{"context_with_chat_template": "<|user|>wrong type<|assistant|>x", "rejected_decoded": " a", "multi_chosen_decoded": " b"}
+{"context_with_chat_template": "<|user|>empty list<|assistant|>x", "rejected_decoded": " a", "multi_chosen_decoded": []}
+garbage

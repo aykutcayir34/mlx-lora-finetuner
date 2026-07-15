@@ -26,6 +26,16 @@ export const splitDataset: DatasetInfo = {
   created_at: '2026-07-12T10:00:00Z',
 }
 
+export const ftpoDataset: DatasetInfo = {
+  dataset_id: 'ds_ftpo',
+  name: 'my-ftpo-data',
+  format: 'ftpo',
+  path: '/datasets/ds_ftpo',
+  row_count: 120,
+  splits: { train: 96, valid: 12, test: 12 },
+  created_at: '2026-07-12T10:00:00Z',
+}
+
 export const unsplitDataset: DatasetInfo = {
   dataset_id: 'ds_2',
   name: 'no-splits-yet',
@@ -67,6 +77,11 @@ export function makeRunSummary(overrides: Partial<RunSummary> = {}): RunSummary 
       temperature: null,
       max_completion_length: null,
       reward_functions: null,
+      sft_loss_type: null,
+      lambda_mse_target: null,
+      tau_mse_target: null,
+      lambda_mse: null,
+      clip_epsilon_logits: null,
     },
     created_at: '2026-07-12T10:00:00Z',
     started_at: '2026-07-12T10:00:01Z',
@@ -81,7 +96,7 @@ export function makeRunSummary(overrides: Partial<RunSummary> = {}): RunSummary 
 
 export const trainingHandlers = [
   http.get('/api/v1/datasets', () =>
-    HttpResponse.json({ datasets: [splitDataset, unsplitDataset] }),
+    HttpResponse.json({ datasets: [splitDataset, ftpoDataset, unsplitDataset] }),
   ),
   http.get('/api/v1/train/jobs/:runId/metrics', () => HttpResponse.json({ metrics: [] })),
   http.get('/api/v1/train/jobs/:runId/logs', () => HttpResponse.json({ lines: [] })),

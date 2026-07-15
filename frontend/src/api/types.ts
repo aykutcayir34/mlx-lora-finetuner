@@ -105,7 +105,7 @@ export type DownloadWsFrame =
 // Datasets
 // ---------------------------------------------------------------------------
 
-export type DatasetFormat = 'chat' | 'completions' | 'text' | 'dpo' | 'orpo' | 'grpo'
+export type DatasetFormat = 'chat' | 'completions' | 'text' | 'dpo' | 'orpo' | 'grpo' | 'ftpo'
 
 export interface DatasetSplits {
   train: number
@@ -158,7 +158,9 @@ export interface PreviewPage {
 // Training
 // ---------------------------------------------------------------------------
 
-export type TrainMode = 'sft' | 'dpo' | 'orpo' | 'cpo' | 'grpo'
+export type TrainMode = 'sft' | 'dpo' | 'orpo' | 'cpo' | 'grpo' | 'ftpo'
+// sft-only knob; `dft` = Dynamic Fine-Tuning.
+export type SftLossType = 'nll' | 'chunked_nll' | 'dft'
 export type TrainType = 'lora' | 'dora' | 'full'
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 
@@ -194,6 +196,13 @@ export interface TrainingConfig {
   temperature: number | null
   max_completion_length: number | null
   reward_functions: string[] | null
+  // sft-only (422 otherwise); null → library default 'nll'.
+  sft_loss_type: SftLossType | null
+  // ftpo-only (422 otherwise); null → library defaults 0.05 / 1.0 / 0.4 / 2.0.
+  lambda_mse_target: number | null
+  tau_mse_target: number | null
+  lambda_mse: number | null
+  clip_epsilon_logits: number | null
 }
 
 export interface RunSummary {
