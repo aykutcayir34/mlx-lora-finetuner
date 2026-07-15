@@ -141,6 +141,43 @@ class TestParseWorkerLine:
         assert event.tokens_per_sec == 512.0
         assert event.peak_memory_gb == 3.4
 
+    def test_metric_with_missing_rate_fields_parses_with_nones(self):
+        # mlx-lm-lora may omit keys like tokens_per_second/peak_memory; the
+        # worker then emits nulls (or the keys are absent entirely). The
+        # metric must still parse instead of degrading to a log_line.
+        line = '{"event": "metric", "step": 10, "loss": 2.3, "learning_rate": 1e-5}'
+        event = parse_worker_line(line)
+        assert isinstance(event, WorkerMetric)
+        assert event.step == 10
+        assert event.loss == 2.3
+        assert event.learning_rate == 1e-5
+        assert event.it_per_sec is None
+        assert event.tokens_per_sec is None
+        assert event.peak_memory_gb is None
+
+    def test_metric_with_explicit_null_rate_fields_parses_with_nones(self):
+        line = (
+            '{"event": "metric", "step": 5, "loss": 1.5, "learning_rate": null, '
+            '"it_per_sec": null, "tokens_per_sec": null, "peak_memory_gb": null}'
+        )
+        event = parse_worker_line(line)
+        assert isinstance(event, WorkerMetric)
+        assert event.step == 5
+        assert event.loss == 1.5
+        assert event.learning_rate is None
+        assert event.it_per_sec is None
+        assert event.tokens_per_sec is None
+        assert event.peak_memory_gb is None
+
+    def test_metric_with_null_loss_falls_back_to_log_line(self):
+        # Documented behavior: step and loss stay required — a metric without
+        # them is unusable, so the line is treated as a plain log_line
+        # (parse_worker_line -> None) rather than a metric.
+        assert parse_worker_line('{"event": "metric", "step": 3, "loss": null}') is None
+
+    def test_metric_with_null_step_falls_back_to_log_line(self):
+        assert parse_worker_line('{"event": "metric", "step": null, "loss": 2.0}') is None
+
     def test_invalid_json_returns_none(self):
         assert parse_worker_line("not json {") is None
 

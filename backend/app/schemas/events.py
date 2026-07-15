@@ -10,13 +10,24 @@ class WorkerStarted(BaseModel):
 
 
 class WorkerMetric(BaseModel):
+    """Train-metric line from the worker.
+
+    The rate/memory fields are nullable: `WorkerCallback.on_train_loss_report`
+    forwards `train_info.get(...)` values, and mlx-lm-lora may omit any of
+    those keys — a missing rate must not make the whole metric unparseable
+    (it would silently degrade to a `log_line`). `step` and `loss` stay
+    required: a metric without them is unusable, so such a line intentionally
+    falls back to `log_line`. Mirrors `MetricEvent`, which is nullable
+    end-to-end (docs/api.md: "rate fields may be null").
+    """
+
     event: Literal["metric"]
     step: int
     loss: float
-    learning_rate: float
-    it_per_sec: float
-    tokens_per_sec: float
-    peak_memory_gb: float
+    learning_rate: float | None = None
+    it_per_sec: float | None = None
+    tokens_per_sec: float | None = None
+    peak_memory_gb: float | None = None
 
 
 class WorkerValMetric(BaseModel):

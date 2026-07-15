@@ -125,6 +125,15 @@ class JobManager:
         self._cancel_grace_seconds = cancel_grace_seconds
 
         self._active_run_id: str | None = None
+        # Serializes the check-then-insert-then-spawn critical section in
+        # `create_job` (and the startup sweep in `reap_orphans`, which also
+        # rewrites active-run state). Without it, two concurrent
+        # POST /train/jobs can both observe zero active runs and both spawn
+        # workers, breaking the single-training-job invariant. Read paths
+        # (get_run/list_runs/get_metrics/get_logs) and the shrink-only paths
+        # (cancel/_finalize, which never *create* active runs and are
+        # idempotent via `_finalized`) deliberately do not take it.
+        self._create_lock = asyncio.Lock()
         self._processes: dict[str, subprocess.Popen] = {}
         self._pump_tasks: dict[str, asyncio.Task] = {}
         self._ring_buffers: dict[str, deque] = {}
@@ -156,50 +165,60 @@ class JobManager:
         if not model_dir.is_dir():
             raise NotFoundError(f"model '{config.model_id}' not found")
 
-        async with get_connection(self._settings.db_path) as conn:
-            dataset_row = await DatasetsRepo(conn).get(config.dataset_id)
-            if dataset_row is None:
-                raise NotFoundError(f"dataset '{config.dataset_id}' not found")
+        # Everything from the active-run check to the worker spawn must be
+        # atomic w.r.t. other create_job calls: `list_active` + `insert` is a
+        # classic check-then-act race, and the spawn must happen before the
+        # next caller's check so the invariant (at most one queued/running
+        # run) holds. The dataset validation reads ride along inside the lock
+        # because they share the DB connection; create_job is rare and cheap,
+        # so serializing it entirely is fine.
+        async with self._create_lock:
+            async with get_connection(self._settings.db_path) as conn:
+                dataset_row = await DatasetsRepo(conn).get(config.dataset_id)
+                if dataset_row is None:
+                    raise NotFoundError(f"dataset '{config.dataset_id}' not found")
 
-            train_file = self._settings.datasets_dir / config.dataset_id / "data" / "train.jsonl"
-            if not train_file.is_file():
-                raise ValidationAppError(
-                    f"dataset '{config.dataset_id}' has no train split; "
-                    "call POST /datasets/{id}/split first"
+                train_file = (
+                    self._settings.datasets_dir / config.dataset_id / "data" / "train.jsonl"
+                )
+                if not train_file.is_file():
+                    raise ValidationAppError(
+                        f"dataset '{config.dataset_id}' has no train split; "
+                        "call POST /datasets/{id}/split first"
+                    )
+
+                allowed_formats = DATASET_FORMAT_COMPAT[config.train_mode.value]
+                if dataset_row["format"] not in allowed_formats:
+                    raise ValidationAppError(
+                        f"dataset format '{dataset_row['format']}' is not compatible "
+                        f"with train_mode '{config.train_mode.value}' "
+                        f"(expected one of {sorted(allowed_formats)})"
+                    )
+
+                runs_repo = RunsRepo(conn)
+                active = await runs_repo.list_active()
+                if active:
+                    raise TrainingActiveError("a training job is already queued or running")
+
+                run_id = f"run_{uuid.uuid4().hex[:12]}"
+                created_at = _now_iso()
+                config_json = config.model_dump_json()
+                await runs_repo.insert(
+                    run_id=run_id,
+                    name=config.name,
+                    status=JobStatus.QUEUED.value,
+                    config_json=config_json,
+                    model_id=config.model_id,
+                    dataset_id=config.dataset_id,
+                    train_mode=config.train_mode.value,
+                    created_at=created_at,
                 )
 
-            allowed_formats = DATASET_FORMAT_COMPAT[config.train_mode.value]
-            if dataset_row["format"] not in allowed_formats:
-                raise ValidationAppError(
-                    f"dataset format '{dataset_row['format']}' is not compatible "
-                    f"with train_mode '{config.train_mode.value}' "
-                    f"(expected one of {sorted(allowed_formats)})"
-                )
+            run_dir = self._settings.runs_dir / run_id
+            run_dir.mkdir(parents=True, exist_ok=True)
+            (run_dir / "config.json").write_text(config_json)
 
-            runs_repo = RunsRepo(conn)
-            active = await runs_repo.list_active()
-            if active:
-                raise TrainingActiveError("a training job is already queued or running")
-
-            run_id = f"run_{uuid.uuid4().hex[:12]}"
-            created_at = _now_iso()
-            config_json = config.model_dump_json()
-            await runs_repo.insert(
-                run_id=run_id,
-                name=config.name,
-                status=JobStatus.QUEUED.value,
-                config_json=config_json,
-                model_id=config.model_id,
-                dataset_id=config.dataset_id,
-                train_mode=config.train_mode.value,
-                created_at=created_at,
-            )
-
-        run_dir = self._settings.runs_dir / run_id
-        run_dir.mkdir(parents=True, exist_ok=True)
-        (run_dir / "config.json").write_text(config_json)
-
-        await self._start_worker(run_id, run_dir)
+            await self._start_worker(run_id, run_dir)
 
         return await self.get_run(run_id)
 
@@ -265,7 +284,17 @@ class JobManager:
         return await self.get_run(run_id)
 
     async def reap_orphans(self) -> None:
-        """Startup hook: fail/cancel any run left `queued`/`running` from a crash."""
+        """Startup hook: fail/cancel any run left `queued`/`running` from a crash.
+
+        Holds `_create_lock` so a concurrent `create_job` can neither observe
+        a half-swept active set nor insert a fresh run mid-sweep (and so the
+        unconditional `_active_run_id = None` below cannot clobber a run being
+        started concurrently).
+        """
+        async with self._create_lock:
+            await self._reap_orphans_locked()
+
+    async def _reap_orphans_locked(self) -> None:
         async with get_connection(self._settings.db_path) as conn:
             active_rows = await RunsRepo(conn).list_active()
 
