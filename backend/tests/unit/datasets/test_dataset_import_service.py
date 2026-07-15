@@ -61,6 +61,28 @@ async def test_streaming_import_happy_path_honors_max_rows(import_settings, monk
         await conn.close()
 
 
+def _spy_terminal_writes(monkeypatch) -> list[str]:
+    """Record the status of every terminal write that actually lands on a
+    dataset_imports row (both `finish` and the guarded `finish_if_active`)."""
+    statuses: list[str] = []
+    orig_finish = DatasetImportsRepo.finish
+    orig_finish_if_active = DatasetImportsRepo.finish_if_active
+
+    async def spy_finish(self, id, status, dataset_id, error, finished_at):
+        statuses.append(status)
+        return await orig_finish(self, id, status, dataset_id, error, finished_at)
+
+    async def spy_finish_if_active(self, id, status, dataset_id, error, finished_at):
+        updated = await orig_finish_if_active(self, id, status, dataset_id, error, finished_at)
+        if updated:
+            statuses.append(status)
+        return updated
+
+    monkeypatch.setattr(DatasetImportsRepo, "finish", spy_finish)
+    monkeypatch.setattr(DatasetImportsRepo, "finish_if_active", spy_finish_if_active)
+    return statuses
+
+
 @pytest.mark.asyncio
 async def test_cancel_mid_stream_leaves_no_local_dataset(import_settings, monkeypatch):
     pause_event = threading.Event()
@@ -69,6 +91,7 @@ async def test_cancel_mid_stream_leaves_no_local_dataset(import_settings, monkey
         "app.services.dataset_import_service._load_dataset_stream",
         _pausing_stream_factory(1000, pause_at=20, pause_event=pause_event, resume_event=resume_event),
     )
+    terminal_writes = _spy_terminal_writes(monkeypatch)
 
     service = DatasetImportService(import_settings)
     conn = await make_conn(import_settings)
@@ -83,21 +106,100 @@ async def test_cancel_mid_stream_leaves_no_local_dataset(import_settings, monkey
         # blocking the event loop, so cancellation can be issued mid-stream.
         await asyncio.to_thread(pause_event.wait, 5)
 
+        # cancel_import only signals the worker; the worker owns the terminal
+        # write, so the row is still `running` right after the call.
         cancelled_info = await service.cancel_import(conn, accepted.import_id)
-        assert cancelled_info.status == "cancelled"
+        assert cancelled_info.status == "running"
+        assert terminal_writes == []
 
         resume_event.set()
         await run_task
 
+        # The worker observed the cancel event: exactly one terminal write,
+        # and it is `cancelled` — the worker loop exiting afterwards must not
+        # flip it back to `completed`.
         row = await DatasetImportsRepo(conn).get(accepted.import_id)
         assert row["status"] == "cancelled"
         assert row["dataset_id"] is None
+        assert terminal_writes == ["cancelled"]
 
         job_dir = service._job_dir(accepted.import_id)
         assert not job_dir.exists()
 
         datasets = await DatasetsRepo(conn).list_()
         assert datasets == []
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_cancel_already_completed_import_conflicts_and_keeps_status(
+    import_settings, monkeypatch
+):
+    rows = [{"text": f"row {i}"} for i in range(3)]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        body = DatasetImportRequest(dataset_id="org/done", split="train")
+        accepted = await service.start_import(conn, bt, body)
+        await bt.run_all()
+
+        repo = DatasetImportsRepo(conn)
+        row = await repo.get(accepted.import_id)
+        assert row["status"] == "completed"
+
+        from app.core.errors import ConflictError
+
+        with pytest.raises(ConflictError):
+            await service.cancel_import(conn, accepted.import_id)
+
+        # Even a direct guarded terminal write must not clobber the row.
+        updated = await repo.finish_if_active(
+            accepted.import_id, "cancelled", None, None, "2026-07-15T00:00:00Z"
+        )
+        assert updated is False
+
+        row = await repo.get(accepted.import_id)
+        assert row["status"] == "completed"
+        assert row["dataset_id"] is not None
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_cancel_without_live_worker_finalizes_row(import_settings):
+    """A `running` row with no live worker in this process (e.g. left over
+    from a previous process) must still terminalize on cancel."""
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        repo = DatasetImportsRepo(conn)
+        await repo.insert(
+            id="di_stale",
+            hf_dataset_id="org/stale",
+            config=None,
+            split="train",
+            name="stale",
+            max_rows=None,
+            status="running",
+            started_at="2026-07-15T00:00:00Z",
+        )
+        job_dir = service._job_dir("di_stale")
+        job_dir.mkdir(parents=True, exist_ok=True)
+        (job_dir / "output.jsonl").write_text('{"text": "partial"}\n')
+
+        info = await service.cancel_import(conn, "di_stale")
+        assert info.status == "cancelled"
+
+        row = await repo.get("di_stale")
+        assert row["status"] == "cancelled"
+        assert row["finished_at"] is not None
+        assert not job_dir.exists()
     finally:
         await conn.close()
 

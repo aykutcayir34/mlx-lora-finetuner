@@ -192,9 +192,17 @@ async def test_cancel_import_then_double_cancel_and_unknown_id(client, monkeypat
     match = await _poll_import_by_hf_id(client, "mlx-community/cancel-me")
     import_id = match["import_id"]
 
+    # The worker owns the terminal write: cancel only signals it, so the row
+    # is still `running` while the (paused) worker hasn't observed the event.
     cancel_response = await client.post(f"/api/v1/datasets/imports/{import_id}/cancel")
     assert cancel_response.status_code == 202
-    assert cancel_response.json()["status"] == "cancelled"
+    assert cancel_response.json()["status"] == "running"
+
+    resume_event.set()
+    await import_task
+
+    match = await _poll_import_by_hf_id(client, "mlx-community/cancel-me")
+    assert match["status"] == "cancelled"
 
     second_cancel = await client.post(f"/api/v1/datasets/imports/{import_id}/cancel")
     assert second_cancel.status_code == 409
@@ -203,9 +211,6 @@ async def test_cancel_import_then_double_cancel_and_unknown_id(client, monkeypat
     unknown_cancel = await client.post("/api/v1/datasets/imports/di_does_not_exist/cancel")
     assert unknown_cancel.status_code == 404
     assert unknown_cancel.json()["error"]["code"] == "not_found"
-
-    resume_event.set()
-    await import_task
 
     datasets_resp = await client.get("/api/v1/datasets")
     names = [d["name"] for d in datasets_resp.json()["datasets"]]
