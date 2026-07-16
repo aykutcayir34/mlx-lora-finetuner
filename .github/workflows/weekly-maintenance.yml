@@ -93,7 +93,7 @@ jobs:
 
       - name: Open (or skip duplicate) upstream-version issue
         if: steps.check.outputs.stale != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           STALE: ${{ steps.check.outputs.stale }}
         with:
