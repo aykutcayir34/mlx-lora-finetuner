@@ -35,7 +35,14 @@ async def test_cancel_mid_progress_marks_cancelled_and_broadcasts(registry_setti
         queue = await registry.subscribe(info.download_id, conn)
 
         cancelled_info = await registry.cancel_download(info.download_id, conn)
-        assert cancelled_info.status == "running"
+        # Cancel semantics mirror train-job cancel: the request only sets the
+        # cancel event, and the download thread terminalizes when it notices.
+        # The snapshot returned here is legitimately "running" when the thread
+        # hasn't noticed yet — but on a slow runner the thread can hit its
+        # first tqdm update (which checks the cancel event) during
+        # cancel_download's own awaits and land "cancelled" first. Both are
+        # valid; the terminal assertions below are what the test pins.
+        assert cancelled_info.status in ("running", "cancelled")
         assert cancelled_info.download_id == info.download_id
 
         # Let the fake snapshot_download's second update() run — it should now
