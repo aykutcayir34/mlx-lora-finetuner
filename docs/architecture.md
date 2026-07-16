@@ -12,8 +12,9 @@ affect the contract.
 
 | Module | Responsibility |
 | --- | --- |
-| `main.py` | FastAPI app factory: mounts every router under `/api/v1`, wires the SQLite lifecycle (`init_db` + orphan reaping on startup, `JobManager.shutdown()` on shutdown), registers the standard error-shape exception handlers, CORS for the Vite dev origin. |
-| `config.py` | `Settings` (pydantic-settings, env prefix `MLXLF_`) — the single source of the data directory and its derived subpaths (`models_dir`, `datasets_dir`, `runs_dir`, `exports_dir`, `cache_dir`, `db_path`). |
+| `main.py` | FastAPI app factory: mounts every router under `/api/v1`, wires the SQLite lifecycle (`init_db` + orphan reaping on startup, `JobManager.shutdown()` on shutdown), registers the standard error-shape exception handlers, CORS for the Vite dev origin. If `Settings.static_dir` contains a built frontend (`index.html`), it is mounted at `/` *after* all routers via `SPAStaticFiles` — a `StaticFiles` subclass whose 404s fall back to `index.html` so deep links (`/training`, `/datasets`, …) serve the SPA shell, while unknown `/api/...` paths still return the plain JSON 404. Absent the build (dev/tests/CI), nothing is mounted. |
+| `config.py` | `Settings` (pydantic-settings, env prefix `MLXLF_`) — the single source of the data directory and its derived subpaths (`models_dir`, `datasets_dir`, `runs_dir`, `exports_dir`, `cache_dir`, `db_path`), plus `static_dir` (defaults to the repo's `frontend/dist`). |
+| `cli.py` | `mlxlf` console entry point (`[project.scripts]`): argparse (`--host`, `--port`, `--no-browser`), opens the browser, then runs uvicorn on `app.main:app`. mlx-free at import time — `app.main` is loaded lazily via uvicorn's import string. |
 | `deps.py` | Shared FastAPI dependencies: `get_current_user` (no-op today, exists so auth can be added later without touching routers), `get_settings`, `get_db`. |
 | `api/system.py` | `GET /system/health`, `GET /system/stats` (memory/disk via `psutil`, active run id, data dir). |
 | `api/models.py` | Model registry routes — local list, HF search proxy, download start/list, delete, `WS /ws/downloads/{download_id}`. Thin wrapper over `services/model_registry.py`. |

@@ -18,6 +18,9 @@ dependencies = [
     "datasets",
 ]
 
+[project.scripts]
+mlxlf = "app.cli:main"
+
 [project.optional-dependencies]
 mlx = [
     "mlx-lm-lora==3.0.0",
