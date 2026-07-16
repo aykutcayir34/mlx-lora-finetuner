@@ -82,6 +82,9 @@ export function useDeleteDataset() {
       apiClient.delete<void>(`/datasets/${encodeURIComponent(datasetId)}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.datasets.list })
+      // Deleting frees disk space — refresh the footer/dashboard stats now
+      // instead of waiting for the next poll.
+      queryClient.invalidateQueries({ queryKey: queryKeys.stats })
     },
   })
 }

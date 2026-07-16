@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react'
-import { describe, expect, it } from 'vitest'
-import { fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import { server } from '../../test/server'
-import { useModels } from './models'
+import { useDeleteModel, useModels } from './models'
+import { useDeleteDataset } from './datasets'
 import { useCreateRun, useRuns } from './training'
 import { useSystemStats } from './system'
+import { queryKeys } from './keys'
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -101,6 +103,40 @@ describe('useCreateRun', () => {
     // The mutation's onSuccess invalidates the ['training', 'runs'] prefix,
     // which should trigger a refetch of the already-mounted useRuns() query.
     await waitFor(() => expect(screen.getByTestId('first-run-id')).toHaveTextContent('run_created'))
+  })
+})
+
+describe('useDeleteModel', () => {
+  it('invalidates the models list and the system stats on success', async () => {
+    server.use(
+      http.delete('/api/v1/models/:modelId', () => new HttpResponse(null, { status: 204 })),
+    )
+    const { Wrapper, queryClient } = createWrapper()
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    const { result } = renderHook(() => useDeleteModel(), { wrapper: Wrapper })
+
+    act(() => result.current.mutate('mlx-community/SmolLM-135M-Instruct-4bit'))
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.models.list })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.stats })
+  })
+})
+
+describe('useDeleteDataset', () => {
+  it('invalidates the datasets list and the system stats on success', async () => {
+    server.use(
+      http.delete('/api/v1/datasets/:datasetId', () => new HttpResponse(null, { status: 204 })),
+    )
+    const { Wrapper, queryClient } = createWrapper()
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    const { result } = renderHook(() => useDeleteDataset(), { wrapper: Wrapper })
+
+    act(() => result.current.mutate('ds_1'))
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.datasets.list })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: queryKeys.stats })
   })
 })
 

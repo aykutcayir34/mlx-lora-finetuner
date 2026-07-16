@@ -512,6 +512,69 @@ describe('TrainConfigForm', () => {
     })
   })
 
+  it('shows an error with a retry action when GET /models fails, and retry recovers', async () => {
+    const user = userEvent.setup()
+    let modelCalls = 0
+    server.use(
+      ...trainingHandlers,
+      http.get('/api/v1/models', () => {
+        modelCalls += 1
+        if (modelCalls === 1) {
+          return HttpResponse.json(
+            { error: { code: 'internal', message: 'boom', detail: {} } },
+            { status: 500 },
+          )
+        }
+        return HttpResponse.json({ models: [trainModel] })
+      }),
+    )
+    renderWithProviders(
+      <ToastProvider>
+        <TrainConfigForm onCreated={vi.fn()} />
+      </ToastProvider>,
+    )
+
+    expect(await screen.findByText('Failed to load local models.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+
+    await waitFor(() => expect(screen.getByText(trainModel.model_id)).toBeInTheDocument())
+    expect(screen.queryByText('Failed to load local models.')).not.toBeInTheDocument()
+    expect(modelCalls).toBe(2)
+  })
+
+  it('shows an error with a retry action when GET /datasets fails, and retry recovers', async () => {
+    const user = userEvent.setup()
+    let datasetCalls = 0
+    // NOTE: no trainingHandlers here — its GET /datasets handler would win
+    // over this override (first-registered-in-call matches first in MSW).
+    server.use(
+      http.get('/api/v1/datasets', () => {
+        datasetCalls += 1
+        if (datasetCalls === 1) {
+          return HttpResponse.json(
+            { error: { code: 'internal', message: 'boom', detail: {} } },
+            { status: 500 },
+          )
+        }
+        return HttpResponse.json({ datasets: [splitDataset] })
+      }),
+    )
+    renderWithProviders(
+      <ToastProvider>
+        <TrainConfigForm onCreated={vi.fn()} />
+      </ToastProvider>,
+    )
+
+    expect(await screen.findByText('Failed to load datasets.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+
+    await waitFor(() => expect(screen.getByText(/my-chat-data/)).toBeInTheDocument())
+    expect(screen.queryByText('Failed to load datasets.')).not.toBeInTheDocument()
+    expect(datasetCalls).toBe(2)
+  })
+
   it('shows a toast when the backend reports 409 training_active', async () => {
     const user = userEvent.setup()
     server.use(

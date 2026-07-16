@@ -36,11 +36,7 @@ function TrainPageContent({ WebSocketImpl }: TrainPageContentProps) {
     <div className="flex flex-1 gap-6">
       <div className="min-w-0 flex-1">
         {viewingRunId ? (
-          <RunMonitor
-            runId={viewingRunId}
-            onNewRun={() => setViewingRunId(null)}
-            WebSocketImpl={WebSocketImpl}
-          />
+          <RunMonitor runId={viewingRunId} WebSocketImpl={WebSocketImpl} />
         ) : (
           <TrainConfigForm
             initialConfig={cloneConfig}

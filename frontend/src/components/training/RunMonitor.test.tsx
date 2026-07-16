@@ -101,7 +101,6 @@ describe('RunMonitor - live run', () => {
     renderWithProviders(
       <RunMonitor
         runId="run_1"
-        onNewRun={() => {}}
         WebSocketImpl={MockWebSocket as unknown as typeof WebSocket}
       />,
     )
@@ -155,7 +154,6 @@ describe('RunMonitor - live run', () => {
     renderWithProviders(
       <RunMonitor
         runId="run_1"
-        onNewRun={() => {}}
         WebSocketImpl={MockWebSocket as unknown as typeof WebSocket}
       />,
     )
@@ -219,7 +217,6 @@ describe('RunMonitor - live run', () => {
     renderWithProviders(
       <RunMonitor
         runId="run_1"
-        onNewRun={() => {}}
         WebSocketImpl={MockWebSocket as unknown as typeof WebSocket}
       />,
     )
@@ -255,7 +252,6 @@ describe('RunMonitor - past run', () => {
     renderWithProviders(
       <RunMonitor
         runId="run_2"
-        onNewRun={() => {}}
         WebSocketImpl={MockWebSocket as unknown as typeof WebSocket}
       />,
     )
