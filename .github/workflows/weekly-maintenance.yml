@@ -1,0 +1,129 @@
+name: Weekly maintenance
+
+# Monday morning health check: exercises the full suite on a fresh runner
+# (backend run three times to smoke out flaky tests), and opens an issue
+# when a newer mlx-lm-lora / mlx-lm is published upstream. Dependabot
+# covers the regular dependency PRs; this covers what it can't — the
+# exactly-pinned mlx extra and suite rot with no code changes.
+
+on:
+  schedule:
+    - cron: "23 6 * * 1" # Mondays ~09:23 TRT
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync
+
+      - name: Backend suite x3 (flake sweep)
+        working-directory: backend
+        run: |
+          for round in 1 2 3; do
+            echo "::group::pytest round $round"
+            uv run pytest -q
+            echo "::endgroup::"
+          done
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend suite + build
+        working-directory: frontend
+        run: |
+          npx vitest run
+          npm run build
+
+  upstream-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare pinned mlx versions against PyPI
+        id: check
+        shell: python
+        run: |
+          import json, os, re, urllib.request
+
+          pins = {}
+          text = open("backend/pyproject.toml").read()
+          for name in ("mlx-lm-lora", "mlx-lm"):
+              match = re.search(rf'"{name}==([^"]+)"', text)
+              if match:
+                  pins[name] = match.group(1)
+
+          stale = []
+          for name, pinned in pins.items():
+              with urllib.request.urlopen(f"https://pypi.org/pypi/{name}/json") as resp:
+                  latest = json.load(resp)["info"]["version"]
+              if latest != pinned:
+                  stale.append(f"- `{name}`: pinned `{pinned}`, latest on PyPI `{latest}`")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"stale<<EOF\n{chr(10).join(stale)}\nEOF\n")
+
+      - name: Open (or skip duplicate) upstream-version issue
+        if: steps.check.outputs.stale != ''
+        uses: actions/github-script@v7
+        env:
+          STALE: ${{ steps.check.outputs.stale }}
+        with:
+          script: |
+            const title = "upstream: newer mlx-lm-lora / mlx-lm available";
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "dependencies",
+            });
+            if (open.some((issue) => issue.title === title)) {
+              core.info("Issue already open — skipping.");
+              return;
+            }
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              labels: ["dependencies"],
+              body: [
+                "The weekly maintenance run found newer upstream releases for the exactly-pinned `mlx` extra:",
+                "",
+                process.env.STALE,
+                "",
+                "Before bumping, verify the worker's bridge surface is unchanged",
+                "(`mlx_lm_lora.train.run` / `build_parser` / `CONFIG_DEFAULTS` and the",
+                "training-callback dict keys), then update `backend/pyproject.toml`,",
+                "relock, and run a real `make e2e` smoke on Apple Silicon.",
+                "",
+                "_Opened automatically by `.github/workflows/weekly-maintenance.yml`._",
+              ].join("\n"),
+            });
