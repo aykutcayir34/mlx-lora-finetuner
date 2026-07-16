@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Checkpoint } from '../../stores/trainingStore'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCancelRun, useRun, useRunLogs, useRunMetrics } from '../../api/queries/training'
@@ -47,6 +48,7 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
   const storeStatus = useTrainingStore((s) => s.status)
   const storeMetrics = useTrainingStore((s) => s.metrics)
   const storeLogLines = useTrainingStore((s) => s.logLines)
+  const storeCheckpoints = useTrainingStore((s) => s.checkpoints)
 
   // Reset mode whenever the viewed run changes.
   useEffect(() => {
@@ -115,6 +117,9 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
 
   const metrics: MetricEvent[] = isViewingLiveStore ? storeMetrics : (pastMetrics.data?.metrics ?? [])
   const logLines: string[] = isViewingLiveStore ? storeLogLines : (pastLogs.data?.lines ?? [])
+  // Checkpoints only stream over the live socket; the store keeps them
+  // de-duplicated and sorted ascending by step.
+  const checkpoints: Checkpoint[] = isViewingLiveStore ? storeCheckpoints : []
 
   const lastTrainMetric = useMemo(
     () => [...metrics].reverse().find((m) => m.kind === 'train'),
@@ -199,6 +204,28 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
         </Tabs>
       </Card>
 
+      {checkpoints.length > 0 && (
+        <Card title="Checkpoints">
+          <ul className="flex flex-col gap-1.5" data-testid="checkpoint-list">
+            {checkpoints.map((cp) => (
+              <li
+                key={cp.step}
+                className="flex items-center gap-3 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-sm"
+              >
+                <span className="shrink-0 font-medium text-text">Step {cp.step}</span>
+                <span
+                  className="min-w-0 flex-1 truncate text-right font-mono text-xs text-text-muted"
+                  title={cp.adapter_path}
+                >
+                  {cp.adapter_path}
+                </span>
+                <CopyButton text={cp.adapter_path} label={`Copy adapter path for step ${cp.step}`} />
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <Card>
         <LiveLogViewer lines={logLines} />
       </Card>
@@ -275,6 +302,34 @@ function TerminalPanel({ status, run, logLines }: TerminalPanelProps) {
     <Card title="Training cancelled">
       <p className="text-sm text-text-muted">This run was cancelled.</p>
     </Card>
+  )
+}
+
+// Same copy-to-clipboard pattern as common/CodeBlock, in per-row size.
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }
+    } catch {
+      // Clipboard unavailable or permission denied — nothing further to do.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      aria-label={label}
+      className="shrink-0 rounded px-2 py-0.5 text-xs text-text-muted hover:bg-surface hover:text-text"
+    >
+      {copied ? 'Copied' : 'Copy'}
+    </button>
   )
 }
 

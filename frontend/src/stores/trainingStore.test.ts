@@ -89,6 +89,28 @@ describe('trainingStore', () => {
     ])
   })
 
+  it('dedupes checkpoint frames by step (reconnect replay), keeping the latest path', () => {
+    const store = useTrainingStore.getState()
+    store.applyWsFrame({ type: 'checkpoint', step: 10, adapter_path: '/adapters/a' })
+    store.applyWsFrame({ type: 'checkpoint', step: 20, adapter_path: '/adapters/b' })
+    // reconnect backfill re-sends step 10
+    store.applyWsFrame({ type: 'checkpoint', step: 10, adapter_path: '/adapters/a-replayed' })
+    const { checkpoints } = useTrainingStore.getState()
+    expect(checkpoints).toEqual([
+      { step: 10, adapter_path: '/adapters/a-replayed' },
+      { step: 20, adapter_path: '/adapters/b' },
+    ])
+  })
+
+  it('keeps checkpoints sorted ascending by step regardless of arrival order', () => {
+    const store = useTrainingStore.getState()
+    store.applyWsFrame({ type: 'checkpoint', step: 300, adapter_path: '/adapters/c' })
+    store.applyWsFrame({ type: 'checkpoint', step: 100, adapter_path: '/adapters/a' })
+    store.applyWsFrame({ type: 'checkpoint', step: 200, adapter_path: '/adapters/b' })
+    const { checkpoints } = useTrainingStore.getState()
+    expect(checkpoints.map((c) => c.step)).toEqual([100, 200, 300])
+  })
+
   it('reset(runId) clears metrics/logLines/checkpoints/error and sets the new runId', () => {
     const store = useTrainingStore.getState()
     store.applyWsFrame({ type: 'metric', data: makeMetric(1, 'train') })

@@ -53,9 +53,14 @@ export const useTrainingStore = create<TrainingState>((set) => ({
         })
         break
       case 'checkpoint':
-        set((state) => ({
-          checkpoints: [...state.checkpoints, { step: frame.step, adapter_path: frame.adapter_path }],
-        }))
+        // De-dup by step (reconnect backfill can replay checkpoint frames),
+        // keeping the latest frame's path, sorted ascending by step.
+        set((state) => {
+          const checkpoints = state.checkpoints.filter((c) => c.step !== frame.step)
+          checkpoints.push({ step: frame.step, adapter_path: frame.adapter_path })
+          checkpoints.sort((a, b) => a.step - b.step)
+          return { checkpoints }
+        })
         break
     }
   },

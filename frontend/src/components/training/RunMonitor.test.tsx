@@ -143,6 +143,66 @@ describe('RunMonitor - live run', () => {
     await waitFor(() => expect(screen.getByText('1.230')).toBeInTheDocument())
   })
 
+  it('renders a checkpoint list with step and adapter path, deduping repeated steps', async () => {
+    server.use(
+      http.get('/api/v1/train/jobs/run_1', () =>
+        HttpResponse.json(makeRunSummary({ run_id: 'run_1', status: 'running' })),
+      ),
+      http.get('/api/v1/train/jobs/run_1/metrics', () => HttpResponse.json({ metrics: [] })),
+      http.get('/api/v1/train/jobs/run_1/logs', () => HttpResponse.json({ lines: [] })),
+    )
+
+    renderWithProviders(
+      <RunMonitor
+        runId="run_1"
+        onNewRun={() => {}}
+        WebSocketImpl={MockWebSocket as unknown as typeof WebSocket}
+      />,
+    )
+
+    await screen.findByText('my-run')
+    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1))
+    act(() => {
+      MockWebSocket.instances[0].open()
+    })
+
+    // No checkpoint section before the first checkpoint frame arrives.
+    expect(screen.queryByText('Checkpoints')).not.toBeInTheDocument()
+
+    act(() => {
+      MockWebSocket.instances[0].emit({
+        type: 'checkpoint',
+        step: 200,
+        adapter_path: '/adapters/run_1/0000200_adapters.safetensors',
+      })
+      MockWebSocket.instances[0].emit({
+        type: 'checkpoint',
+        step: 100,
+        adapter_path: '/adapters/run_1/0000100_adapters.safetensors',
+      })
+      // Duplicate step (reconnect replay) must render once.
+      MockWebSocket.instances[0].emit({
+        type: 'checkpoint',
+        step: 100,
+        adapter_path: '/adapters/run_1/0000100_adapters.safetensors',
+      })
+    })
+
+    await screen.findByText('Checkpoints')
+    const list = screen.getByTestId('checkpoint-list')
+    const rows = within(list).getAllByRole('listitem')
+    expect(rows).toHaveLength(2)
+    // Sorted ascending by step.
+    expect(within(rows[0]).getByText('Step 100')).toBeInTheDocument()
+    expect(
+      within(rows[0]).getByText('/adapters/run_1/0000100_adapters.safetensors'),
+    ).toBeInTheDocument()
+    expect(within(rows[1]).getByText('Step 200')).toBeInTheDocument()
+    expect(
+      within(rows[1]).getByText('/adapters/run_1/0000200_adapters.safetensors'),
+    ).toBeInTheDocument()
+  })
+
   it('shows the Cancel confirm flow and posts to the cancel endpoint', async () => {
     const user = userEvent.setup()
     let cancelled = false
