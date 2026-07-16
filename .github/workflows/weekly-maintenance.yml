@@ -19,22 +19,22 @@ jobs:
   health:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: "npm"
@@ -66,7 +66,7 @@ jobs:
   upstream-versions:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Compare pinned mlx versions against PyPI
         id: check
@@ -93,7 +93,7 @@ jobs:
 
       - name: Open (or skip duplicate) upstream-version issue
         if: steps.check.outputs.stale != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           STALE: ${{ steps.check.outputs.stale }}
         with:
