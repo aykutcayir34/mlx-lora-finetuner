@@ -1,4 +1,4 @@
-.PHONY: install dev build test test-backend test-frontend lint e2e e2e-faz2
+.PHONY: install dev build run test test-backend test-frontend lint e2e e2e-faz2
 
 install:
 	cd backend && uv sync --all-extras --all-groups
@@ -14,6 +14,12 @@ dev:
 # with Vite). The backend has no build step; it runs from source.
 build:
 	cd frontend && npm run build
+
+# Production run: build the frontend, then serve API + UI from a single
+# FastAPI process on :8000 and open the browser. For flags (--host, --port,
+# --no-browser) call `cd backend && uv run mlxlf ...` directly.
+run: build
+	cd backend && uv run mlxlf
 
 test: test-backend test-frontend
 

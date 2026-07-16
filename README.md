@@ -57,6 +57,25 @@ make dev       # backend on :8000, frontend on :5173
 Open http://localhost:5173. The backend also serves interactive API docs at
 http://localhost:8000/docs.
 
+## Production / single-command run
+
+Build the frontend once, then serve API + UI from a single FastAPI process:
+
+```bash
+make run       # = make build, then `cd backend && uv run mlxlf`
+```
+
+`mlxlf` starts uvicorn on http://127.0.0.1:8000 (serving the built frontend
+from `frontend/dist`) and opens it in your default browser. Flags:
+
+```bash
+cd backend && uv run mlxlf --host 0.0.0.0 --port 9000 --no-browser
+```
+
+If the frontend build is missing, `mlxlf` still starts but serves the API
+only (it prints a hint to run `make build`). Set `MLXLF_STATIC_DIR` to serve
+a build from a non-default location.
+
 ## Configuration
 
 All settings are environment variables with an `MLXLF_` prefix (see
@@ -69,6 +88,7 @@ All settings are environment variables with an `MLXLF_` prefix (see
 | `MLXLF_PORT`         | `8000`                     | Backend port.                                                       |
 | `MLXLF_HF_TOKEN`     | *(unset)*                  | Hugging Face token, used for gated/private models and higher rate limits. |
 | `MLXLF_LLAMA_CPP_DIR` | *(unset)*                  | Path to a `llama.cpp` checkout containing `convert_hf_to_gguf.py`, required for GGUF export. Falls back to `<data_dir>/cache/llama.cpp`. |
+| `MLXLF_STATIC_DIR`   | `<repo>/frontend/dist`     | Built frontend served at `/` in production (`mlxlf`). If it contains no `index.html`, nothing is mounted (dev mode). |
 
 ### Data directory layout
 

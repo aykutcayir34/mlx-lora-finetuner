@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     port: int = 8000
     hf_token: str | None = None
     llama_cpp_dir: Path | None = None
+    # Built frontend to serve from FastAPI in production. Defaults to the
+    # repo's `frontend/dist` (resolved relative to this file, so a
+    # `make build && mlxlf` from a git clone just works); override with
+    # MLXLF_STATIC_DIR. When the directory has no index.html, nothing is
+    # mounted and the app is API-only (the dev/test default).
+    static_dir: Path = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
     @property
     def models_dir(self) -> Path:

@@ -14,6 +14,10 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
+from starlette.types import Scope
 
 from app.api import arena, datasets, export, history, inference, models, recipes, system, training
 from app.config import get_settings
@@ -21,6 +25,24 @@ from app.core.errors import register_exception_handlers
 from app.db.database import init_db
 
 ALLOWED_ORIGINS = ["http://localhost:5173"]
+
+
+class SPAStaticFiles(StaticFiles):
+    """StaticFiles with an SPA fallback: unknown paths serve index.html.
+
+    Deep links like `/training` or `/datasets` are client-side routes, so a
+    404 from the static lookup falls back to `index.html`. API paths are
+    explicitly exempt: an unknown `/api/...` request re-raises the original
+    404 so it keeps returning JSON instead of the SPA shell.
+    """
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404 and not path.startswith(("api/", "ws/")):
+                return await super().get_response("index.html", scope)
+            raise
 
 
 async def reap_orphans() -> None:
@@ -103,6 +125,14 @@ def create_app() -> FastAPI:
         history,
     ):
         app.include_router(router_module.router, prefix="/api/v1")
+
+    # Production: serve the built frontend (see Settings.static_dir). Mounted
+    # AFTER all routers so every registered route (REST and WS) wins over the
+    # static catch-all. When index.html is absent — the dev/test default —
+    # nothing is mounted and the app behaves exactly as before.
+    static_dir = get_settings().static_dir
+    if (static_dir / "index.html").is_file():
+        app.mount("/", SPAStaticFiles(directory=static_dir, html=True), name="frontend")
 
     return app
 

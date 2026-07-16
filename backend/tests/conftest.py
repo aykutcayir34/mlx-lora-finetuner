@@ -8,6 +8,10 @@ from app.config import get_settings
 @pytest.fixture
 def data_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("MLXLF_DATA_DIR", str(tmp_path))
+    # Point the static dir at a path that doesn't exist so tests are hermetic
+    # even when the repo has a built `frontend/dist` (which create_app would
+    # otherwise auto-detect and mount). Static-serving tests override this.
+    monkeypatch.setenv("MLXLF_STATIC_DIR", str(tmp_path / "no-static"))
     get_settings.cache_clear()
     yield tmp_path
     get_settings.cache_clear()
