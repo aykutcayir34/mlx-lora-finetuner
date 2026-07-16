@@ -16,6 +16,7 @@ import { useToast } from '../common/Toast'
 import {
   DEFAULT_TRAINING_CONFIG,
   defaultOverridesForMode,
+  GRPO_REWARD_FUNCTIONS,
   LOAD_IN_BITS_OPTIONS,
   LR_SCHEDULE_OPTIONS,
   MODE_OPTIONS,
@@ -59,6 +60,20 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
 
   function updateMode(mode: TrainMode) {
     setConfig((prev) => ({ ...prev, train_mode: mode, ...defaultOverridesForMode(mode) }))
+  }
+
+  function toggleRewardFunction(name: string) {
+    setConfig((prev) => {
+      const selected = new Set(prev.reward_functions ?? [])
+      if (selected.has(name)) {
+        selected.delete(name)
+      } else {
+        selected.add(name)
+      }
+      // Always submit in the fixed registry order, never click order.
+      const ordered = GRPO_REWARD_FUNCTIONS.map((fn) => fn.value).filter((v) => selected.has(v))
+      return { ...prev, reward_functions: ordered.length > 0 ? ordered : null }
+    })
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -287,6 +302,32 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
               />
             </Field>
           </div>
+          <fieldset className="mt-4">
+            <legend className="mb-2 block text-sm font-medium text-text">Reward functions</legend>
+            <div className="flex flex-col gap-2">
+              {GRPO_REWARD_FUNCTIONS.map((fn) => (
+                <label
+                  key={fn.value}
+                  className="flex items-center gap-2 text-sm text-text"
+                  title={fn.value}
+                >
+                  <input
+                    type="checkbox"
+                    checked={(config.reward_functions ?? []).includes(fn.value)}
+                    onChange={() => toggleRewardFunction(fn.value)}
+                    className="h-4 w-4 accent-accent"
+                  />
+                  <span>
+                    {fn.label}{' '}
+                    <code className="font-mono text-xs text-text-muted">({fn.value})</code>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-text-muted">
+              None selected → library default (all five).
+            </p>
+          </fieldset>
         </Card>
       )}
 

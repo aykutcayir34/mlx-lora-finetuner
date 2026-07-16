@@ -9,6 +9,7 @@ import { TrainConfigForm } from './TrainConfigForm'
 import { DEFAULT_TRAINING_CONFIG } from './defaults'
 import {
   ftpoDataset,
+  grpoDataset,
   makeRunSummary,
   splitDataset,
   trainingHandlers,
@@ -98,6 +99,139 @@ describe('TrainConfigForm', () => {
     expect(screen.getByLabelText('Temperature')).toHaveValue(0.8)
     expect(screen.getByLabelText('Max completion length')).toHaveValue(512)
     expect(screen.queryByLabelText('Beta')).not.toBeInTheDocument()
+  })
+
+  it('shows the five grpo reward-function checkboxes, all unchecked by default', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await waitForPickersLoaded()
+
+    expect(screen.queryByText('Reward functions')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+
+    expect(screen.getByText('Reward functions')).toBeInTheDocument()
+    const checkboxes = screen.getAllByRole('checkbox')
+    expect(checkboxes).toHaveLength(5)
+    for (const name of [
+      /r1_accuracy_reward_func/,
+      /r1_int_reward_func/,
+      /r1_strict_format_reward_func/,
+      /r1_soft_format_reward_func/,
+      /r1_count_xml/,
+    ]) {
+      expect(screen.getByRole('checkbox', { name })).not.toBeChecked()
+    }
+    expect(screen.getByText('None selected → library default (all five).')).toBeInTheDocument()
+  })
+
+  it('submits reward_functions: null for grpo when no reward function is checked', async () => {
+    const user = userEvent.setup()
+    let capturedBody: unknown = null
+    server.use(
+      http.post('/api/v1/train/jobs', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json(makeRunSummary({ run_id: 'run_captured' }), { status: 201 })
+      }),
+    )
+    const { onCreated } = renderForm()
+    await waitForPickersLoaded()
+
+    await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+    await user.type(screen.getByLabelText('Run name'), 'my-grpo-run')
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-grpo-data/ }))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+    expect(capturedBody).toMatchObject({
+      train_mode: 'grpo',
+      dataset_id: grpoDataset.dataset_id,
+      reward_functions: null,
+    })
+  })
+
+  it('submits exactly the checked reward functions in registry order, not click order', async () => {
+    const user = userEvent.setup()
+    let capturedBody: unknown = null
+    server.use(
+      http.post('/api/v1/train/jobs', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json(makeRunSummary({ run_id: 'run_captured' }), { status: 201 })
+      }),
+    )
+    const { onCreated } = renderForm()
+    await waitForPickersLoaded()
+
+    await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+    // Click in reverse registry order — the submitted array must still be
+    // registry-ordered (accuracy before count_xml).
+    await user.click(screen.getByRole('checkbox', { name: /r1_count_xml/ }))
+    await user.click(screen.getByRole('checkbox', { name: /r1_accuracy_reward_func/ }))
+
+    await user.type(screen.getByLabelText('Run name'), 'my-grpo-run')
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-grpo-data/ }))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+    expect(capturedBody).toMatchObject({
+      train_mode: 'grpo',
+      reward_functions: ['r1_accuracy_reward_func', 'r1_count_xml'],
+    })
+  })
+
+  it('unchecking the last reward function goes back to submitting null', async () => {
+    const user = userEvent.setup()
+    let capturedBody: unknown = null
+    server.use(
+      http.post('/api/v1/train/jobs', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json(makeRunSummary({ run_id: 'run_captured' }), { status: 201 })
+      }),
+    )
+    const { onCreated } = renderForm()
+    await waitForPickersLoaded()
+
+    await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+    await user.click(screen.getByRole('checkbox', { name: /r1_int_reward_func/ }))
+    await user.click(screen.getByRole('checkbox', { name: /r1_int_reward_func/ }))
+
+    await user.type(screen.getByLabelText('Run name'), 'my-grpo-run')
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-grpo-data/ }))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+    expect(capturedBody).toMatchObject({ reward_functions: null })
+  })
+
+  it('clears the reward-function selection when switching grpo → sft (submits null)', async () => {
+    const user = userEvent.setup()
+    let capturedBody: unknown = null
+    server.use(
+      http.post('/api/v1/train/jobs', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json(makeRunSummary({ run_id: 'run_captured' }), { status: 201 })
+      }),
+    )
+    const { onCreated } = renderForm()
+    await waitForPickersLoaded()
+
+    await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+    await user.click(screen.getByRole('checkbox', { name: /r1_accuracy_reward_func/ }))
+    await user.click(screen.getByRole('checkbox', { name: /r1_soft_format_reward_func/ }))
+
+    await user.click(screen.getByRole('radio', { name: 'SFT' }))
+    expect(screen.queryByText('Reward functions')).not.toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Run name'), 'back-to-sft')
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-chat-data/ }))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+    expect(capturedBody).toMatchObject({ train_mode: 'sft', reward_functions: null })
   })
 
   it('blocks submit with a beta error when beta is cleared for dpo', async () => {
