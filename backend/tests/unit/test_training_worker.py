@@ -140,12 +140,14 @@ def test_build_worker_args_joins_reward_functions(settings, tmp_path):
     run_dir = tmp_path / "runs" / "run_3"
     run_dir.mkdir(parents=True)
     config = make_config(
-        train_mode="grpo", group_size=4, reward_functions=["accuracy", "format"]
+        train_mode="grpo",
+        group_size=4,
+        reward_functions=["r1_accuracy_reward_func", "r1_count_xml"],
     )
 
     args = worker._build_worker_args(run_dir, config, train_mod=FakeTrainModule)
 
-    assert args.reward_functions == "accuracy,format"
+    assert args.reward_functions == "r1_accuracy_reward_func,r1_count_xml"
     assert args.group_size == 4
 
 

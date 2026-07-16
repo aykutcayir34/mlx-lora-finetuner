@@ -24,6 +24,21 @@ class TrainType(str, Enum):
     FULL = "full"
 
 
+# mlx-lm-lora 3.0.0's grpo_reward_functions registry. The worker forwards
+# reward_functions verbatim and the library aborts the run on an unknown
+# name, so reject typos at request time (docs/api.md pins the same list).
+# null / [] means the library uses its default set (all five).
+GRPO_REWARD_FUNCTION_NAMES = frozenset(
+    {
+        "r1_accuracy_reward_func",
+        "r1_int_reward_func",
+        "r1_strict_format_reward_func",
+        "r1_soft_format_reward_func",
+        "r1_count_xml",
+    }
+)
+
+
 class JobStatus(str, Enum):
     QUEUED = "queued"
     RUNNING = "running"
@@ -78,6 +93,13 @@ class TrainingConfig(BaseModel):
             raise ValueError("group_size is required for grpo train_mode")
         if self.sft_loss_type is not None and self.train_mode != TrainMode.SFT:
             raise ValueError("sft_loss_type is only accepted for sft train_mode")
+        if self.reward_functions:
+            unknown = sorted(set(self.reward_functions) - GRPO_REWARD_FUNCTION_NAMES)
+            if unknown:
+                raise ValueError(
+                    f"unknown reward_functions: {', '.join(unknown)} "
+                    f"(valid: {', '.join(sorted(GRPO_REWARD_FUNCTION_NAMES))})"
+                )
         if self.train_mode != TrainMode.FTPO:
             ftpo_only = {
                 "lambda_mse_target": self.lambda_mse_target,
