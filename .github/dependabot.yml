@@ -11,6 +11,16 @@ updates:
     directory: "/frontend"
     schedule:
       interval: "weekly"
+    groups:
+      # react and react-dom (and their @types) pin each other via peer
+      # deps — bumping them separately always produces an ERESOLVE-broken
+      # PR (see #36/#39), so they must move as one.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
 
   # GitHub Actions used in .github/workflows/.
   - package-ecosystem: "github-actions"
