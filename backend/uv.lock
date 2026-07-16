@@ -957,29 +957,29 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiosqlite" },
-    { name = "datasets" },
-    { name = "fastapi" },
-    { name = "huggingface-hub" },
-    { name = "jinja2" },
+    { name = "aiosqlite", specifier = ">=0.22,<1" },
+    { name = "datasets", specifier = ">=5.0,<6" },
+    { name = "fastapi", specifier = ">=0.139,<1" },
+    { name = "huggingface-hub", specifier = ">=1.23,<2" },
+    { name = "jinja2", specifier = ">=3.1,<4" },
     { name = "mlx-lm", marker = "extra == 'mlx'", specifier = "==0.31.3" },
     { name = "mlx-lm-lora", marker = "extra == 'mlx'", specifier = "==3.0.0" },
-    { name = "psutil" },
-    { name = "pydantic", specifier = ">=2" },
-    { name = "pydantic-settings" },
-    { name = "pypdf" },
-    { name = "python-docx" },
-    { name = "python-multipart" },
-    { name = "uvicorn", extras = ["standard"] },
+    { name = "psutil", specifier = ">=7.2,<8" },
+    { name = "pydantic", specifier = ">=2.13,<3" },
+    { name = "pydantic-settings", specifier = ">=2.14,<3" },
+    { name = "pypdf", specifier = ">=6.14,<7" },
+    { name = "python-docx", specifier = ">=1.2,<2" },
+    { name = "python-multipart", specifier = ">=0.0.32,<1" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.51,<1" },
 ]
 provides-extras = ["mlx"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "ruff" },
+    { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "pytest", specifier = ">=9.1,<10" },
+    { name = "pytest-asyncio", specifier = ">=1.4,<2" },
+    { name = "ruff", specifier = ">=0.15,<1" },
 ]
 
 [[package]]

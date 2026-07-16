@@ -55,8 +55,11 @@ Proxy of HF Hub search. Default `author=mlx-community` applied only when `author
 ```json
 {"results": [{"model_id": "...", "downloads": 123, "likes": 4, "size_bytes": null, "downloaded": false}]}
 ```
+→ `502` (code `internal`) when the HF Hub request fails or the Hub is unreachable.
 ### POST /models/download  `{"model_id": "..."}` → `202 {"download_id": "dl_...", "model_id": "..."}`
 409 `conflict` if already downloading. Existing completed model → 409 `conflict`.
+409 `conflict` also when the estimated repo size exceeds free disk space (message
+names the required vs. available bytes).
 ### GET /models/downloads
 ```json
 {"downloads": [{"download_id": "dl_...", "model_id": "...",
@@ -122,6 +125,7 @@ HF Hub dataset search proxy (`HfApi.list_datasets`).
 {"results": [{"dataset_id": "mlx-community/wikisql", "downloads": 1234, "likes": 5, "imported": false}]}
 ```
 `imported` is true when a local dataset was already imported from that HF id.
+→ `502` (code `internal`) when the HF Hub request fails or the Hub is unreachable.
 
 ### POST /datasets/import
 ```json
