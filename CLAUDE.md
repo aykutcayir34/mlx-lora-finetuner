@@ -1,7 +1,9 @@
 # mlx-lora-finetuner
 
-Apple Silicon üzerinde MLX ile LoRA fine-tuning yapan bir Python uygulaması.
-(Proje yeni — yapı oturdukça bu dosyayı güncelle.)
+Apple Silicon üzerinde mlx-lm-lora ile LoRA/DoRA/full fine-tuning yapan yerel
+web uygulaması: FastAPI backend + React SPA (model indirme, veri kümesi
+yönetimi, SFT/DPO/ORPO/CPO/GRPO/FTPO eğitimi, chat/arena, GGUF/Ollama export).
+Tek komut çalıştırma: `make run` (`mlxlf`).
 
 ## Çalışma şekli
 
