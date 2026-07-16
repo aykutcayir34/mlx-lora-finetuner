@@ -114,7 +114,12 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
       </Card>
 
       <Card title="Model">
-        {modelsQuery.data && modelsQuery.data.length === 0 ? (
+        {modelsQuery.isError ? (
+          <FetchErrorNotice
+            message="Failed to load local models."
+            onRetry={() => modelsQuery.refetch()}
+          />
+        ) : modelsQuery.data && modelsQuery.data.length === 0 ? (
           <p className="text-sm text-text-muted">
             No local models yet.{' '}
             <Link to="/models" className="text-accent hover:underline">
@@ -152,7 +157,12 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
       </Card>
 
       <Card title="Dataset">
-        {splitDatasets.length === 0 ? (
+        {datasetsQuery.isError ? (
+          <FetchErrorNotice
+            message="Failed to load datasets."
+            onRetry={() => datasetsQuery.refetch()}
+          />
+        ) : splitDatasets.length === 0 ? (
           <p className="text-sm text-text-muted">
             No datasets with train/valid/test splits yet.{' '}
             <Link to="/datasets" className="text-accent hover:underline">
@@ -593,5 +603,17 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
         </Button>
       </div>
     </form>
+  )
+}
+
+/** Same error copy as the Models/Datasets pages, plus an inline retry. */
+function FetchErrorNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <p className="text-sm text-danger">{message}</p>
+      <Button variant="secondary" size="sm" onClick={onRetry}>
+        Retry
+      </Button>
+    </div>
   )
 }

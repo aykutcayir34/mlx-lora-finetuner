@@ -1,5 +1,6 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { Route, BrowserRouter, Routes } from 'react-router-dom'
+import { createQueryClient } from './api/queryClient'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { AppLayout } from './components/layout/AppLayout'
 import { DashboardPage } from './pages/DashboardPage'
@@ -12,7 +13,7 @@ import { ExportPage } from './pages/ExportPage'
 import { RecipesPage } from './pages/RecipesPage'
 import { HistoryPage } from './pages/HistoryPage'
 
-const queryClient = new QueryClient()
+const queryClient = createQueryClient()
 
 export function AppRoutes() {
   return (

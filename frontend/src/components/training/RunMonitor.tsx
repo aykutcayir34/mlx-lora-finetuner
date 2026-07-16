@@ -25,7 +25,6 @@ const ACTIVE_STATUSES: JobStatus[] = ['running', 'queued']
 
 interface RunMonitorProps {
   runId: string
-  onNewRun: () => void
   /** Override for tests; forwarded to ReconnectingWS. */
   WebSocketImpl?: typeof WebSocket
 }

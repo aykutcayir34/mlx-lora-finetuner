@@ -322,15 +322,18 @@ class ModelRegistry:
             with state.lock:
                 state.status = "completed"
             self._size_cache.pop(str(target_dir), None)
-            await DownloadsRepo(conn).update_progress(
+            # Single atomic terminal write: landing status + final counters
+            # together closes the stale-writer race with the throttled
+            # _persist_progress tasks (see DownloadsRepo.finish docstring).
+            await DownloadsRepo(conn).finish(
                 download_id,
+                status="completed",
+                finished_at=_now_iso(),
+                error=None,
                 bytes_done=state.bytes_done,
                 bytes_total=state.bytes_total or state.bytes_done,
                 files_done=state.files_done,
                 files_total=state.files_total or state.files_done,
-            )
-            await DownloadsRepo(conn).finish(
-                download_id, status="completed", finished_at=_now_iso(), error=None
             )
             self._broadcast_terminal(download_id)
         finally:

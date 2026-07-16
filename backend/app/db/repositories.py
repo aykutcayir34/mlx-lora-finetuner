@@ -306,23 +306,62 @@ class DownloadsRepo:
         files_done: int | None,
         files_total: int | None,
     ) -> None:
+        # Guarded on status: throttled progress writers capture their frame
+        # before awaiting a connection, so one can land AFTER finish() with
+        # stale numbers. Once the row is terminal, late progress is a no-op.
         await self._conn.execute(
             """
             UPDATE downloads
             SET bytes_done = ?, bytes_total = ?, files_done = ?, files_total = ?
-            WHERE download_id = ?
+            WHERE download_id = ? AND status = 'running'
             """,
             (bytes_done, bytes_total, files_done, files_total, download_id),
         )
         await self._conn.commit()
 
     async def finish(
-        self, download_id: str, status: str, finished_at: str, error: str | None = None
+        self,
+        download_id: str,
+        status: str,
+        finished_at: str,
+        error: str | None = None,
+        *,
+        bytes_done: int | None = None,
+        bytes_total: int | None = None,
+        files_done: int | None = None,
+        files_total: int | None = None,
     ) -> None:
-        await self._conn.execute(
-            "UPDATE downloads SET status = ?, finished_at = ?, error = ? WHERE download_id = ?",
-            (status, finished_at, error, download_id),
-        )
+        """Terminal write; optionally lands the final progress atomically.
+
+        The completed path passes the final counters here (single UPDATE)
+        instead of a separate update_progress + finish, so a stale throttled
+        progress write can neither slip between the two statements nor apply
+        afterwards (update_progress is guarded on status = 'running').
+        """
+        if bytes_done is None and files_done is None:
+            await self._conn.execute(
+                "UPDATE downloads SET status = ?, finished_at = ?, error = ? WHERE download_id = ?",
+                (status, finished_at, error, download_id),
+            )
+        else:
+            await self._conn.execute(
+                """
+                UPDATE downloads
+                SET status = ?, finished_at = ?, error = ?,
+                    bytes_done = ?, bytes_total = ?, files_done = ?, files_total = ?
+                WHERE download_id = ?
+                """,
+                (
+                    status,
+                    finished_at,
+                    error,
+                    bytes_done,
+                    bytes_total,
+                    files_done,
+                    files_total,
+                    download_id,
+                ),
+            )
         await self._conn.commit()
 
     async def fail_stale_running(self, finished_at: str, error: str) -> int:

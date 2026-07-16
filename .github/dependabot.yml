@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Backend: uv-managed (backend/pyproject.toml + backend/uv.lock).
+  - package-ecosystem: "uv"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+
+  # Frontend: npm (frontend/package.json + package-lock.json).
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+
+  # GitHub Actions used in .github/workflows/.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

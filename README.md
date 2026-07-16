@@ -1,11 +1,18 @@
 # mlx-lora-finetuner
 
+[![CI](https://github.com/aykutcayir34/mlx-lora-finetuner/actions/workflows/ci.yml/badge.svg)](https://github.com/aykutcayir34/mlx-lora-finetuner/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Node 20+](https://img.shields.io/badge/node-20%2B-339933.svg)](https://nodejs.org/)
+
 A local web studio for LoRA fine-tuning of LLMs on Apple Silicon, built on top of
 [mlx-lm-lora](https://github.com/Goekdeniz-Guelmez/mlx-lm-lora). FastAPI backend +
 React/TypeScript/Vite frontend, similar in spirit to Unsloth Studio but running
 entirely on-device via MLX — no cloud GPUs, no data leaving your Mac.
 
-Screenshots: coming soon.
+To see the UI, run it locally: `make run` builds the frontend and serves the
+whole app from a single process on http://127.0.0.1:8000 (see
+[Production / single-command run](#production--single-command-run)).
 
 ## Features
 
@@ -159,7 +166,9 @@ source of truth for every REST route, WebSocket protocol, and payload shape.
 Backend routers and frontend query hooks/types must conform to it — a behavior
 change starts with a dedicated commit updating that document, not the code.
 
-See [`CLAUDE.md`](CLAUDE.md) for repository conventions (monorepo layout, the
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for dev setup, the test/lint
+commands, the project's hard invariants, and the release process, and
+[`CLAUDE.md`](CLAUDE.md) for repository conventions (monorepo layout, the
 mlx-import-must-be-lazy rule, the single-training-job lock, etc.).
 
 ## License

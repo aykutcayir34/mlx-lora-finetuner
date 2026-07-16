@@ -63,6 +63,9 @@ export function useDeleteModel() {
       apiClient.delete<void>(`/models/${encodeURIComponent(modelId)}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.models.list })
+      // Deleting frees disk space — refresh the footer/dashboard stats now
+      // instead of waiting for the next poll.
+      queryClient.invalidateQueries({ queryKey: queryKeys.stats })
     },
   })
 }
