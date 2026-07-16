@@ -36,6 +36,16 @@ export const ftpoDataset: DatasetInfo = {
   created_at: '2026-07-12T10:00:00Z',
 }
 
+export const grpoDataset: DatasetInfo = {
+  dataset_id: 'ds_grpo',
+  name: 'my-grpo-data',
+  format: 'grpo',
+  path: '/datasets/ds_grpo',
+  row_count: 150,
+  splits: { train: 120, valid: 15, test: 15 },
+  created_at: '2026-07-12T10:00:00Z',
+}
+
 export const unsplitDataset: DatasetInfo = {
   dataset_id: 'ds_2',
   name: 'no-splits-yet',
@@ -96,7 +106,7 @@ export function makeRunSummary(overrides: Partial<RunSummary> = {}): RunSummary 
 
 export const trainingHandlers = [
   http.get('/api/v1/datasets', () =>
-    HttpResponse.json({ datasets: [splitDataset, ftpoDataset, unsplitDataset] }),
+    HttpResponse.json({ datasets: [splitDataset, ftpoDataset, grpoDataset, unsplitDataset] }),
   ),
   http.get('/api/v1/train/jobs/:runId/metrics', () => HttpResponse.json({ metrics: [] })),
   http.get('/api/v1/train/jobs/:runId/logs', () => HttpResponse.json({ lines: [] })),

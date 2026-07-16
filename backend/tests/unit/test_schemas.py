@@ -195,3 +195,28 @@ class TestDatasetFormat:
     def test_member_values(self):
         values = {member.value for member in DatasetFormat}
         assert values == {"chat", "completions", "text", "dpo", "orpo", "grpo", "ftpo"}
+
+
+class TestRewardFunctionValidation:
+    def _grpo(self, **overrides):
+        base = dict(
+            name="my-run",
+            model_id="mlx-community/x",
+            dataset_id="ds_1",
+            train_mode="grpo",
+            group_size=4,
+        )
+        base.update(overrides)
+        return TrainingConfig(**base)
+
+    def test_known_reward_functions_accepted(self):
+        config = self._grpo(reward_functions=["r1_count_xml", "r1_accuracy_reward_func"])
+        assert config.reward_functions == ["r1_count_xml", "r1_accuracy_reward_func"]
+
+    def test_null_and_empty_reward_functions_accepted(self):
+        assert self._grpo(reward_functions=None).reward_functions is None
+        assert self._grpo(reward_functions=[]).reward_functions == []
+
+    def test_unknown_reward_function_rejected_with_valid_list(self):
+        with pytest.raises(ValidationError, match="unknown reward_functions: r1_typo"):
+            self._grpo(reward_functions=["r1_count_xml", "r1_typo"])

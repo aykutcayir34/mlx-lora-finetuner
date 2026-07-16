@@ -63,6 +63,7 @@ type ModeSpecificFields = Pick<
   | 'group_size'
   | 'temperature'
   | 'max_completion_length'
+  | 'reward_functions'
   | 'sft_loss_type'
   | 'lambda_mse_target'
   | 'tau_mse_target'
@@ -75,6 +76,7 @@ const MODE_FIELDS_CLEARED: ModeSpecificFields = {
   group_size: null,
   temperature: null,
   max_completion_length: null,
+  reward_functions: null,
   sft_loss_type: null,
   lambda_mse_target: null,
   tau_mse_target: null,
@@ -93,6 +95,17 @@ export function defaultOverridesForMode(mode: TrainMode): ModeSpecificFields {
   // hyperparameters stay null → library defaults 0.05 / 1.0 / 0.4 / 2.0).
   return { ...MODE_FIELDS_CLEARED }
 }
+
+// GRPO reward function registry, pinned by mlx-lm-lora 3.0.0 (see docs/api.md).
+// Array order is the canonical submit order; the backend 422s on unknown names.
+// Nothing selected → `reward_functions: null` → the library uses all five.
+export const GRPO_REWARD_FUNCTIONS: { value: string; label: string }[] = [
+  { value: 'r1_accuracy_reward_func', label: 'Accuracy' },
+  { value: 'r1_int_reward_func', label: 'Integer answer' },
+  { value: 'r1_strict_format_reward_func', label: 'Strict format' },
+  { value: 'r1_soft_format_reward_func', label: 'Soft format' },
+  { value: 'r1_count_xml', label: 'XML tag count' },
+]
 
 export const TRAIN_TYPE_OPTIONS: { value: TrainType; label: string }[] = [
   { value: 'lora', label: 'LoRA' },
