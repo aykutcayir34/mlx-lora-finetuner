@@ -187,6 +187,10 @@ Conditional validation: `dpo|orpo|cpo` require `beta`; `grpo` requires `group_si
 `sft_loss_type` is only accepted for `sft` (null → library default `nll`).
 `lambda_mse_target`, `tau_mse_target`, `lambda_mse`, `clip_epsilon_logits` are only
 accepted for `ftpo` and are all optional (null → library defaults 0.05 / 1.0 / 0.4 / 2.0).
+`reward_functions` entries must come from the mlx-lm-lora 3.0.0 registry —
+`r1_accuracy_reward_func | r1_int_reward_func | r1_strict_format_reward_func |
+r1_soft_format_reward_func | r1_count_xml` — unknown names → 422; null or `[]` →
+the library's default set (all five).
 Dataset format must be compatible with mode (sft: chat/completions/text; dpo/cpo: dpo;
 orpo: orpo|dpo; grpo: grpo; ftpo: ftpo) → else 422.
 
