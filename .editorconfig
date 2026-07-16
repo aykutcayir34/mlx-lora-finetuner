@@ -1,0 +1,26 @@
+# Matches the styles already used in this repo — see CONTRIBUTING.md.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Backend + e2e scripts (ruff: line-length 100)
+[*.py]
+indent_style = space
+indent_size = 4
+
+# Frontend TS/TSX, JSON, YAML, CSS
+[*.{ts,tsx,js,jsx,json,yml,yaml,css,html}]
+indent_style = space
+indent_size = 2
+
+# Makefiles require tabs
+[Makefile]
+indent_style = tab
+
+# Markdown: trailing double-space is a hard line break
+[*.md]
+trim_trailing_whitespace = false
