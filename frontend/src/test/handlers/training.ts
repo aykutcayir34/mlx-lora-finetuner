@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw'
-import type { DatasetInfo, ModelInfo, RunSummary } from '../../api/types'
+import type { DatasetInfo, ModelInfo, RunSummary, TrainingConfig } from '../../api/types'
 
 // Additional MSW handlers for Train-page tests (TrainConfigForm, RunMonitor,
 // TrainPage). These are additive overrides applied per-test via
@@ -102,6 +102,23 @@ export function makeRunSummary(overrides: Partial<RunSummary> = {}): RunSummary 
     error: null,
     ...overrides,
   }
+}
+
+/** POST /train/configs/import happy path → the given validated TrainingConfig. */
+export function importConfigHandler(config: TrainingConfig) {
+  return http.post('/api/v1/train/configs/import', () => HttpResponse.json(config))
+}
+
+/** POST /train/configs/import strict-validation failure (422 names the offending keys). */
+export function importConfigInvalidHandler(
+  message = "unknown key(s) under config: 'learning_rte'",
+) {
+  return http.post('/api/v1/train/configs/import', () =>
+    HttpResponse.json(
+      { error: { code: 'validation_error', message, detail: {} } },
+      { status: 422 },
+    ),
+  )
 }
 
 export const trainingHandlers = [

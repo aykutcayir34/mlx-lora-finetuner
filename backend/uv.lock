@@ -938,6 +938,7 @@ dependencies = [
     { name = "pypdf" },
     { name = "python-docx" },
     { name = "python-multipart" },
+    { name = "pyyaml" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -970,6 +971,7 @@ requires-dist = [
     { name = "pypdf", specifier = ">=6.14,<7" },
     { name = "python-docx", specifier = ">=1.2,<2" },
     { name = "python-multipart", specifier = ">=0.0.32,<1" },
+    { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.51,<1" },
 ]
 provides-extras = ["mlx"]

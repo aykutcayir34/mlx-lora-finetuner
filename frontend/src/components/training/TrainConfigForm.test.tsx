@@ -10,6 +10,8 @@ import { DEFAULT_TRAINING_CONFIG } from './defaults'
 import {
   ftpoDataset,
   grpoDataset,
+  importConfigHandler,
+  importConfigInvalidHandler,
   makeRunSummary,
   splitDataset,
   trainingHandlers,
@@ -594,5 +596,55 @@ describe('TrainConfigForm', () => {
     await user.click(screen.getByRole('button', { name: 'Start training' }))
 
     expect(await screen.findByText('A training job is already queued or running.')).toBeInTheDocument()
+  })
+
+  it('Load YAML: choosing a file prefills the form from the imported config', async () => {
+    const user = userEvent.setup()
+    const imported = {
+      ...DEFAULT_TRAINING_CONFIG,
+      name: 'imported-run',
+      model_id: trainModel.model_id,
+      dataset_id: grpoDataset.dataset_id,
+      train_mode: 'grpo' as const,
+      iters: 4321,
+      group_size: 8,
+      temperature: 0.7,
+      max_completion_length: 256,
+      reward_functions: ['r1_accuracy_reward_func', 'r1_count_xml'],
+    }
+    server.use(importConfigHandler(imported))
+    renderForm()
+    await waitForPickersLoaded()
+
+    const file = new File(['config_schema: 1\nconfig: {}\n'], 'run.yaml', {
+      type: 'application/x-yaml',
+    })
+    await user.upload(screen.getByLabelText('Training config YAML file'), file)
+
+    await waitFor(() => expect(screen.getByDisplayValue('imported-run')).toBeInTheDocument())
+    expect(screen.getByDisplayValue('4321')).toBeInTheDocument()
+    // The imported grpo mode drives the conditional section + checkbox state.
+    expect(screen.getByRole('radio', { name: 'GRPO' })).toBeChecked()
+    expect(screen.getByLabelText('Group size')).toHaveValue(8)
+    expect(screen.getByRole('checkbox', { name: /r1_accuracy_reward_func/ })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /r1_count_xml/ })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /r1_int_reward_func/ })).not.toBeChecked()
+    expect(await screen.findByText('Config loaded from YAML.')).toBeInTheDocument()
+  })
+
+  it('Load YAML: surfaces the backend 422 message naming the offending keys', async () => {
+    const user = userEvent.setup()
+    server.use(importConfigInvalidHandler("unknown key(s) under config: 'learning_rte'"))
+    renderForm()
+    await waitForPickersLoaded()
+
+    const file = new File(['config:\n  learning_rte: 1\n'], 'bad.yaml')
+    await user.upload(screen.getByLabelText('Training config YAML file'), file)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "unknown key(s) under config: 'learning_rte'",
+    )
+    // The form keeps its previous values.
+    expect(screen.getByLabelText('Run name')).toHaveValue('')
   })
 })

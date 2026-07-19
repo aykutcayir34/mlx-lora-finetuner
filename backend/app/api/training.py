@@ -9,18 +9,22 @@ from __future__ import annotations
 import asyncio
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, File, Response, UploadFile, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
-from app.core.errors import NotFoundError
+from app.core.errors import NotFoundError, ValidationAppError
 from app.core.ws import get_ws_manager
 from app.deps import get_current_user
 from app.schemas.training import JobStatus, MetricEvent, RunSummary, TrainingConfig
+from app.services.config_yaml import parse_config_yaml, render_config_yaml
 from app.training.manager import JobManager, get_job_manager
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
 TERMINAL_STATUSES = {JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED}
+
+# A config export is a few KiB of YAML; anything bigger than this is not one.
+MAX_CONFIG_IMPORT_BYTES = 256 * 1024
 
 
 class RunSummaryListResponse(BaseModel):
@@ -90,6 +94,31 @@ async def get_train_job_logs(
 ) -> LogsResponse:
     lines = await manager.get_logs(run_id, tail=tail)
     return LogsResponse(lines=lines)
+
+
+@router.get("/train/jobs/{run_id}/config.yaml")
+async def get_train_job_config_yaml(
+    run_id: str,
+    manager: Annotated[JobManager, Depends(get_job_manager)],
+) -> Response:
+    run = await manager.get_run(run_id)  # NotFoundError -> 404, as GET /train/jobs/{run_id}
+    return Response(
+        content=render_config_yaml(run),
+        media_type="application/x-yaml",
+        headers={"Content-Disposition": f'attachment; filename="{run_id}-config.yaml"'},
+    )
+
+
+@router.post("/train/configs/import", response_model=TrainingConfig)
+async def import_train_config(file: UploadFile = File(...)) -> TrainingConfig:
+    # Read one byte past the cap so an oversize upload is detected without
+    # buffering an arbitrarily large body.
+    raw = await file.read(MAX_CONFIG_IMPORT_BYTES + 1)
+    if len(raw) > MAX_CONFIG_IMPORT_BYTES:
+        raise ValidationAppError(
+            f"uploaded config file is too large (max {MAX_CONFIG_IMPORT_BYTES // 1024} KiB)"
+        )
+    return parse_config_yaml(raw)
 
 
 async def _watch_for_disconnect(websocket: WebSocket) -> None:

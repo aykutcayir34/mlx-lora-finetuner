@@ -213,6 +213,34 @@ orpo: orpo|dpo; grpo: grpo; ftpo: ftpo) → else 422.
 `{"metrics": [MetricEvent]}` — persisted metrics for backfill/history.
 ### GET /train/jobs/{run_id}/logs?tail=200 → `{"lines": ["..."]}`
 
+### GET /train/jobs/{run_id}/config.yaml
+Downloads the run's full configuration as YAML (`Content-Type: application/x-yaml`,
+`Content-Disposition: attachment`). Document shape:
+```yaml
+config_schema: 1
+metadata:            # informational only — ignored on import
+  exported_at: "..."
+  app_version: "0.1.0"
+  mlx_lm_lora_version: "3.0.0"
+  run_id: "run_..."
+  status: "completed"
+  final_train_loss: 1.23    # null while running
+  final_val_loss: 1.31
+config:              # exactly the TrainingConfig fields (see above)
+  name: "my-run"
+  model_id: "mlx-community/..."
+  # ...
+```
+404 if the run is unknown.
+
+### POST /train/configs/import — multipart: `file` (.yaml/.yml)
+Parses and validates an exported config document → `200 TrainingConfig` (JSON),
+ready to prefill the train form. `metadata` is ignored; `config_schema` must be `1`.
+Validation is STRICT: unparsable YAML, a missing `config` mapping, or any unknown
+key under `config` → 422 `validation_error` naming the offending keys, in addition
+to all standard TrainingConfig rules (mode-conditional fields, reward-function
+names, format compatibility is checked later at job submit).
+
 ### MetricEvent
 ```json
 {"run_id": "run_...", "step": 10, "kind": "train",

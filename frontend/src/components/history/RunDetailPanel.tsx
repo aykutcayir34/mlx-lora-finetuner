@@ -10,6 +10,7 @@ import { Field } from '../common/Field'
 import { LossChart } from '../charts/LossChart'
 import { LRChart } from '../charts/LRChart'
 import { MemoryChart } from '../charts/MemoryChart'
+import { ExportConfigLink } from '../training/ExportConfigLink'
 import { ConfigViewer } from './ConfigViewer'
 import { ConfigDiff } from './ConfigDiff'
 import type { RunSummary } from '../../api/types'
@@ -56,9 +57,12 @@ export function RunDetailPanel({ run, otherRuns }: RunDetailPanelProps) {
           <p className="text-xs text-text-muted">{run.run_id}</p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Button size="sm" onClick={handleClone} loading={cloneRun.isPending}>
-            Clone
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportConfigLink runId={run.run_id} />
+            <Button size="sm" onClick={handleClone} loading={cloneRun.isPending}>
+              Clone
+            </Button>
+          </div>
           {cloneRun.isError && <p className="text-xs text-danger">Failed to clone this run.</p>}
         </div>
       </div>
