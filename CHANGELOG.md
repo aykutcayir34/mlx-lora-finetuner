@@ -9,6 +9,17 @@ The version's source of truth is `backend/pyproject.toml` (reported by
 
 ## [Unreleased]
 
+### Added
+
+- Training configs export/load as YAML: download any run's full configuration
+  (`GET /train/jobs/{run_id}/config.yaml` — hyperparameters, model/dataset ids,
+  informational metadata) from the History panel or the run monitor, and load
+  a document back into the train form via the strict-validating
+  `POST /train/configs/import` (#47)
+- README: end-to-end GRPO fine-tuning walkthrough — dataset format, all five
+  reward functions explained, a ready-to-load YAML config, and a UI
+  screenshot (#48)
+
 ## [0.1.0] - 2026-07-16
 
 First release: local LoRA/DoRA/full fine-tuning studio for Apple Silicon —
