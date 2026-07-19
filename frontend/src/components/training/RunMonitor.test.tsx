@@ -230,6 +230,24 @@ describe('RunMonitor - live run', () => {
 })
 
 describe('RunMonitor - past run', () => {
+  it('links an Export YAML download for the viewed run', async () => {
+    server.use(
+      http.get('/api/v1/train/jobs/run_2', () =>
+        HttpResponse.json(makeRunSummary({ run_id: 'run_2', status: 'completed' })),
+      ),
+      http.get('/api/v1/train/jobs/run_2/metrics', () => HttpResponse.json({ metrics: [] })),
+      http.get('/api/v1/train/jobs/run_2/logs', () => HttpResponse.json({ lines: [] })),
+    )
+
+    renderWithProviders(
+      <RunMonitor runId="run_2" WebSocketImpl={MockWebSocket as unknown as typeof WebSocket} />,
+    )
+
+    const link = await screen.findByRole('link', { name: 'Export YAML' })
+    expect(link).toHaveAttribute('href', '/api/v1/train/jobs/run_2/config.yaml')
+    expect(link).toHaveAttribute('download')
+  })
+
   it('renders static charts from REST metrics without opening a WebSocket', async () => {
     server.use(
       http.get('/api/v1/train/jobs/run_2', () =>

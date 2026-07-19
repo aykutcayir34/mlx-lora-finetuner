@@ -66,6 +66,25 @@ export function useRunMetrics(runId: string, afterStep = 0, kind?: 'train' | 'va
   })
 }
 
+/**
+ * Same-origin URL for a run's YAML config export (docs/api.md). Served with
+ * `Content-Disposition: attachment`, so a plain anchor triggers a download —
+ * the dev server proxies /api to the backend, no fetch needed.
+ */
+export function runConfigYamlUrl(runId: string): string {
+  return `/api/v1/train/jobs/${encodeURIComponent(runId)}/config.yaml`
+}
+
+export function useImportTrainingConfig() {
+  return useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData()
+      formData.set('file', file)
+      return apiClient.post<TrainingConfig>('/train/configs/import', formData)
+    },
+  })
+}
+
 export function useRunLogs(runId: string, tail = 200) {
   return useQuery({
     queryKey: queryKeys.training.logs(runId, tail),

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useModels } from '../../api/queries/models'
 import { useDatasets } from '../../api/queries/datasets'
-import { useCreateRun } from '../../api/queries/training'
+import { useCreateRun, useImportTrainingConfig } from '../../api/queries/training'
 import { ApiError } from '../../api/client'
 import type { LoraParams, SftLossType, TrainingConfig, TrainMode, TrainType } from '../../api/types'
 import { Card } from '../common/Card'
@@ -41,6 +41,10 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
   const [config, setConfig] = useState<TrainingConfig>(initialConfig ?? DEFAULT_TRAINING_CONFIG)
   const [touched, setTouched] = useState(false)
 
+  const importConfig = useImportTrainingConfig()
+  const [importError, setImportError] = useState<string | null>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
+
   const splitDatasets = useMemo(
     () => (datasetsQuery.data?.datasets ?? []).filter((d) => d.splits !== null),
     [datasetsQuery.data],
@@ -76,6 +80,27 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
     })
   }
 
+  function handleImportFile(files: FileList | null) {
+    const file = files?.[0]
+    // Reset so picking the same file again re-fires the change event.
+    if (importInputRef.current) importInputRef.current.value = ''
+    if (!file) return
+    setImportError(null)
+    importConfig.mutate(file, {
+      onSuccess: (loaded) => {
+        setConfig(loaded)
+        setTouched(false)
+        toast('Config loaded from YAML.', { variant: 'success' })
+      },
+      onError: (error) => {
+        // 422s name the offending keys — surface the backend message verbatim.
+        setImportError(
+          error instanceof ApiError ? error.message : 'Failed to import the YAML config.',
+        )
+      },
+    })
+  }
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setTouched(true)
@@ -100,6 +125,29 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <div className="flex flex-col items-end gap-1">
+        <Button
+          variant="secondary"
+          size="sm"
+          loading={importConfig.isPending}
+          onClick={() => importInputRef.current?.click()}
+        >
+          Load YAML
+        </Button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".yaml,.yml"
+          className="hidden"
+          aria-label="Training config YAML file"
+          onChange={(e) => handleImportFile(e.target.files)}
+        />
+        {importError && (
+          <p role="alert" className="text-xs text-danger">
+            {importError}
+          </p>
+        )}
+      </div>
       <Card title="Run">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Run name" htmlFor="run-name" error={touched ? errors.name : undefined}>

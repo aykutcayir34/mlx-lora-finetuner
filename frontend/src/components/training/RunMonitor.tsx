@@ -17,6 +17,7 @@ import { Spinner } from '../common/Spinner'
 import { LossChart } from '../charts/LossChart'
 import { LRChart } from '../charts/LRChart'
 import { MemoryChart } from '../charts/MemoryChart'
+import { ExportConfigLink } from './ExportConfigLink'
 import { StatTile } from './StatTile'
 import { LiveLogViewer } from './LiveLogViewer'
 
@@ -166,11 +167,14 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
               {run.config.model_id} · {run.config.dataset_id} · {elapsed}
             </p>
           </div>
-          {canCancel && (
-            <Button variant="danger" size="sm" onClick={() => setConfirmCancel(true)}>
-              Cancel run
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <ExportConfigLink runId={run.run_id} />
+            {canCancel && (
+              <Button variant="danger" size="sm" onClick={() => setConfirmCancel(true)}>
+                Cancel run
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
 

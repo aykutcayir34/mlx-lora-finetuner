@@ -148,6 +148,21 @@ describe('HistoryPage', () => {
     expect(await within(panel).findByText('Train loss')).toBeInTheDocument()
   })
 
+  it('offers an Export YAML download link for the selected run', async () => {
+    const user = userEvent.setup()
+    const run = makeRunSummary({ run_id: 'run_1', name: 'first-run' })
+    server.use(listRunHistoryHandler([run], 1))
+
+    renderWithProviders(<HistoryPage />)
+    const table = await screen.findByTestId('history-table')
+    await user.click(within(table).getByText('first-run'))
+
+    const panel = await screen.findByTestId('run-detail-panel')
+    const link = within(panel).getByRole('link', { name: 'Export YAML' })
+    expect(link).toHaveAttribute('href', '/api/v1/train/jobs/run_1/config.yaml')
+    expect(link).toHaveAttribute('download')
+  })
+
   it('clones a run: navigates to /train with the config prefilled', async () => {
     const user = userEvent.setup()
     const run = makeRunSummary({ run_id: 'run_1', name: 'first-run' })
