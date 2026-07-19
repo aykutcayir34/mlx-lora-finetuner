@@ -83,6 +83,92 @@ If the frontend build is missing, `mlxlf` still starts but serves the API
 only (it prints a hint to run `make build`). Set `MLXLF_STATIC_DIR` to serve
 a build from a non-default location.
 
+## Example: GRPO fine-tuning end to end
+
+GRPO (group relative policy optimization) trains a model against *reward
+functions* instead of fixed target answers: for every prompt the model samples
+a group of completions, each one is scored, and completions that score above
+their group's average are reinforced. This walkthrough teaches a small model
+to reason step by step and put its final answer inside `<answer></answer>`
+tags — the exact convention the built-in `r1_*` reward functions score.
+
+![Train page configured for GRPO](docs/screenshots/train-grpo.png)
+
+**1. Prepare a dataset.** GRPO uses the `grpo` format: one JSON object per
+line with a `prompt`, the ground-truth `answer`, and an optional `system`
+message. Save something like this as `math.jsonl` (a real dataset should have
+a few hundred rows; keep answers short and objectively checkable):
+
+```jsonl
+{"system": "You are a careful math tutor. Think step by step, then give the final answer inside <answer></answer> tags.", "prompt": "What is 47 + 38?", "answer": "85"}
+{"system": "You are a careful math tutor. Think step by step, then give the final answer inside <answer></answer> tags.", "prompt": "What is 72 - 29?", "answer": "43"}
+{"system": "You are a careful math tutor. Think step by step, then give the final answer inside <answer></answer> tags.", "prompt": "What is 16 * 24?", "answer": "384"}
+```
+
+**2. Upload and split.** On the **Datasets** page, drop `math.jsonl` — the
+format is auto-detected as `grpo`. Then use **Split** (e.g. 80/10/10) so the
+trainer gets its `train`/`valid` files.
+
+**3. Download a model.** On the **Models** page, search and download a small
+instruct model, e.g. `mlx-community/Qwen2.5-0.5B-Instruct-4bit` — small
+enough to iterate quickly on any Apple Silicon Mac.
+
+**4. Configure the run.** On the **Train** page pick the model and dataset
+(only `grpo`-format datasets are selectable in GRPO mode), then:
+
+- **Train mode**: `GRPO` — **Group size**: `4` is a good start (completions
+  sampled per prompt; higher = better reward signal, more memory).
+- **Temperature** `0.8` keeps the sampled groups diverse; **Max completion
+  length** bounds each sample.
+- **Reward functions** — the five built-ins from mlx-lm-lora, combinable:
+  - `r1_accuracy_reward_func` — extracted `<answer>` exactly matches the target
+  - `r1_int_reward_func` — the extracted answer is an integer
+  - `r1_strict_format_reward_func` / `r1_soft_format_reward_func` — the
+    completion follows the reasoning-then-`<answer>` format (strictly / loosely)
+  - `r1_count_xml` — partial credit per correct XML tag
+  - Leaving all unchecked uses the library default (all five). For this
+    example, **Accuracy + Integer answer** is a focused starting point.
+
+Or skip the clicking: save the YAML below as `grpo-math.yaml` and load it with
+the form's **Load YAML** button (any exported run config re-loads the same way):
+
+```yaml
+config_schema: 1
+config:
+  name: grpo-math-demo
+  model_id: mlx-community/Qwen2.5-0.5B-Instruct-4bit
+  dataset_id: <your dataset id>   # shown on the Datasets page after upload
+  train_mode: grpo
+  train_type: lora
+  batch_size: 1
+  iters: 600
+  learning_rate: 1.0e-05
+  max_seq_length: 1024
+  num_layers: 16
+  lora: {rank: 8, scale: 20.0, dropout: 0.0}
+  optimizer: adamw
+  lr_schedule: cosine
+  save_every: 100
+  steps_per_report: 10
+  steps_per_eval: 100
+  val_batches: 25
+  seed: 42
+  group_size: 4
+  temperature: 0.8
+  max_completion_length: 512
+  reward_functions: [r1_accuracy_reward_func, r1_int_reward_func]
+```
+
+**5. Train and watch.** Start the run and follow live loss/learning-rate
+charts, logs and saved checkpoints in the monitor. GRPO logs also show the
+per-group reward statistics coming from the worker.
+
+**6. Try it.** When the run completes, open **Chat**, pick the base model plus
+your new adapter, and ask an arithmetic question — the answer should arrive as
+step-by-step reasoning ending in `<answer>…</answer>`. Use **Arena** to compare
+base vs. tuned side by side, **History → Export YAML** to save the exact
+configuration for reuse, and **Export** to fuse/convert when you're happy.
+
 ## Configuration
 
 All settings are environment variables with an `MLXLF_` prefix (see
