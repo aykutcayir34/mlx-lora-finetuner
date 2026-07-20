@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useRunMetrics } from '../../api/queries/training'
 import { useCloneRun } from '../../api/queries/history'
@@ -24,6 +25,7 @@ interface RunDetailPanelProps {
 type DetailTab = 'charts' | 'config' | 'diff'
 
 export function RunDetailPanel({ run, otherRuns }: RunDetailPanelProps) {
+  const { t } = useTranslation('history')
   const navigate = useNavigate()
   const [tab, setTab] = useState<DetailTab>('charts')
   const [diffRunId, setDiffRunId] = useState('')
@@ -60,18 +62,18 @@ export function RunDetailPanel({ run, otherRuns }: RunDetailPanelProps) {
           <div className="flex items-center gap-2">
             <ExportConfigLink runId={run.run_id} />
             <Button size="sm" onClick={handleClone} loading={cloneRun.isPending}>
-              Clone
+              {t('detail.clone')}
             </Button>
           </div>
-          {cloneRun.isError && <p className="text-xs text-danger">Failed to clone this run.</p>}
+          {cloneRun.isError && <p className="text-xs text-danger">{t('detail.cloneFailed')}</p>}
         </div>
       </div>
 
       <Tabs
         tabs={[
-          { id: 'charts', label: 'Charts' },
-          { id: 'config', label: 'Config' },
-          { id: 'diff', label: 'Diff' },
+          { id: 'charts', label: t('detail.tabs.charts') },
+          { id: 'config', label: t('detail.tabs.config') },
+          { id: 'diff', label: t('detail.tabs.diff') },
         ]}
         activeId={tab}
         onChange={(id) => setTab(id as DetailTab)}
@@ -86,13 +88,13 @@ export function RunDetailPanel({ run, otherRuns }: RunDetailPanelProps) {
         {tab === 'config' && <ConfigViewer config={run.config} />}
         {tab === 'diff' && (
           <div className="flex flex-col gap-4">
-            <Field label="Compare against" htmlFor="history-diff-run">
+            <Field label={t('detail.compareAgainst')} htmlFor="history-diff-run">
               <Select
                 id="history-diff-run"
                 value={diffRunId}
                 onChange={(event) => setDiffRunId(event.target.value)}
                 options={[
-                  { value: '', label: 'Select a run…' },
+                  { value: '', label: t('detail.selectRun') },
                   ...otherRuns
                     .filter((candidate) => candidate.run_id !== run.run_id)
                     .map((candidate) => ({
@@ -110,7 +112,7 @@ export function RunDetailPanel({ run, otherRuns }: RunDetailPanelProps) {
                 otherLabel={diffRun.name}
               />
             ) : (
-              <p className="text-sm text-text-muted">Select a run to compare configs.</p>
+              <p className="text-sm text-text-muted">{t('detail.selectRunHint')}</p>
             )}
           </div>
         )}

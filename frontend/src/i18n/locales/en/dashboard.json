@@ -1,0 +1,72 @@
+{
+  "title": "Dashboard",
+  "description": "System stats, active jobs and recent runs at a glance.",
+  "activeRun": {
+    "noneTitle": "No active training",
+    "noneDescription": "There is no training job running right now. Start a new LoRA fine-tuning job.",
+    "startCta": "Start new training",
+    "goToMonitor": "Go to monitor"
+  },
+  "onboarding": {
+    "title": "Getting started",
+    "intro": "No downloaded models or training jobs yet. Follow the three steps below to get started.",
+    "step": "Step {{step}}",
+    "models": {
+      "title": "Download a model",
+      "description": "Download an MLX model from Hugging Face.",
+      "cta": "Go to models"
+    },
+    "datasets": {
+      "title": "Upload a dataset",
+      "description": "Upload a .jsonl dataset for training.",
+      "cta": "Go to datasets"
+    },
+    "train": {
+      "title": "Start training",
+      "description": "Pick a model and a dataset and start LoRA fine-tuning.",
+      "cta": "Go to training"
+    }
+  },
+  "quickCounts": {
+    "localModels": "Local models",
+    "datasets": "Datasets"
+  },
+  "recentRuns": {
+    "title": "Recent runs",
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "modeType": "Mode / Type",
+      "finalLoss": "Final loss",
+      "time": "Time"
+    },
+    "view": "View",
+    "empty": "No runs yet"
+  },
+  "systemStats": {
+    "memory": "Memory",
+    "diskUsage": "Disk usage",
+    "backend": "Backend",
+    "disk": {
+      "models": "Models",
+      "datasets": "Datasets",
+      "runs": "Runs",
+      "exports": "Exports",
+      "free": "Free space"
+    },
+    "unavailable": "Unavailable",
+    "loading": "Loading…",
+    "healthy": "Healthy",
+    "unreachable": "Unreachable",
+    "versionApp": "App: {{version}}",
+    "versionMlx": "mlx: {{version}}",
+    "versionMlxLmLora": "mlx-lm-lora: {{version}}",
+    "versionUnavailable": "Version info unavailable"
+  },
+  "time": {
+    "justNow": "just now",
+    "minutesAgo": "{{minutes}} min ago",
+    "hoursAgo": "{{hours}} h ago",
+    "daysAgo": "{{days}} d ago"
+  }
+}

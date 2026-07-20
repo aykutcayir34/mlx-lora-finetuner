@@ -1,0 +1,46 @@
+{
+  "title": "Models",
+  "description": "Search, download and manage local MLX models.",
+  "tabs": {
+    "local": "Local Models",
+    "downloads": "Downloads"
+  },
+  "local": {
+    "loadFailed": "Failed to load local models.",
+    "emptyTitle": "No local models",
+    "emptyDescription": "Download a model from Hugging Face to get started.",
+    "deleteTitle": "Delete model",
+    "deleteMessage": "Delete \"{{modelId}}\"? This cannot be undone.",
+    "deleted": "Deleted \"{{modelId}}\".",
+    "deleteBlocked": "Cannot delete: model is used by an active training job.",
+    "deleteFailed": "Failed to delete model."
+  },
+  "card": {
+    "deleteAria": "Delete {{modelId}}",
+    "bits": "{{bits}}-bit"
+  },
+  "search": {
+    "authorLabel": "Author",
+    "queryPlaceholder": "e.g. Llama-3.2-1B",
+    "authorPlaceholder": "mlx-community",
+    "emptyDescription": "Type a query above to find MLX models.",
+    "noResultsDescription": "No models matched your search.",
+    "downloaded": "Downloaded",
+    "started": "Started download of \"{{modelId}}\".",
+    "alreadyDownloading": "This model is already downloading or already downloaded.",
+    "startFailed": "Failed to start download."
+  },
+  "downloads": {
+    "loadFailed": "Failed to load downloads.",
+    "emptyTitle": "No downloads",
+    "emptyDescription": "Downloads you start will show up here.",
+    "filesProgress": "{{done}}/{{total}} files",
+    "retryResumes": "Retry (resumes)",
+    "failedFallback": "Download failed.",
+    "wasCancelled": "Download was cancelled.",
+    "retrying": "Retrying download of \"{{modelId}}\".",
+    "retryFailed": "Failed to retry download.",
+    "cancelledToast": "Cancelled download of \"{{modelId}}\".",
+    "cancelFailed": "Failed to cancel download."
+  }
+}

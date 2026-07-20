@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '../components/layout/PageShell'
 import { ConfirmDialog } from '../components/common/ConfirmDialog'
 import { EmptyState } from '../components/common/EmptyState'
@@ -18,6 +19,7 @@ import type { DatasetInfo } from '../api/types'
 type DatasetsPageTab = 'local' | 'search' | 'imports'
 
 function DatasetsPageContent() {
+  const { t } = useTranslation('datasets')
   const { data, isLoading, isError } = useDatasets()
   const deleteDataset = useDeleteDataset()
   const { toast } = useToast()
@@ -47,17 +49,17 @@ function DatasetsPageContent() {
     const target = pendingDelete
     deleteDataset.mutate(target.dataset_id, {
       onSuccess: () => {
-        toast(`Deleted "${target.name}".`, { variant: 'success' })
+        toast(t('delete.deleted', { name: target.name }), { variant: 'success' })
         if (selectedId === target.dataset_id) setSelectedId(null)
         setPendingDelete(null)
       },
       onError: (error) => {
         const message =
           error instanceof ApiError && error.code === 'training_active'
-            ? 'Cannot delete: dataset is used by an active training job.'
+            ? t('delete.blocked')
             : error instanceof ApiError
               ? error.message
-              : 'Failed to delete dataset.'
+              : t('delete.failed')
         toast(message, { variant: 'error' })
         setPendingDelete(null)
       },
@@ -65,12 +67,12 @@ function DatasetsPageContent() {
   }
 
   return (
-    <PageShell title="Datasets" description="Upload, validate, split and preview training datasets.">
+    <PageShell title={t('title')} description={t('description')}>
       <Tabs
         tabs={[
-          { id: 'local', label: 'Local datasets' },
-          { id: 'search', label: 'Search Hugging Face' },
-          { id: 'imports', label: 'Imports' },
+          { id: 'local', label: t('tabs.local') },
+          { id: 'search', label: t('common:search.huggingFace') },
+          { id: 'imports', label: t('tabs.imports') },
         ]}
         activeId={activeTab}
         onChange={(id) => setActiveTab(id as DatasetsPageTab)}
@@ -82,9 +84,9 @@ function DatasetsPageContent() {
             {isLoading ? (
               <Spinner />
             ) : isError ? (
-              <p className="text-sm text-danger">Failed to load datasets.</p>
+              <p className="text-sm text-danger">{t('list.loadFailed')}</p>
             ) : datasets.length === 0 ? (
-              <EmptyState title="No datasets yet" description="Upload a .jsonl file above to get started." />
+              <EmptyState title={t('list.emptyTitle')} description={t('list.emptyDescription')} />
             ) : (
               <DatasetsTable
                 datasets={datasets}
@@ -108,9 +110,9 @@ function DatasetsPageContent() {
 
       <ConfirmDialog
         open={pendingDelete !== null}
-        title="Delete dataset"
-        message={`Delete "${pendingDelete?.name}"? This cannot be undone.`}
-        confirmLabel="Delete"
+        title={t('delete.title')}
+        message={t('delete.message', { name: pendingDelete?.name })}
+        confirmLabel={t('common:actions.delete')}
         danger
         onConfirm={handleConfirmDelete}
         onCancel={() => setPendingDelete(null)}

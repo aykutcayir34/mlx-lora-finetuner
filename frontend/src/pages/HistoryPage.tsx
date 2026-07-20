@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '../components/layout/PageShell'
 import { EmptyState } from '../components/common/EmptyState'
 import { Spinner } from '../components/common/Spinner'
@@ -19,6 +20,7 @@ const DEFAULT_FILTERS: HistoryFiltersState = {
 }
 
 function HistoryPageContent() {
+  const { t } = useTranslation('history')
   const [filters, setFilters] = useState<HistoryFiltersState>(DEFAULT_FILTERS)
   const [offset, setOffset] = useState(0)
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
@@ -54,18 +56,15 @@ function HistoryPageContent() {
       {historyQuery.isLoading ? (
         <Spinner />
       ) : historyQuery.isError ? (
-        <p className="text-sm text-danger">Failed to load run history.</p>
+        <p className="text-sm text-danger">{t('loadFailed')}</p>
       ) : runs.length === 0 ? (
-        <EmptyState
-          title="No runs found"
-          description="No training runs match the current filters."
-        />
+        <EmptyState title={t('empty.title')} description={t('empty.description')} />
       ) : (
         <>
           <HistoryTable runs={runs} selectedRunId={selectedRunId} onSelect={setSelectedRunId} />
           <div className="flex items-center justify-between text-sm text-text-muted">
             <span>
-              Showing {offset + 1}–{offset + runs.length} of {total}
+              {t('pagination.showing', { from: offset + 1, to: offset + runs.length, total })}
             </span>
             <div className="flex gap-2">
               <Button
@@ -74,7 +73,7 @@ function HistoryPageContent() {
                 disabled={offset === 0}
                 onClick={() => setOffset((current) => Math.max(0, current - PAGE_SIZE))}
               >
-                Previous
+                {t('pagination.previous')}
               </Button>
               <Button
                 size="sm"
@@ -82,7 +81,7 @@ function HistoryPageContent() {
                 disabled={offset + PAGE_SIZE >= total}
                 onClick={() => setOffset((current) => current + PAGE_SIZE)}
               >
-                Next
+                {t('pagination.next')}
               </Button>
             </div>
           </div>
@@ -95,8 +94,9 @@ function HistoryPageContent() {
 }
 
 export function HistoryPage() {
+  const { t } = useTranslation('history')
   return (
-    <PageShell title="History" description="Browse, inspect and clone past training runs.">
+    <PageShell title={t('page.title')} description={t('page.description')}>
       <HistoryPageContent />
     </PageShell>
   )

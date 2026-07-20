@@ -18,7 +18,7 @@ describe('SystemStatsPanel', () => {
   it('renders the backend health chip with app and library versions', async () => {
     renderWithProviders(<SystemStatsPanel />)
 
-    expect(await screen.findByText('Sağlıklı')).toBeInTheDocument()
+    expect(await screen.findByText('Healthy')).toBeInTheDocument()
     expect(screen.getByText(/0\.20\.0/)).toBeInTheDocument()
   })
 
@@ -30,7 +30,7 @@ describe('SystemStatsPanel', () => {
 
     renderWithProviders(<SystemStatsPanel />)
 
-    expect(await screen.findByText('Erişilemiyor')).toBeInTheDocument()
-    await waitFor(() => expect(screen.getAllByText('Kullanılamıyor').length).toBeGreaterThan(0))
+    expect(await screen.findByText('Unreachable')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0))
   })
 })

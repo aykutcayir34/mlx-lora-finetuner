@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { ReconnectingWS } from '../../api/ws'
 import { useCancelDownload, useDownloadModel } from '../../api/queries/models'
 import { queryKeys } from '../../api/queries/keys'
@@ -31,6 +32,7 @@ interface LiveProgress {
 }
 
 export function DownloadItem({ download, WebSocketImpl }: DownloadItemProps) {
+  const { t } = useTranslation('models')
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const retryDownload = useDownloadModel()
@@ -78,10 +80,10 @@ export function DownloadItem({ download, WebSocketImpl }: DownloadItemProps) {
       { model_id: download.model_id },
       {
         onSuccess: () => {
-          toast(`Retrying download of "${download.model_id}".`, { variant: 'success' })
+          toast(t('downloads.retrying', { modelId: download.model_id }), { variant: 'success' })
         },
         onError: (error) => {
-          toast(error instanceof Error ? error.message : 'Failed to retry download.', {
+          toast(error instanceof Error ? error.message : t('downloads.retryFailed'), {
             variant: 'error',
           })
         },
@@ -92,10 +94,10 @@ export function DownloadItem({ download, WebSocketImpl }: DownloadItemProps) {
   function handleCancel() {
     cancelDownload.mutate(download.download_id, {
       onSuccess: () => {
-        toast(`Cancelled download of "${download.model_id}".`, { variant: 'success' })
+        toast(t('downloads.cancelledToast', { modelId: download.model_id }), { variant: 'success' })
       },
       onError: (error) => {
-        toast(error instanceof Error ? error.message : 'Failed to cancel download.', {
+        toast(error instanceof Error ? error.message : t('downloads.cancelFailed'), {
           variant: 'error',
         })
       },
@@ -106,7 +108,9 @@ export function DownloadItem({ download, WebSocketImpl }: DownloadItemProps) {
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="break-all text-sm font-medium text-text">{download.model_id}</p>
-        <Badge variant={STATUS_VARIANT[download.status]}>{download.status}</Badge>
+        <Badge variant={STATUS_VARIANT[download.status]}>
+          {t(`common:rawStatus.${download.status}`)}
+        </Badge>
       </div>
 
       {download.status === 'running' && (
@@ -114,11 +118,11 @@ export function DownloadItem({ download, WebSocketImpl }: DownloadItemProps) {
           <ProgressBar
             value={progressValue}
             indeterminate={bytesTotal <= 0}
-            label={`${filesDone}/${filesTotal} files`}
+            label={t('downloads.filesProgress', { done: filesDone, total: filesTotal })}
           />
           <div className="mt-2 flex justify-end">
             <Button size="sm" variant="danger" onClick={handleCancel} loading={cancelDownload.isPending}>
-              Cancel
+              {t('common:actions.cancel')}
             </Button>
           </div>
         </div>
@@ -126,25 +130,25 @@ export function DownloadItem({ download, WebSocketImpl }: DownloadItemProps) {
 
       {download.status === 'failed' && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-danger">{download.error ?? 'Download failed.'}</p>
+          <p className="text-sm text-danger">{download.error ?? t('downloads.failedFallback')}</p>
           <Button size="sm" variant="secondary" onClick={handleRetry} loading={retryDownload.isPending}>
-            Retry (resumes)
+            {t('downloads.retryResumes')}
           </Button>
         </div>
       )}
 
       {download.status === 'cancelled' && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-text-muted">Download was cancelled.</p>
+          <p className="text-sm text-text-muted">{t('downloads.wasCancelled')}</p>
           <Button size="sm" variant="secondary" onClick={handleRetry} loading={retryDownload.isPending}>
-            Retry (resumes)
+            {t('downloads.retryResumes')}
           </Button>
         </div>
       )}
 
       {download.status === 'completed' && (
         <p className="mt-3 text-xs text-text-muted">
-          {filesDone}/{filesTotal} files
+          {t('downloads.filesProgress', { done: filesDone, total: filesTotal })}
         </p>
       )}
     </Card>

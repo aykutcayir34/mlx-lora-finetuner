@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import i18n from '../../i18n'
 import { ReconnectingWS } from '../../api/ws'
 import type { ChatWsClientFrame, ChatWsServerFrame } from '../../api/types'
 import { useChatStore } from '../../stores/chatStore'
@@ -7,8 +8,6 @@ interface QueueItem {
   sessionId: string
   frame: ChatWsClientFrame
 }
-
-const CONNECTION_LOST_MESSAGE = 'Connection lost'
 
 export interface UseChatSocketOptions {
   /** code === 'training_active' */
@@ -77,7 +76,7 @@ export function useChatSocket(options: UseChatSocketOptions = {}): UseChatSocket
         // the session errored so the user can retry, and clear the active slot
         // so dispatchNext can resume the queue after the socket reconnects.
         if (activeSessionRef.current) {
-          useChatStore.getState().setError(activeSessionRef.current, CONNECTION_LOST_MESSAGE)
+          useChatStore.getState().setError(activeSessionRef.current, i18n.t('chat:connectionLost'))
           activeSessionRef.current = null
           setActiveSessionId(null)
         }

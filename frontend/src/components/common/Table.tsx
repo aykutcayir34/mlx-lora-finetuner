@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface TableColumn<T> {
   key: string
@@ -14,7 +15,8 @@ export interface TableProps<T> {
   emptyMessage?: string
 }
 
-export function Table<T>({ columns, data, rowKey, emptyMessage = 'No data' }: TableProps<T>) {
+export function Table<T>({ columns, data, rowKey, emptyMessage }: TableProps<T>) {
+  const { t } = useTranslation('common')
   return (
     <table className="w-full border-collapse text-left text-sm">
       <thead>
@@ -30,7 +32,7 @@ export function Table<T>({ columns, data, rowKey, emptyMessage = 'No data' }: Ta
         {data.length === 0 ? (
           <tr>
             <td colSpan={columns.length} className="px-3 py-8 text-center text-text-muted">
-              {emptyMessage}
+              {emptyMessage ?? t('table.noData')}
             </td>
           </tr>
         ) : (

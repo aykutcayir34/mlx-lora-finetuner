@@ -1,5 +1,6 @@
 import type { JSX } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ROUTES } from '../../routes'
 import {
   ArenaIcon,
@@ -25,18 +26,32 @@ const ICONS: Record<string, (props: { className?: string }) => JSX.Element> = {
   '/history': HistoryIcon,
 }
 
+const NAV_KEYS: Record<string, string> = {
+  '/': 'dashboard',
+  '/models': 'models',
+  '/datasets': 'datasets',
+  '/train': 'train',
+  '/chat': 'chat',
+  '/arena': 'arena',
+  '/export': 'export',
+  '/recipes': 'recipes',
+  '/history': 'history',
+}
+
 export function SideNav() {
+  const { t } = useTranslation('layout')
   // useLocation drives the aria-current bookkeeping; NavLink still owns the
   // per-link active class so the two stay in sync automatically.
   const location = useLocation()
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={t('nav.primary')}
       className="flex h-full w-16 flex-col items-center gap-2 border-r border-border bg-surface py-4"
     >
       {ROUTES.map((route) => {
         const Icon = ICONS[route.path]
+        const label = t(`nav.${NAV_KEYS[route.path]}`)
         const isActive = location.pathname === route.path
         return (
           <NavLink
@@ -44,7 +59,7 @@ export function SideNav() {
             to={route.path}
             end={route.path === '/'}
             aria-current={isActive ? 'page' : undefined}
-            title={route.label}
+            title={label}
             className={({ isActive: navActive }) =>
               `flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${
                 navActive
@@ -54,7 +69,7 @@ export function SideNav() {
             }
           >
             <Icon />
-            <span className="sr-only">{route.label}</span>
+            <span className="sr-only">{label}</span>
           </NavLink>
         )
       })}

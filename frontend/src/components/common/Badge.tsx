@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { JobStatus } from '../../api/types'
 
 export type BadgeVariant = 'neutral' | 'success' | 'danger' | 'warning' | 'info'
@@ -29,16 +30,15 @@ export function Badge({ children, variant = 'neutral', className = '' }: BadgePr
 
 interface StatusConfig {
   variant: BadgeVariant
-  label: string
   pulse?: boolean
 }
 
 const STATUS_CONFIG: Record<JobStatus, StatusConfig> = {
-  queued: { variant: 'neutral', label: 'Queued' },
-  running: { variant: 'info', label: 'Running', pulse: true },
-  completed: { variant: 'success', label: 'Completed' },
-  failed: { variant: 'danger', label: 'Failed' },
-  cancelled: { variant: 'neutral', label: 'Cancelled' },
+  queued: { variant: 'neutral' },
+  running: { variant: 'info', pulse: true },
+  completed: { variant: 'success' },
+  failed: { variant: 'danger' },
+  cancelled: { variant: 'neutral' },
 }
 
 interface StatusBadgeProps {
@@ -47,11 +47,12 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, className = '' }: StatusBadgeProps) {
+  const { t } = useTranslation('common')
   const config = STATUS_CONFIG[status]
   return (
     <Badge variant={config.variant} className={className}>
       {config.pulse && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />}
-      {config.label}
+      {t(`status.${status}`)}
     </Badge>
   )
 }

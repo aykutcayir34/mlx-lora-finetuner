@@ -27,7 +27,7 @@ describe('RecentRunsList', () => {
     expect(screen.getByText('—')).toBeInTheDocument()
     expect(screen.getAllByText('sft / lora')).toHaveLength(2)
 
-    const links = screen.getAllByRole('link', { name: 'Görüntüle' })
+    const links = screen.getAllByRole('link', { name: 'View' })
     expect(links).toHaveLength(2)
     links.forEach((link) => expect(link).toHaveAttribute('href', '/train'))
   })
@@ -37,6 +37,6 @@ describe('RecentRunsList', () => {
 
     renderWithProviders(<RecentRunsList />)
 
-    expect(await screen.findByText('Henüz eğitim yok')).toBeInTheDocument()
+    expect(await screen.findByText('No runs yet')).toBeInTheDocument()
   })
 })

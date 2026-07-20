@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { useCancelImport, useDatasetImports, useImportDataset, useSplitDataset } from '../../api/queries/datasets'
 import { queryKeys } from '../../api/queries/keys'
 import { ApiError } from '../../api/client'
@@ -27,6 +28,7 @@ const STATUS_VARIANT: Record<DatasetImportStatus, BadgeVariant> = {
 }
 
 export function DatasetImportsSection({ pendingAutoSplit, onAutoSplitHandled }: DatasetImportsSectionProps) {
+  const { t } = useTranslation('datasets')
   const { data, isLoading, isError } = useDatasetImports()
   const cancelImport = useCancelImport()
   const retryImport = useImportDataset()
@@ -49,12 +51,14 @@ export function DatasetImportsSection({ pendingAutoSplit, onAutoSplitHandled }: 
         {
           onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.datasets.list })
-            toast(`Dataset ready: train/valid/test split created for "${item.hf_dataset_id}".`, {
+            toast(t('imports.autoSplitDone', { datasetId: item.hf_dataset_id }), {
               variant: 'success',
             })
           },
           onError: (error) => {
-            toast(error instanceof ApiError ? error.message : 'Automatic split failed.', { variant: 'error' })
+            toast(error instanceof ApiError ? error.message : t('imports.autoSplitFailed'), {
+              variant: 'error',
+            })
           },
         },
       )
@@ -65,7 +69,9 @@ export function DatasetImportsSection({ pendingAutoSplit, onAutoSplitHandled }: 
   function handleCancel(importId: string) {
     cancelImport.mutate(importId, {
       onError: (error) => {
-        toast(error instanceof ApiError ? error.message : 'Failed to cancel import.', { variant: 'error' })
+        toast(error instanceof ApiError ? error.message : t('imports.cancelFailed'), {
+          variant: 'error',
+        })
       },
     })
   }
@@ -81,10 +87,12 @@ export function DatasetImportsSection({ pendingAutoSplit, onAutoSplitHandled }: 
       },
       {
         onSuccess: () => {
-          toast(`Retrying import of "${item.hf_dataset_id}".`, { variant: 'success' })
+          toast(t('imports.retrying', { datasetId: item.hf_dataset_id }), { variant: 'success' })
         },
         onError: (error) => {
-          toast(error instanceof ApiError ? error.message : 'Failed to retry import.', { variant: 'error' })
+          toast(error instanceof ApiError ? error.message : t('imports.retryFailed'), {
+            variant: 'error',
+          })
         },
       },
     )
@@ -95,11 +103,11 @@ export function DatasetImportsSection({ pendingAutoSplit, onAutoSplitHandled }: 
   }
 
   if (isError) {
-    return <p className="text-sm text-danger">Failed to load imports.</p>
+    return <p className="text-sm text-danger">{t('imports.loadFailed')}</p>
   }
 
   if (imports.length === 0) {
-    return <EmptyState title="No imports" description="Datasets you import from Hugging Face will show up here." />
+    return <EmptyState title={t('imports.emptyTitle')} description={t('imports.emptyDescription')} />
   }
 
   return (
@@ -108,10 +116,14 @@ export function DatasetImportsSection({ pendingAutoSplit, onAutoSplitHandled }: 
         <Card key={item.import_id}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="break-all text-sm font-medium text-text">{item.hf_dataset_id}</p>
-            <Badge variant={STATUS_VARIANT[item.status]}>{item.status}</Badge>
+            <Badge variant={STATUS_VARIANT[item.status]}>
+              {t(`common:rawStatus.${item.status}`)}
+            </Badge>
           </div>
 
-          <p className="mt-2 text-xs text-text-muted">{item.rows_written.toLocaleString()} rows written</p>
+          <p className="mt-2 text-xs text-text-muted">
+            {t('imports.rowsWritten', { rows: item.rows_written.toLocaleString() })}
+          </p>
 
           {item.status === 'running' && (
             <div className="mt-3 flex justify-end">
@@ -121,21 +133,21 @@ export function DatasetImportsSection({ pendingAutoSplit, onAutoSplitHandled }: 
                 onClick={() => handleCancel(item.import_id)}
                 loading={cancelImport.isPending}
               >
-                Cancel
+                {t('common:actions.cancel')}
               </Button>
             </div>
           )}
 
           {(item.status === 'failed' || item.status === 'cancelled') && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm text-danger">{item.error ?? 'Import did not complete.'}</p>
+              <p className="text-sm text-danger">{item.error ?? t('imports.incomplete')}</p>
               <Button
                 size="sm"
                 variant="secondary"
                 onClick={() => handleRetry(item)}
                 loading={retryImport.isPending}
               >
-                Retry
+                {t('common:actions.retry')}
               </Button>
             </div>
           )}

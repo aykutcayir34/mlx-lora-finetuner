@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useDeleteModel, useModels } from '../../api/queries/models'
 import { ApiError } from '../../api/client'
 import type { ModelInfo } from '../../api/types'
@@ -13,6 +14,7 @@ interface LocalModelsSectionProps {
 }
 
 export function LocalModelsSection({ onGoToSearch }: LocalModelsSectionProps) {
+  const { t } = useTranslation('models')
   const { data: models, isLoading, isError } = useModels()
   const deleteModel = useDeleteModel()
   const { toast } = useToast()
@@ -23,16 +25,16 @@ export function LocalModelsSection({ onGoToSearch }: LocalModelsSectionProps) {
     const target = pendingDelete
     deleteModel.mutate(target.model_id, {
       onSuccess: () => {
-        toast(`Deleted "${target.model_id}".`, { variant: 'success' })
+        toast(t('local.deleted', { modelId: target.model_id }), { variant: 'success' })
         setPendingDelete(null)
       },
       onError: (error) => {
         const message =
           error instanceof ApiError && error.code === 'training_active'
-            ? 'Cannot delete: model is used by an active training job.'
+            ? t('local.deleteBlocked')
             : error instanceof Error
               ? error.message
-              : 'Failed to delete model.'
+              : t('local.deleteFailed')
         toast(message, { variant: 'error' })
         setPendingDelete(null)
       },
@@ -44,7 +46,7 @@ export function LocalModelsSection({ onGoToSearch }: LocalModelsSectionProps) {
   }
 
   if (isError) {
-    return <p className="text-sm text-danger">Failed to load local models.</p>
+    return <p className="text-sm text-danger">{t('local.loadFailed')}</p>
   }
 
   const list = models ?? []
@@ -52,8 +54,8 @@ export function LocalModelsSection({ onGoToSearch }: LocalModelsSectionProps) {
   if (list.length === 0) {
     return (
       <EmptyState
-        title="No local models"
-        description="Download a model from Hugging Face to get started."
+        title={t('local.emptyTitle')}
+        description={t('local.emptyDescription')}
         action={
           onGoToSearch ? (
             <button
@@ -61,7 +63,7 @@ export function LocalModelsSection({ onGoToSearch }: LocalModelsSectionProps) {
               onClick={onGoToSearch}
               className="text-sm font-medium text-accent hover:underline"
             >
-              Search Hugging Face
+              {t('common:search.huggingFace')}
             </button>
           ) : undefined
         }
@@ -84,9 +86,9 @@ export function LocalModelsSection({ onGoToSearch }: LocalModelsSectionProps) {
 
       <ConfirmDialog
         open={pendingDelete !== null}
-        title="Delete model"
-        message={`Delete "${pendingDelete?.model_id}"? This cannot be undone.`}
-        confirmLabel="Delete"
+        title={t('local.deleteTitle')}
+        message={t('local.deleteMessage', { modelId: pendingDelete?.model_id })}
+        confirmLabel={t('common:actions.delete')}
         danger
         onConfirm={handleConfirmDelete}
         onCancel={() => setPendingDelete(null)}

@@ -1,0 +1,37 @@
+{
+  "page": {
+    "title": "Sohbet",
+    "description": "Bir temel model veya eğitilmiş bir adapter ile sohbet et."
+  },
+  "trainingActive": "Eğitim sürerken sohbet kapalı",
+  "reconnecting": "Bağlantı koptu — yeniden bağlanılıyor…",
+  "clearConversation": "Konuşmayı temizle",
+  "columns": {
+    "adapter": "Adapter",
+    "base": "Temel"
+  },
+  "topBar": {
+    "model": "Model",
+    "adapter": "Adapter",
+    "noneAdapter": "Yok (temel model)",
+    "compare": "Adapter'lı/adapter'sız karşılaştır"
+  },
+  "window": {
+    "systemPrompt": "Sistem istemi",
+    "systemPromptPlaceholder": "Her mesajla gönderilecek isteğe bağlı sistem istemi...",
+    "message": "Mesaj",
+    "messagePlaceholder": "Mesaj... (Göndermek için Enter, yeni satır için Shift+Enter)",
+    "send": "Gönder",
+    "stop": "Durdur"
+  },
+  "usage": "{{tokens}} token · {{tps}} token/sn",
+  "genParams": {
+    "title": "Üretim parametreleri",
+    "maxTokens": "Maks. token",
+    "temperature": "Temperature ({{value}})",
+    "topP": "Top P ({{value}})",
+    "repetitionPenalty": "Tekrar cezası (isteğe bağlı)",
+    "nonePlaceholder": "yok"
+  },
+  "connectionLost": "Bağlantı koptu"
+}

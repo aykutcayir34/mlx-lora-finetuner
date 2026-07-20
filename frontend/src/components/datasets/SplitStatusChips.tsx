@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Badge } from '../common/Badge'
 import type { DatasetSplits } from '../../api/types'
 
@@ -6,15 +7,16 @@ interface SplitStatusChipsProps {
 }
 
 export function SplitStatusChips({ splits }: SplitStatusChipsProps) {
+  const { t } = useTranslation('datasets')
   if (!splits) {
-    return <Badge variant="neutral">Not split</Badge>
+    return <Badge variant="neutral">{t('chips.notSplit')}</Badge>
   }
 
   return (
     <div className="flex flex-wrap gap-1">
-      <Badge variant="info">train {splits.train}</Badge>
-      <Badge variant="success">valid {splits.valid}</Badge>
-      <Badge variant="warning">test {splits.test}</Badge>
+      <Badge variant="info">{t('chips.train', { n: splits.train })}</Badge>
+      <Badge variant="success">{t('chips.valid', { n: splits.valid })}</Badge>
+      <Badge variant="warning">{t('chips.test', { n: splits.test })}</Badge>
     </div>
   )
 }

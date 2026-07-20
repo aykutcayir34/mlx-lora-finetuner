@@ -1,0 +1,143 @@
+{
+  "title": "Datasets",
+  "description": "Upload, validate, split and preview training datasets.",
+  "tabs": {
+    "local": "Local datasets",
+    "imports": "Imports"
+  },
+  "list": {
+    "loadFailed": "Failed to load datasets.",
+    "emptyTitle": "No datasets yet",
+    "emptyDescription": "Upload a .jsonl file above to get started."
+  },
+  "table": {
+    "name": "Name",
+    "format": "Format",
+    "rows": "Rows",
+    "split": "Split",
+    "created": "Created",
+    "empty": "No datasets yet."
+  },
+  "chips": {
+    "notSplit": "Not split",
+    "train": "train {{n}}",
+    "valid": "valid {{n}}",
+    "test": "test {{n}}"
+  },
+  "formats": {
+    "chat": "Chat",
+    "completions": "Completions",
+    "text": "Text",
+    "dpo": "DPO",
+    "orpo": "ORPO",
+    "grpo": "GRPO",
+    "ftpo": "FTPO"
+  },
+  "detail": {
+    "splitButton": "Split dataset",
+    "previewTab": "Preview",
+    "validateTab": "Validate"
+  },
+  "preview": {
+    "splitAria": "Preview split",
+    "splits": {
+      "raw": "Raw",
+      "train": "Train",
+      "valid": "Valid",
+      "test": "Test"
+    },
+    "pageInfo": "{{rows}} rows · page {{page}} / {{totalPages}}",
+    "loadFailed": "Failed to load preview.",
+    "emptyTitle": "No rows",
+    "emptyDescription": "This split has no rows yet.",
+    "previous": "Previous",
+    "next": "Next",
+    "columns": {
+      "prompt": "Prompt",
+      "completion": "Completion",
+      "text": "Text",
+      "chosen": "Chosen",
+      "rejected": "Rejected",
+      "score": "Score",
+      "answer": "Answer",
+      "system": "System"
+    }
+  },
+  "search": {
+    "queryPlaceholder": "e.g. wikisql",
+    "emptyDescription": "Type a query above to find datasets.",
+    "noResultsDescription": "No datasets matched your search.",
+    "imported": "Imported",
+    "import": "Import"
+  },
+  "imports": {
+    "loadFailed": "Failed to load imports.",
+    "emptyTitle": "No imports",
+    "emptyDescription": "Datasets you import from Hugging Face will show up here.",
+    "rowsWritten": "{{rows}} rows written",
+    "incomplete": "Import did not complete.",
+    "autoSplitDone": "Dataset ready: train/valid/test split created for \"{{datasetId}}\".",
+    "autoSplitFailed": "Automatic split failed.",
+    "cancelFailed": "Failed to cancel import.",
+    "retrying": "Retrying import of \"{{datasetId}}\".",
+    "retryFailed": "Failed to retry import."
+  },
+  "importDialog": {
+    "title": "Import dataset",
+    "nameLabel": "Name",
+    "nameHint": "Leave blank to auto-generate from the dataset id.",
+    "splitLabel": "Split",
+    "splitPlaceholder": "train",
+    "maxRowsLabel": "Max rows",
+    "maxRowsHint": "Leave blank to import all rows.",
+    "maxRowsPlaceholder": "5000",
+    "autoSplitLabel": "Split automatically after import",
+    "started": "Import started for \"{{datasetId}}\".",
+    "alreadyImporting": "This dataset is already importing.",
+    "startFailed": "Failed to start import."
+  },
+  "splitForm": {
+    "trainRatio": "Train ratio",
+    "validRatio": "Valid ratio",
+    "testRatio": "Test ratio",
+    "seed": "Seed",
+    "sum": "Sum: {{sum}}",
+    "sumError": " — ratios must sum to 1.00"
+  },
+  "splitDialog": {
+    "title": "Split dataset",
+    "action": "Split",
+    "shuffleLabel": "Shuffle before splitting",
+    "created": "Dataset split created.",
+    "failed": "Split failed."
+  },
+  "delete": {
+    "title": "Delete dataset",
+    "message": "Delete \"{{name}}\"? This cannot be undone.",
+    "deleted": "Deleted \"{{name}}\".",
+    "blocked": "Cannot delete: dataset is used by an active training job.",
+    "failed": "Failed to delete dataset."
+  },
+  "upload": {
+    "prompt": "Drag & drop a .jsonl file here, or click to choose",
+    "format": "JSON Lines (.jsonl)",
+    "fileAria": "Dataset file",
+    "nameLabel": "Name (optional)",
+    "namePlaceholder": "my-dataset",
+    "button": "Upload dataset",
+    "uploaded": "Uploaded \"{{name}}\".",
+    "failed": "Upload failed."
+  },
+  "validation": {
+    "run": "Run validation",
+    "failed": "Validation failed.",
+    "rowsValid": "<0>{{valid}}</0> / {{total}} rows valid",
+    "errors": "Errors",
+    "warnings": "Warnings",
+    "noIssues": "No issues found.",
+    "columns": {
+      "line": "Line",
+      "message": "Message"
+    }
+  }
+}

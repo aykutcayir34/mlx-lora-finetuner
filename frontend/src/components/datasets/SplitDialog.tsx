@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '../common/Button'
 import { Field } from '../common/Field'
 import { Input } from '../common/Input'
@@ -18,6 +19,7 @@ interface SplitDialogProps {
 const SUM_TOLERANCE = 0.001
 
 export function SplitDialog({ open, datasetId, onClose }: SplitDialogProps) {
+  const { t } = useTranslation('datasets')
   const [train, setTrain] = useState(0.8)
   const [valid, setValid] = useState(0.1)
   const [test, setTest] = useState(0.1)
@@ -35,11 +37,13 @@ export function SplitDialog({ open, datasetId, onClose }: SplitDialogProps) {
       { datasetId, body: { train, valid, test, seed, shuffle } },
       {
         onSuccess: () => {
-          toast('Dataset split created.', { variant: 'success' })
+          toast(t('splitDialog.created'), { variant: 'success' })
           onClose()
         },
         onError: (error) => {
-          toast(error instanceof ApiError ? error.message : 'Split failed.', { variant: 'error' })
+          toast(error instanceof ApiError ? error.message : t('splitDialog.failed'), {
+            variant: 'error',
+          })
         },
       },
     )
@@ -49,20 +53,20 @@ export function SplitDialog({ open, datasetId, onClose }: SplitDialogProps) {
     <Modal
       open={open}
       onClose={onClose}
-      title="Split dataset"
+      title={t('splitDialog.title')}
       footer={
         <>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Cancel
+            {t('common:actions.cancel')}
           </Button>
           <Button size="sm" onClick={handleSubmit} disabled={!sumIsValid} loading={split.isPending}>
-            Split
+            {t('splitDialog.action')}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label="Train ratio" htmlFor="split-train">
+        <Field label={t('splitForm.trainRatio')} htmlFor="split-train">
           <Slider
             id="split-train"
             min={0}
@@ -73,7 +77,7 @@ export function SplitDialog({ open, datasetId, onClose }: SplitDialogProps) {
             onChange={(event) => setTrain(Number(event.target.value))}
           />
         </Field>
-        <Field label="Valid ratio" htmlFor="split-valid">
+        <Field label={t('splitForm.validRatio')} htmlFor="split-valid">
           <Slider
             id="split-valid"
             min={0}
@@ -84,7 +88,7 @@ export function SplitDialog({ open, datasetId, onClose }: SplitDialogProps) {
             onChange={(event) => setValid(Number(event.target.value))}
           />
         </Field>
-        <Field label="Test ratio" htmlFor="split-test">
+        <Field label={t('splitForm.testRatio')} htmlFor="split-test">
           <Slider
             id="split-test"
             min={0}
@@ -97,11 +101,11 @@ export function SplitDialog({ open, datasetId, onClose }: SplitDialogProps) {
         </Field>
 
         <p className={`text-xs ${sumIsValid ? 'text-text-muted' : 'text-danger'}`}>
-          Sum: {sum.toFixed(2)}
-          {sumIsValid ? '' : ' — ratios must sum to 1.00'}
+          {t('splitForm.sum', { sum: sum.toFixed(2) })}
+          {sumIsValid ? '' : t('splitForm.sumError')}
         </p>
 
-        <Field label="Seed" htmlFor="split-seed">
+        <Field label={t('splitForm.seed')} htmlFor="split-seed">
           <Input
             id="split-seed"
             type="number"
@@ -110,7 +114,7 @@ export function SplitDialog({ open, datasetId, onClose }: SplitDialogProps) {
           />
         </Field>
 
-        <Switch checked={shuffle} onChange={setShuffle} label="Shuffle before splitting" />
+        <Switch checked={shuffle} onChange={setShuffle} label={t('splitDialog.shuffleLabel')} />
       </div>
     </Modal>
   )

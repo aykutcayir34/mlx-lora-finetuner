@@ -1,0 +1,74 @@
+{
+  "page": {
+    "title": "Geçmiş",
+    "description": "Geçmiş eğitim çalıştırmalarını incele, denetle ve klonla."
+  },
+  "loadFailed": "Çalıştırma geçmişi yüklenemedi.",
+  "empty": {
+    "title": "Çalıştırma bulunamadı",
+    "description": "Mevcut filtrelerle eşleşen eğitim çalıştırması yok."
+  },
+  "pagination": {
+    "showing": "{{total}} kayıttan {{from}}–{{to}} arası gösteriliyor",
+    "previous": "Önceki",
+    "next": "Sonraki"
+  },
+  "filters": {
+    "model": "Model",
+    "mode": "Mod",
+    "status": "Durum",
+    "sort": "Sıralama",
+    "allModels": "Tüm modeller",
+    "allModes": "Tüm modlar",
+    "allStatuses": "Tüm durumlar",
+    "sortOptions": {
+      "newestFirst": "Önce en yeni",
+      "oldestFirst": "Önce en eski",
+      "trainLossAsc": "Eğitim loss'u (düşükten yükseğe)",
+      "trainLossDesc": "Eğitim loss'u (yüksekten düşüğe)"
+    }
+  },
+  "table": {
+    "name": "Ad",
+    "status": "Durum",
+    "model": "Model",
+    "dataset": "Veri kümesi",
+    "modeType": "Mod / Tür",
+    "trainLoss": "Eğitim loss'u",
+    "valLoss": "Doğrulama loss'u",
+    "created": "Oluşturulma",
+    "duration": "Süre",
+    "empty": "Çalıştırma bulunamadı."
+  },
+  "duration": {
+    "hm": "{{h}}sa {{m}}dk",
+    "ms": "{{m}}dk {{s}}sn",
+    "s": "{{s}}sn"
+  },
+  "detail": {
+    "clone": "Klonla",
+    "cloneFailed": "Bu çalıştırma klonlanamadı.",
+    "tabs": {
+      "charts": "Grafikler",
+      "config": "Yapılandırma",
+      "diff": "Fark"
+    },
+    "compareAgainst": "Şununla karşılaştır",
+    "selectRun": "Bir çalıştırma seçin…",
+    "selectRunHint": "Yapılandırmaları karşılaştırmak için bir çalıştırma seçin."
+  },
+  "config": {
+    "showGrouped": "Gruplu görünümü göster",
+    "showJson": "JSON göster",
+    "groups": {
+      "general": "Genel",
+      "training": "Eğitim",
+      "lora": "LoRA",
+      "checkpointing": "Checkpoint ve değerlendirme",
+      "modeSpecific": "Moda özgü"
+    }
+  },
+  "diff": {
+    "field": "Alan"
+  }
+}

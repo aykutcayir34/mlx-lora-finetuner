@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Button } from '../common/Button'
 import { CodeBlock } from '../common/CodeBlock'
 import { formatConfigValue } from './format'
@@ -9,10 +11,10 @@ interface ConfigGroup {
   rows: [string, unknown][]
 }
 
-function buildGroups(config: TrainingConfig): ConfigGroup[] {
+function buildGroups(config: TrainingConfig, t: TFunction): ConfigGroup[] {
   return [
     {
-      title: 'General',
+      title: t('history:config.groups.general'),
       rows: [
         ['name', config.name],
         ['model_id', config.model_id],
@@ -22,7 +24,7 @@ function buildGroups(config: TrainingConfig): ConfigGroup[] {
       ],
     },
     {
-      title: 'Training',
+      title: t('history:config.groups.training'),
       rows: [
         ['batch_size', config.batch_size],
         ['gradient_accumulation_steps', config.gradient_accumulation_steps],
@@ -38,7 +40,7 @@ function buildGroups(config: TrainingConfig): ConfigGroup[] {
       ],
     },
     {
-      title: 'LoRA',
+      title: t('history:config.groups.lora'),
       rows: [
         ['lora.rank', config.lora.rank],
         ['lora.scale', config.lora.scale],
@@ -46,7 +48,7 @@ function buildGroups(config: TrainingConfig): ConfigGroup[] {
       ],
     },
     {
-      title: 'Checkpointing & eval',
+      title: t('history:config.groups.checkpointing'),
       rows: [
         ['save_every', config.save_every],
         ['steps_per_report', config.steps_per_report],
@@ -55,7 +57,7 @@ function buildGroups(config: TrainingConfig): ConfigGroup[] {
       ],
     },
     {
-      title: 'Mode-specific',
+      title: t('history:config.groups.modeSpecific'),
       rows: [
         ['beta', config.beta],
         ['group_size', config.group_size],
@@ -78,14 +80,15 @@ interface ConfigViewerProps {
 }
 
 export function ConfigViewer({ config }: ConfigViewerProps) {
+  const { t } = useTranslation('history')
   const [showJson, setShowJson] = useState(false)
-  const groups = buildGroups(config)
+  const groups = buildGroups(config, t)
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-end">
         <Button size="sm" variant="secondary" onClick={() => setShowJson((value) => !value)}>
-          {showJson ? 'Show grouped view' : 'Show JSON'}
+          {showJson ? t('config.showGrouped') : t('config.showJson')}
         </Button>
       </div>
       {showJson ? (

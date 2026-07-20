@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PageShell } from '../components/layout/PageShell'
 import { useModels } from '../api/queries/models'
 import { useAdapters } from '../api/queries/adapters'
@@ -17,11 +18,10 @@ const DEFAULT_PARAMS: GenerationParams = {
   repetition_penalty: null,
 }
 
-const TRAINING_ACTIVE_MESSAGE = 'Eğitim sürerken arena kapalı'
-
 const EMPTY_SIDE: ArenaSidePickerValue = { modelId: '', adapterPath: '' }
 
 export function ArenaPage() {
+  const { t } = useTranslation('arena')
   const { data: models } = useModels()
   const { data: adapterData } = useAdapters()
   const adapters = useMemo(() => adapterData?.adapters ?? [], [adapterData])
@@ -48,7 +48,7 @@ export function ArenaPage() {
   }, [toastMessage])
 
   const arenaSocket = useArenaSocket({
-    onTrainingActive: () => setTrainingBanner(TRAINING_ACTIVE_MESSAGE),
+    onTrainingActive: () => setTrainingBanner(t('trainingActive')),
     onError: (message) => setToastMessage(message),
   })
 
@@ -87,7 +87,7 @@ export function ArenaPage() {
   }
 
   return (
-    <PageShell title="Arena" description="Compare two models or adapters side by side.">
+    <PageShell title={t('page.title')} description={t('page.description')}>
       <ArenaTopBar
         models={models ?? []}
         adapters={adapters}
@@ -99,10 +99,7 @@ export function ArenaPage() {
 
       <GenParamsDrawer params={params} onChange={setParams} />
 
-      <p className="text-xs text-text-muted">
-        Each message starts a fresh single-turn comparison — prior turns are shown for reference
-        but are not resent as conversation history to either side.
-      </p>
+      <p className="text-xs text-text-muted">{t('intro')}</p>
 
       {trainingBanner && (
         <div
@@ -120,37 +117,37 @@ export function ArenaPage() {
           role="status"
           className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-400"
         >
-          Connection lost — reconnecting…
+          {t('reconnecting')}
         </div>
       )}
 
       <div className="flex items-center justify-end">
         <Button variant="secondary" size="sm" onClick={handleClear} disabled={isGenerating}>
-          Clear
+          {t('common:actions.clear')}
         </Button>
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-2 gap-3">
-        <ArenaColumn side="a" label="A" state={sideAState} />
-        <ArenaColumn side="b" label="B" state={sideBState} />
+        <ArenaColumn side="a" label={t('sides.a')} state={sideAState} />
+        <ArenaColumn side="b" label={t('sides.b')} state={sideBState} />
       </div>
 
       <div className="flex items-end gap-2">
         <textarea
-          aria-label="Message"
+          aria-label={t('composer.message')}
           className="h-16 flex-1 resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Message... (Enter to send, Shift+Enter for newline)"
+          placeholder={t('composer.placeholder')}
         />
         {isGenerating ? (
           <Button variant="danger" onClick={arenaSocket.cancel}>
-            Stop
+            {t('composer.stop')}
           </Button>
         ) : (
           <Button variant="primary" onClick={submit} disabled={!draft.trim()}>
-            Send
+            {t('composer.send')}
           </Button>
         )}
       </div>

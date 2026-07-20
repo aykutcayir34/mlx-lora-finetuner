@@ -1,0 +1,72 @@
+{
+  "title": "Panel",
+  "description": "Sistem istatistikleri, aktif işler ve son eğitimler tek bakışta.",
+  "activeRun": {
+    "noneTitle": "Eğitim yok",
+    "noneDescription": "Şu anda çalışan bir eğitim işi yok. Yeni bir LoRA fine-tuning işi başlat.",
+    "startCta": "Yeni eğitim başlat",
+    "goToMonitor": "İzlemeye git"
+  },
+  "onboarding": {
+    "title": "Başlarken",
+    "intro": "Henüz indirilmiş bir model veya eğitim işi yok. Başlamak için aşağıdaki üç adımı takip et.",
+    "step": "Adım {{step}}",
+    "models": {
+      "title": "Model indir",
+      "description": "Hugging Face üzerinden bir MLX modeli indir.",
+      "cta": "Modellere git"
+    },
+    "datasets": {
+      "title": "Dataset yükle",
+      "description": "Eğitim için bir .jsonl dataset yükle.",
+      "cta": "Datasetlere git"
+    },
+    "train": {
+      "title": "Eğitimi başlat",
+      "description": "Model ve dataseti seçip LoRA fine-tuning başlat.",
+      "cta": "Eğitime git"
+    }
+  },
+  "quickCounts": {
+    "localModels": "Yerel modeller",
+    "datasets": "Datasetler"
+  },
+  "recentRuns": {
+    "title": "Son eğitimler",
+    "columns": {
+      "name": "İsim",
+      "status": "Durum",
+      "modeType": "Mod / Tip",
+      "finalLoss": "Son loss",
+      "time": "Zaman"
+    },
+    "view": "Görüntüle",
+    "empty": "Henüz eğitim yok"
+  },
+  "systemStats": {
+    "memory": "Bellek",
+    "diskUsage": "Disk kullanımı",
+    "backend": "Backend",
+    "disk": {
+      "models": "Modeller",
+      "datasets": "Datasetler",
+      "runs": "Eğitimler",
+      "exports": "Export",
+      "free": "Boş alan"
+    },
+    "unavailable": "Kullanılamıyor",
+    "loading": "Yükleniyor…",
+    "healthy": "Sağlıklı",
+    "unreachable": "Erişilemiyor",
+    "versionApp": "App: {{version}}",
+    "versionMlx": "mlx: {{version}}",
+    "versionMlxLmLora": "mlx-lm-lora: {{version}}",
+    "versionUnavailable": "Sürüm bilgisi alınamadı"
+  },
+  "time": {
+    "justNow": "az önce",
+    "minutesAgo": "{{minutes}} dk önce",
+    "hoursAgo": "{{hours}} sa önce",
+    "daysAgo": "{{days}} gün önce"
+  }
+}

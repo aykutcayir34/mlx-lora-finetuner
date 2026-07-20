@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useDownloadModel, useModelSearch } from '../../api/queries/models'
 import { ApiError } from '../../api/client'
 import type { HFSearchResult } from '../../api/types'
@@ -14,6 +15,7 @@ import { useDebouncedValue } from './useDebouncedValue'
 const DEBOUNCE_MS = 400
 
 export function ModelSearchPanel() {
+  const { t } = useTranslation('models')
   const [query, setQuery] = useState('')
   const [author, setAuthor] = useState('mlx-community')
   const debouncedQuery = useDebouncedValue(query, DEBOUNCE_MS)
@@ -30,16 +32,16 @@ export function ModelSearchPanel() {
       { model_id: result.model_id },
       {
         onSuccess: () => {
-          toast(`Started download of "${result.model_id}".`, { variant: 'success' })
+          toast(t('search.started', { modelId: result.model_id }), { variant: 'success' })
           setPendingModelId(null)
         },
         onError: (error) => {
           const message =
             error instanceof ApiError && error.code === 'conflict'
-              ? 'This model is already downloading or already downloaded.'
+              ? t('search.alreadyDownloading')
               : error instanceof Error
                 ? error.message
-                : 'Failed to start download.'
+                : t('search.startFailed')
           toast(message, { variant: 'error' })
           setPendingModelId(null)
         },
@@ -52,30 +54,30 @@ export function ModelSearchPanel() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Field label="Search query" className="flex-1">
+        <Field label={t('common:search.queryLabel')} className="flex-1">
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="e.g. Llama-3.2-1B"
+            placeholder={t('search.queryPlaceholder')}
           />
         </Field>
-        <Field label="Author" className="sm:w-56">
+        <Field label={t('search.authorLabel')} className="sm:w-56">
           <Input
             value={author}
             onChange={(e) => setAuthor(e.target.value)}
-            placeholder="mlx-community"
+            placeholder={t('search.authorPlaceholder')}
           />
         </Field>
       </div>
 
       {debouncedQuery.length === 0 ? (
-        <EmptyState title="Search Hugging Face" description="Type a query above to find MLX models." />
+        <EmptyState title={t('common:search.huggingFace')} description={t('search.emptyDescription')} />
       ) : search.isLoading ? (
         <Spinner />
       ) : search.isError ? (
-        <p className="text-sm text-danger">Search failed.</p>
+        <p className="text-sm text-danger">{t('common:errors.searchFailed')}</p>
       ) : results.length === 0 ? (
-        <EmptyState title="No results" description="No models matched your search." />
+        <EmptyState title={t('common:search.noResults')} description={t('search.noResultsDescription')} />
       ) : (
         <ul className="flex flex-col gap-2">
           {results.map((result) => (
@@ -86,12 +88,15 @@ export function ModelSearchPanel() {
               <div className="min-w-0">
                 <p className="break-all text-sm font-medium text-text">{result.model_id}</p>
                 <p className="mt-0.5 text-xs text-text-muted">
-                  {result.downloads.toLocaleString()} downloads · {result.likes.toLocaleString()} likes
+                  {t('common:hfStats', {
+                    downloads: result.downloads.toLocaleString(),
+                    likes: result.likes.toLocaleString(),
+                  })}
                   {result.size_bytes != null && ` · ${(result.size_bytes / 1024 ** 3).toFixed(1)} GB`}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {result.downloaded && <Badge variant="success">Downloaded</Badge>}
+                {result.downloaded && <Badge variant="success">{t('search.downloaded')}</Badge>}
                 <Button
                   size="sm"
                   variant="secondary"
@@ -99,7 +104,7 @@ export function ModelSearchPanel() {
                   disabled={result.downloaded}
                   loading={downloadModel.isPending && pendingModelId === result.model_id}
                 >
-                  Download
+                  {t('common:actions.download')}
                 </Button>
               </div>
             </li>

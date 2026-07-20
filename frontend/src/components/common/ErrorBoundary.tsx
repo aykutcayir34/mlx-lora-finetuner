@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from './Button'
 
 interface ErrorBoundaryProps {
@@ -48,24 +49,35 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return this.props.children
     }
 
-    return (
-      <div
-        role="alert"
-        className="flex flex-1 flex-col items-center justify-center gap-3 p-12 text-center"
-      >
-        <h2 className="text-sm font-semibold text-text">Something went wrong</h2>
-        <p className="max-w-md break-words font-mono text-sm text-danger">
-          {error.message || String(error)}
-        </p>
-        <div className="mt-2 flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={this.handleReset}>
-            Try again
-          </Button>
-          <Button variant="primary" size="sm" onClick={this.handleReload}>
-            Reload
-          </Button>
-        </div>
-      </div>
-    )
+    return <ErrorFallback error={error} onReset={this.handleReset} onReload={this.handleReload} />
   }
+}
+
+interface ErrorFallbackProps {
+  error: Error
+  onReset: () => void
+  onReload: () => void
+}
+
+function ErrorFallback({ error, onReset, onReload }: ErrorFallbackProps) {
+  const { t } = useTranslation('common')
+  return (
+    <div
+      role="alert"
+      className="flex flex-1 flex-col items-center justify-center gap-3 p-12 text-center"
+    >
+      <h2 className="text-sm font-semibold text-text">{t('errors.somethingWentWrong')}</h2>
+      <p className="max-w-md break-words font-mono text-sm text-danger">
+        {error.message || String(error)}
+      </p>
+      <div className="mt-2 flex items-center gap-2">
+        <Button variant="secondary" size="sm" onClick={onReset}>
+          {t('actions.tryAgain')}
+        </Button>
+        <Button variant="primary" size="sm" onClick={onReload}>
+          {t('actions.reload')}
+        </Button>
+      </div>
+    </div>
+  )
 }

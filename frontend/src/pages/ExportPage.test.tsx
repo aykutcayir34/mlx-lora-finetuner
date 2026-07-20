@@ -101,7 +101,7 @@ describe('ExportPage', () => {
     expect(await screen.findByText('Export job')).toBeInTheDocument()
     expect(await screen.findByText('Completed')).toBeInTheDocument()
     expect(screen.getByText('/abs/exports/my-model-fused')).toBeInTheDocument()
-    expect(await screen.findByText('Fuse tamamlandı.')).toBeInTheDocument()
+    expect(await screen.findByText('Fuse completed.')).toBeInTheDocument()
 
     // The artifact table refreshed with the new artifact.
     expect(await screen.findByText('/abs/exports/fused-out')).toBeInTheDocument()
@@ -127,7 +127,7 @@ describe('ExportPage', () => {
     await user.type(screen.getByPlaceholderText('my-model'), 'fused-out')
     await user.click(screen.getByRole('button', { name: 'Fuse' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/Eğitim aktifken/)
+    expect(await screen.findByRole('status')).toHaveTextContent(/while training is active/)
     // No job was started, so no progress panel appears.
     expect(screen.queryByText('Export job')).not.toBeInTheDocument()
   })

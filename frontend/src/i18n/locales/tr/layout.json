@@ -1,0 +1,24 @@
+{
+  "health": {
+    "healthy": "Backend sağlıklı",
+    "unreachable": "Backend erişilemez"
+  },
+  "nav": {
+    "primary": "Ana gezinme",
+    "dashboard": "Panel",
+    "models": "Modeller",
+    "datasets": "Veri kümeleri",
+    "train": "Eğitim",
+    "chat": "Sohbet",
+    "arena": "Arena",
+    "export": "Dışa aktarma",
+    "recipes": "Tarifler",
+    "history": "Geçmiş"
+  },
+  "footer": {
+    "activeRun": "Aktif eğitim: {{id}} ({{status}})",
+    "noActiveJob": "Aktif iş yok",
+    "memory": "Bellek: {{used}} / {{total}} GB",
+    "memoryUnknown": "Bellek: —"
+  }
+}

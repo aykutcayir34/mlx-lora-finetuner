@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useDownloads } from '../../api/queries/models'
 import { EmptyState } from '../common/EmptyState'
 import { Spinner } from '../common/Spinner'
@@ -9,6 +10,7 @@ interface DownloadsSectionProps {
 }
 
 export function DownloadsSection({ WebSocketImpl }: DownloadsSectionProps = {}) {
+  const { t } = useTranslation('models')
   const { data, isLoading, isError } = useDownloads()
 
   if (isLoading) {
@@ -16,13 +18,13 @@ export function DownloadsSection({ WebSocketImpl }: DownloadsSectionProps = {}) 
   }
 
   if (isError) {
-    return <p className="text-sm text-danger">Failed to load downloads.</p>
+    return <p className="text-sm text-danger">{t('downloads.loadFailed')}</p>
   }
 
   const downloads = data?.downloads ?? []
 
   if (downloads.length === 0) {
-    return <EmptyState title="No downloads" description="Downloads you start will show up here." />
+    return <EmptyState title={t('downloads.emptyTitle')} description={t('downloads.emptyDescription')} />
   }
 
   return (

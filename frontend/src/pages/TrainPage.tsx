@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { PageShell } from '../components/layout/PageShell'
 import { ToastProvider } from '../components/common/Toast'
@@ -54,11 +55,9 @@ function TrainPageContent({ WebSocketImpl }: TrainPageContentProps) {
 }
 
 export function TrainPage({ WebSocketImpl }: TrainPageContentProps = {}) {
+  const { t } = useTranslation('train')
   return (
-    <PageShell
-      title="Train"
-      description="Configure and launch LoRA fine-tuning jobs, watch live metrics."
-    >
+    <PageShell title={t('page.title')} description={t('page.description')}>
       <ToastProvider>
         <TrainPageContent WebSocketImpl={WebSocketImpl} />
       </ToastProvider>

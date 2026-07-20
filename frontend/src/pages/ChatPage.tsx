@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { PageShell } from '../components/layout/PageShell'
 import { parseChatCheckpointNavState } from '../routes'
@@ -23,8 +24,6 @@ const DEFAULT_PARAMS: GenerationParams = {
   repetition_penalty: null,
 }
 
-const TRAINING_ACTIVE_MESSAGE = 'Eğitim sürerken sohbet kapalı'
-
 function buildWireMessages(session: ChatSessionState | undefined, systemPrompt: string) {
   const messages = session?.messages ?? []
   const trimmed = systemPrompt.trim()
@@ -32,6 +31,7 @@ function buildWireMessages(session: ChatSessionState | undefined, systemPrompt: 
 }
 
 export function ChatPage() {
+  const { t } = useTranslation('chat')
   const location = useLocation()
   // Optional checkpoint payload from the RunMonitor "Chat" action; absent
   // navigation state keeps the page behavior identical to before.
@@ -79,7 +79,7 @@ export function ChatPage() {
   }, [toastMessage])
 
   const chatSocket = useChatSocket({
-    onTrainingActive: () => setTrainingBanner(TRAINING_ACTIVE_MESSAGE),
+    onTrainingActive: () => setTrainingBanner(t('trainingActive')),
     onModelNotFound: (message) => setToastMessage(message),
     onError: (message) => setToastMessage(message),
   })
@@ -88,11 +88,11 @@ export function ChatPage() {
     () =>
       compareMode && selectedAdapterPath
         ? [
-            { sessionId: SESSION_ADAPTER, label: 'Adapter' },
-            { sessionId: SESSION_BASE, label: 'Base' },
+            { sessionId: SESSION_ADAPTER, label: t('columns.adapter') },
+            { sessionId: SESSION_BASE, label: t('columns.base') },
           ]
         : [{ sessionId: SESSION_MAIN }],
-    [compareMode, selectedAdapterPath],
+    [compareMode, selectedAdapterPath, t],
   )
 
   const sessions = useChatStore((state) => state.sessions)
@@ -139,7 +139,7 @@ export function ChatPage() {
   }
 
   return (
-    <PageShell title="Chat" description="Chat with a base model or a trained adapter.">
+    <PageShell title={t('page.title')} description={t('page.description')}>
       <ChatTopBar
         models={models ?? []}
         selectedModelId={selectedModelId}
@@ -172,13 +172,13 @@ export function ChatPage() {
           role="status"
           className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm text-amber-400"
         >
-          Connection lost — reconnecting…
+          {t('reconnecting')}
         </div>
       )}
 
       <div className="flex items-center justify-end">
         <Button variant="secondary" size="sm" onClick={handleClear} disabled={isSending}>
-          Clear conversation
+          {t('clearConversation')}
         </Button>
       </div>
 

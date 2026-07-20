@@ -1,0 +1,43 @@
+{
+  "page": {
+    "title": "Recipes",
+    "description": "Convert documents into training datasets."
+  },
+  "toasts": {
+    "completed": "Conversion completed — dataset is ready on the Datasets page.",
+    "failed": "Conversion failed.",
+    "started": "Conversion started for \"{{name}}\".",
+    "startFailed": "Conversion failed to start."
+  },
+  "form": {
+    "dropzone": "Drag & drop a document here, or click to choose",
+    "formats": "PDF, DOCX, CSV, TXT or MD",
+    "fileAria": "Document file",
+    "unsupported": "Unsupported file type. Choose a .pdf, .docx, .csv, .txt or .md file.",
+    "datasetName": "Dataset name",
+    "namePlaceholder": "my-recipe-dataset",
+    "outputFormat": "Output format",
+    "formatOptions": {
+      "text": "Text",
+      "completions": "Completions",
+      "chat": "Chat"
+    },
+    "chunkSize": "Chunk size (chars)",
+    "chunkOverlap": "Chunk overlap (chars)",
+    "promptColumn": "Prompt column",
+    "promptPlaceholder": "question",
+    "completionColumn": "Completion column",
+    "completionPlaceholder": "answer",
+    "systemPrompt": "System prompt (optional)",
+    "systemPromptPlaceholder": "You are a helpful assistant.",
+    "submit": "Convert to dataset"
+  },
+  "job": {
+    "title": "Conversion job",
+    "loading": "Loading job status…",
+    "rowsEmitted": "{{n}} rows emitted",
+    "ready": "Dataset \"{{name}}\" is ready.",
+    "seeDatasets": "See it on the Datasets page.",
+    "failed": "Conversion failed."
+  }
+}

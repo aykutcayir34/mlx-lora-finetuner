@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useTranslation } from 'react-i18next'
 import type { MetricEvent } from '../../api/types'
 import { downsample } from './downsample'
 
@@ -26,6 +27,7 @@ interface LossChartProps {
 }
 
 export function LossChart({ data }: LossChartProps) {
+  const { t } = useTranslation('train')
   const trainPoints = downsample(
     data.filter((event) => event.kind === 'train' && event.loss !== null),
   )
@@ -34,7 +36,7 @@ export function LossChart({ data }: LossChartProps) {
   if (trainPoints.length === 0 && valPoints.length === 0) {
     return (
       <div className="flex items-center justify-center rounded-lg border border-dashed border-border p-8 text-sm text-text-muted">
-        No metrics yet
+        {t('charts.empty')}
       </div>
     )
   }
@@ -49,13 +51,13 @@ export function LossChart({ data }: LossChartProps) {
           allowDuplicatedCategory={false}
           stroke={AXIS_COLOR}
           tick={{ fill: AXIS_COLOR }}
-          label={{ value: 'Step', position: 'insideBottom', offset: -4, fill: AXIS_COLOR }}
+          label={{ value: t('charts.step'), position: 'insideBottom', offset: -4, fill: AXIS_COLOR }}
         />
         <YAxis
           dataKey="loss"
           stroke={AXIS_COLOR}
           tick={{ fill: AXIS_COLOR }}
-          label={{ value: 'Loss', angle: -90, position: 'insideLeft', fill: AXIS_COLOR }}
+          label={{ value: t('charts.loss'), angle: -90, position: 'insideLeft', fill: AXIS_COLOR }}
         />
         <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: AXIS_COLOR }} />
         <Legend />
@@ -63,7 +65,7 @@ export function LossChart({ data }: LossChartProps) {
           data={trainPoints}
           type="monotone"
           dataKey="loss"
-          name="Train loss"
+          name={t('charts.trainLoss')}
           stroke={TRAIN_COLOR}
           strokeWidth={2}
           dot={false}
@@ -74,7 +76,7 @@ export function LossChart({ data }: LossChartProps) {
           data={valPoints}
           type="monotone"
           dataKey="loss"
-          name="Val loss"
+          name={t('charts.valLoss')}
           stroke={VAL_COLOR}
           strokeWidth={2}
           dot={false}

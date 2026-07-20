@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '../common/Button'
 import { Field } from '../common/Field'
 import { Input } from '../common/Input'
@@ -33,6 +34,7 @@ export function ImportDatasetDialog({
   onClose,
   onImportQueued,
 }: ImportDatasetDialogProps) {
+  const { t } = useTranslation('datasets')
   const [name, setName] = useState('')
   const [split, setSplit] = useState('train')
   const [maxRows, setMaxRows] = useState('5000')
@@ -61,17 +63,17 @@ export function ImportDatasetDialog({
       },
       {
         onSuccess: (response) => {
-          toast(`Import started for "${hfDatasetId}".`, { variant: 'success' })
+          toast(t('importDialog.started', { datasetId: hfDatasetId }), { variant: 'success' })
           onImportQueued(response.import_id, autoSplit ? { train, valid, test, seed, shuffle: true } : null)
           onClose()
         },
         onError: (error) => {
           const message =
             error instanceof ApiError && error.code === 'conflict'
-              ? 'This dataset is already importing.'
+              ? t('importDialog.alreadyImporting')
               : error instanceof ApiError
                 ? error.message
-                : 'Failed to start import.'
+                : t('importDialog.startFailed')
           toast(message, { variant: 'error' })
         },
       },
@@ -82,14 +84,14 @@ export function ImportDatasetDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="Import dataset"
+      title={t('importDialog.title')}
       footer={
         <>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Cancel
+            {t('common:actions.cancel')}
           </Button>
           <Button size="sm" onClick={handleSubmit} disabled={!canSubmit} loading={importDataset.isPending}>
-            Import
+            {t('search.import')}
           </Button>
         </>
       }
@@ -97,7 +99,7 @@ export function ImportDatasetDialog({
       <div className="flex flex-col gap-4">
         <p className="break-all text-xs text-text-muted">{hfDatasetId}</p>
 
-        <Field label="Name" htmlFor="import-name" hint="Leave blank to auto-generate from the dataset id.">
+        <Field label={t('importDialog.nameLabel')} htmlFor="import-name" hint={t('importDialog.nameHint')}>
           <Input
             id="import-name"
             value={name}
@@ -106,30 +108,34 @@ export function ImportDatasetDialog({
           />
         </Field>
 
-        <Field label="Split" htmlFor="import-split">
+        <Field label={t('importDialog.splitLabel')} htmlFor="import-split">
           <Input
             id="import-split"
             value={split}
             onChange={(event) => setSplit(event.target.value)}
-            placeholder="train"
+            placeholder={t('importDialog.splitPlaceholder')}
           />
         </Field>
 
-        <Field label="Max rows" htmlFor="import-max-rows" hint="Leave blank to import all rows.">
+        <Field
+          label={t('importDialog.maxRowsLabel')}
+          htmlFor="import-max-rows"
+          hint={t('importDialog.maxRowsHint')}
+        >
           <Input
             id="import-max-rows"
             type="number"
             value={maxRows}
             onChange={(event) => setMaxRows(event.target.value)}
-            placeholder="5000"
+            placeholder={t('importDialog.maxRowsPlaceholder')}
           />
         </Field>
 
-        <Switch checked={autoSplit} onChange={setAutoSplit} label="Split automatically after import" />
+        <Switch checked={autoSplit} onChange={setAutoSplit} label={t('importDialog.autoSplitLabel')} />
 
         {autoSplit && (
           <>
-            <Field label="Train ratio" htmlFor="import-split-train">
+            <Field label={t('splitForm.trainRatio')} htmlFor="import-split-train">
               <Slider
                 id="import-split-train"
                 min={0}
@@ -140,7 +146,7 @@ export function ImportDatasetDialog({
                 onChange={(event) => setTrain(Number(event.target.value))}
               />
             </Field>
-            <Field label="Valid ratio" htmlFor="import-split-valid">
+            <Field label={t('splitForm.validRatio')} htmlFor="import-split-valid">
               <Slider
                 id="import-split-valid"
                 min={0}
@@ -151,7 +157,7 @@ export function ImportDatasetDialog({
                 onChange={(event) => setValid(Number(event.target.value))}
               />
             </Field>
-            <Field label="Test ratio" htmlFor="import-split-test">
+            <Field label={t('splitForm.testRatio')} htmlFor="import-split-test">
               <Slider
                 id="import-split-test"
                 min={0}
@@ -164,11 +170,11 @@ export function ImportDatasetDialog({
             </Field>
 
             <p className={`text-xs ${sumIsValid ? 'text-text-muted' : 'text-danger'}`}>
-              Sum: {sum.toFixed(2)}
-              {sumIsValid ? '' : ' — ratios must sum to 1.00'}
+              {t('splitForm.sum', { sum: sum.toFixed(2) })}
+              {sumIsValid ? '' : t('splitForm.sumError')}
             </p>
 
-            <Field label="Seed" htmlFor="import-split-seed">
+            <Field label={t('splitForm.seed')} htmlFor="import-split-seed">
               <Input
                 id="import-split-seed"
                 type="number"

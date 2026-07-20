@@ -1,0 +1,91 @@
+{
+  "page": {
+    "title": "Export",
+    "description": "Fuse adapters, convert to GGUF and generate Ollama Modelfiles."
+  },
+  "tabs": {
+    "fuse": "Fuse",
+    "gguf": "GGUF",
+    "ollama": "Ollama"
+  },
+  "trainingActive": "Export is not available while training is active. Try again once training finishes.",
+  "manualPath": "Manual path",
+  "fuse": {
+    "title": "Fuse adapter into base model",
+    "fromAdapter": "From adapter",
+    "adapter": "Adapter",
+    "noAdapters": "No adapters found.",
+    "selectAdapter": "Select an adapter…",
+    "baseModelId": "Base model id",
+    "baseModelPlaceholder": "mlx-community/SmolLM-135M-Instruct-4bit",
+    "adapterPath": "Adapter path",
+    "adapterPathPlaceholder": "/abs/path/to/adapters",
+    "outputName": "Output name",
+    "outputNamePlaceholder": "my-model",
+    "deQuantize": "De-quantize",
+    "deQuantizeHint": "Required if you will convert to GGUF — quantized base models cannot be converted otherwise",
+    "submit": "Fuse",
+    "startFailed": "Failed to start the fuse job.",
+    "completed": "Fuse completed.",
+    "failed": "Fuse failed."
+  },
+  "gguf": {
+    "title": "Convert fused model to GGUF",
+    "fromArtifact": "From fused artifact",
+    "fusedModel": "Fused model",
+    "noFused": "No fused artifacts found.",
+    "selectFused": "Select a fused model…",
+    "fusedPath": "Fused model path",
+    "fusedPathPlaceholder": "/abs/path/to/fused",
+    "preflight": "Preflight checks",
+    "checking": "Checking…",
+    "outtype": "Outtype",
+    "outputName": "Output name",
+    "outputNamePlaceholder": "my-model",
+    "submit": "Convert",
+    "startFailed": "Failed to start the GGUF conversion.",
+    "completed": "GGUF conversion completed.",
+    "failed": "GGUF conversion failed."
+  },
+  "ollama": {
+    "title": "Generate Ollama Modelfile",
+    "fromGguf": "From GGUF artifact",
+    "ggufFile": "GGUF file",
+    "noGguf": "No GGUF artifacts found.",
+    "selectGguf": "Select a GGUF file…",
+    "ggufPath": "GGUF path",
+    "ggufPathPlaceholder": "/abs/path/to/model.gguf",
+    "modelFamily": "Model family",
+    "familyCustom": "Custom",
+    "customTemplate": "Custom template",
+    "templateRequired": "Custom family requires a template.",
+    "name": "Name",
+    "namePlaceholder": "my-model",
+    "submit": "Generate",
+    "created": "Modelfile created.",
+    "createFailed": "Failed to create the Modelfile."
+  },
+  "job": {
+    "title": "Export job",
+    "loading": "Loading job status…",
+    "output": "Output:",
+    "failed": "Export failed."
+  },
+  "modelfile": {
+    "title": "Modelfile",
+    "savedTo": "Saved to:",
+    "usage": "Usage:"
+  },
+  "artifacts": {
+    "title": "Artifacts",
+    "emptyTitle": "No artifacts yet",
+    "emptyDescription": "Fuse an adapter, convert to GGUF or generate a Modelfile to see it here.",
+    "columns": {
+      "kind": "Kind",
+      "path": "Path",
+      "size": "Size",
+      "sourceRun": "Source run",
+      "created": "Created"
+    }
+  }
+}

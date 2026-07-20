@@ -1,0 +1,52 @@
+{
+  "appName": "MLX LoRA Finetuner",
+  "actions": {
+    "cancel": "İptal",
+    "delete": "Sil",
+    "retry": "Yeniden dene",
+    "copy": "Kopyala",
+    "copied": "Kopyalandı",
+    "close": "Kapat",
+    "upload": "Yükle",
+    "download": "İndir",
+    "clear": "Temizle",
+    "save": "Kaydet",
+    "reload": "Yenile",
+    "tryAgain": "Tekrar dene",
+    "search": "Ara",
+    "confirm": "Onayla",
+    "dismiss": "Kapat"
+  },
+  "status": {
+    "queued": "Kuyrukta",
+    "running": "Çalışıyor",
+    "completed": "Tamamlandı",
+    "failed": "Başarısız",
+    "cancelled": "İptal edildi"
+  },
+  "rawStatus": {
+    "running": "çalışıyor",
+    "completed": "tamamlandı",
+    "failed": "başarısız",
+    "cancelled": "iptal edildi"
+  },
+  "language": {
+    "label": "Dil",
+    "en": "EN",
+    "tr": "TR"
+  },
+  "loading": "Yükleniyor",
+  "table": {
+    "noData": "Veri yok"
+  },
+  "errors": {
+    "somethingWentWrong": "Bir şeyler ters gitti",
+    "searchFailed": "Arama başarısız oldu."
+  },
+  "search": {
+    "huggingFace": "Hugging Face'te ara",
+    "queryLabel": "Arama sorgusu",
+    "noResults": "Sonuç yok"
+  },
+  "hfStats": "{{downloads}} indirme · {{likes}} beğeni"
+}

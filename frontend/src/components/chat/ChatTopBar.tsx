@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { AdapterInfo, ModelInfo } from '../../api/types'
 import { Field } from '../common/Field'
 import { Select, type SelectOption } from '../common/Select'
@@ -14,8 +15,6 @@ interface ChatTopBarProps {
   onCompareModeChange: (enabled: boolean) => void
 }
 
-const NONE_ADAPTER: SelectOption = { value: '', label: 'None (base model)' }
-
 export function ChatTopBar({
   models,
   selectedModelId,
@@ -26,29 +25,30 @@ export function ChatTopBar({
   compareMode,
   onCompareModeChange,
 }: ChatTopBarProps) {
+  const { t } = useTranslation('chat')
   const filteredAdapters = adapters.filter((adapter) => adapter.base_model_id === selectedModelId)
   const modelOptions: SelectOption[] = models.map((model) => ({
     value: model.model_id,
     label: model.model_id,
   }))
   const adapterOptions: SelectOption[] = [
-    NONE_ADAPTER,
+    { value: '', label: t('topBar.noneAdapter') },
     ...filteredAdapters.map((adapter) => ({ value: adapter.adapter_path, label: adapter.name })),
   ]
 
   return (
     <div className="flex flex-wrap items-end gap-4 rounded-xl border border-border bg-surface p-3">
-      <Field label="Model" className="min-w-[240px]">
+      <Field label={t('topBar.model')} className="min-w-[240px]">
         <Select
-          aria-label="Model"
+          aria-label={t('topBar.model')}
           options={modelOptions}
           value={selectedModelId}
           onChange={(event) => onModelChange(event.target.value)}
         />
       </Field>
-      <Field label="Adapter" className="min-w-[240px]">
+      <Field label={t('topBar.adapter')} className="min-w-[240px]">
         <Select
-          aria-label="Adapter"
+          aria-label={t('topBar.adapter')}
           options={adapterOptions}
           value={selectedAdapterPath}
           onChange={(event) => onAdapterChange(event.target.value)}
@@ -58,7 +58,7 @@ export function ChatTopBar({
         checked={compareMode}
         onChange={onCompareModeChange}
         disabled={!selectedAdapterPath}
-        label="Compare with/without adapter"
+        label={t('topBar.compare')}
       />
     </div>
   )

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { ArenaSide } from '../../api/types'
 import { MessageBubble } from '../chat/MessageBubble'
 import type { ArenaSideState } from './arenaStore'
@@ -9,6 +10,7 @@ interface ArenaColumnProps {
 }
 
 export function ArenaColumn({ side, label, state }: ArenaColumnProps) {
+  const { t } = useTranslation('arena')
   return (
     <div
       data-testid={`arena-column-${side}`}
@@ -23,12 +25,15 @@ export function ArenaColumn({ side, label, state }: ArenaColumnProps) {
       )}
       {state.status === 'waiting' && (
         <p data-testid={`arena-waiting-${side}`} className="text-xs italic text-text-muted">
-          Waiting…
+          {t('waiting')}
         </p>
       )}
       {state.status === 'done' && state.usage && (
         <p className="text-xs text-text-muted">
-          {state.usage.completion_tokens} tokens · {state.usage.tokens_per_sec.toFixed(1)} tok/s
+          {t('usage', {
+            tokens: state.usage.completion_tokens,
+            tps: state.usage.tokens_per_sec.toFixed(1),
+          })}
         </p>
       )}
       {state.error && (

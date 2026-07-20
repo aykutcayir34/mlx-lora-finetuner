@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { parseFuseCheckpointNavState } from '../../routes'
@@ -19,6 +20,7 @@ import { JobProgressPanel } from './JobProgressPanel'
 type SourceMode = 'adapter' | 'manual'
 
 export function FuseWizard() {
+  const { t } = useTranslation('export')
   const location = useLocation()
   const adapters = useAdapters()
   const fuse = useFuse()
@@ -82,12 +84,10 @@ export function FuseWizard() {
       },
       onError: (error) => {
         if (error instanceof ApiError && error.code === 'training_active') {
-          toast('Eğitim aktifken export yapılamaz. Eğitim bitince tekrar deneyin.', {
-            variant: 'error',
-          })
+          toast(t('trainingActive'), { variant: 'error' })
           return
         }
-        toast(error instanceof Error ? error.message : 'Fuse işlemi başlatılamadı.', {
+        toast(error instanceof Error ? error.message : t('fuse.startFailed'), {
           variant: 'error',
         })
       },
@@ -95,7 +95,7 @@ export function FuseWizard() {
   }
 
   return (
-    <Card title="Fuse adapter into base model">
+    <Card title={t('fuse.title')}>
       <div className="flex flex-col gap-4">
         <div className="flex gap-2">
           <Button
@@ -104,7 +104,7 @@ export function FuseWizard() {
             size="sm"
             onClick={() => setSourceMode('adapter')}
           >
-            From adapter
+            {t('fuse.fromAdapter')}
           </Button>
           <Button
             type="button"
@@ -112,17 +112,20 @@ export function FuseWizard() {
             size="sm"
             onClick={() => setSourceMode('manual')}
           >
-            Manual path
+            {t('manualPath')}
           </Button>
         </div>
 
         {sourceMode === 'adapter' ? (
-          <Field label="Adapter" hint={adapterList.length === 0 ? 'No adapters found.' : undefined}>
+          <Field
+            label={t('fuse.adapter')}
+            hint={adapterList.length === 0 ? t('fuse.noAdapters') : undefined}
+          >
             <Select
               value={selectedAdapterPath}
               onChange={(e) => setSelectedAdapterPath(e.target.value)}
               options={[
-                { value: '', label: 'Select an adapter…' },
+                { value: '', label: t('fuse.selectAdapter') },
                 ...adapterList.map((a) => ({
                   value: a.adapter_path,
                   label: `${a.name} — ${a.base_model_id}`,
@@ -132,39 +135,37 @@ export function FuseWizard() {
           </Field>
         ) : (
           <>
-            <Field label="Base model id">
+            <Field label={t('fuse.baseModelId')}>
               <Input
                 value={modelId}
                 onChange={(e) => setModelId(e.target.value)}
-                placeholder="mlx-community/SmolLM-135M-Instruct-4bit"
+                placeholder={t('fuse.baseModelPlaceholder')}
               />
             </Field>
-            <Field label="Adapter path">
+            <Field label={t('fuse.adapterPath')}>
               <Input
                 value={adapterPath}
                 onChange={(e) => setAdapterPath(e.target.value)}
-                placeholder="/abs/path/to/adapters"
+                placeholder={t('fuse.adapterPathPlaceholder')}
               />
             </Field>
           </>
         )}
 
-        <Field label="Output name">
+        <Field label={t('fuse.outputName')}>
           <Input
             value={outputName}
             onChange={(e) => setOutputName(e.target.value)}
-            placeholder="my-model"
+            placeholder={t('fuse.outputNamePlaceholder')}
           />
         </Field>
 
         <Switch
           checked={deQuantize}
           onChange={setDeQuantize}
-          label="De-quantize"
+          label={t('fuse.deQuantize')}
         />
-        <p className="-mt-2 text-xs text-text-muted">
-          GGUF'a çevirecekseniz zorunlu — quantize base modeller aksi halde dönüştürülemez
-        </p>
+        <p className="-mt-2 text-xs text-text-muted">{t('fuse.deQuantizeHint')}</p>
 
         <div>
           <Button
@@ -173,7 +174,7 @@ export function FuseWizard() {
             disabled={!canSubmit}
             loading={fuse.isPending}
           >
-            Fuse
+            {t('fuse.submit')}
           </Button>
         </div>
 
@@ -182,9 +183,9 @@ export function FuseWizard() {
           onSettled={(job) => {
             if (job.status === 'completed') {
               queryClient.invalidateQueries({ queryKey: queryKeys.export.artifacts })
-              toast('Fuse tamamlandı.', { variant: 'success' })
+              toast(t('fuse.completed'), { variant: 'success' })
             } else if (job.status === 'failed') {
-              toast(job.error ?? 'Fuse başarısız oldu.', { variant: 'error' })
+              toast(job.error ?? t('fuse.failed'), { variant: 'error' })
             }
           }}
         />

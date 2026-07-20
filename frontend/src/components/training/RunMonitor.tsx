@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { Checkpoint } from '../../stores/trainingStore'
 import { Link, useNavigate } from 'react-router-dom'
 import type { ChatCheckpointNavState, FuseCheckpointNavState } from '../../routes'
@@ -34,6 +36,7 @@ interface RunMonitorProps {
 type Mode = 'loading' | 'live' | 'past'
 
 export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
+  const { t } = useTranslation('train')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const runQuery = useRun(runId)
@@ -138,7 +141,7 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
     return (
       <Card>
         <div className="flex items-center justify-center gap-2 p-8 text-text-muted">
-          <Spinner /> Loading run…
+          <Spinner /> {t('monitor.loading')}
         </div>
       </Card>
     )
@@ -147,14 +150,14 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
   if (runQuery.isError || !runQuery.data) {
     return (
       <Card>
-        <p className="p-4 text-sm text-danger">Failed to load run {runId}.</p>
+        <p className="p-4 text-sm text-danger">{t('monitor.loadFailed', { runId })}</p>
       </Card>
     )
   }
 
   const run = runQuery.data
   const canCancel = effectiveStatus === 'running' || effectiveStatus === 'queued'
-  const elapsed = formatElapsed(run.started_at, run.finished_at)
+  const elapsed = formatElapsed(run.started_at, run.finished_at, t)
 
   return (
     <div className="flex flex-col gap-4">
@@ -173,7 +176,7 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
             <ExportConfigLink runId={run.run_id} />
             {canCancel && (
               <Button variant="danger" size="sm" onClick={() => setConfirmCancel(true)}>
-                Cancel run
+                {t('monitor.cancelRun')}
               </Button>
             )}
           </div>
@@ -186,19 +189,19 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
 
       <Card>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatTile label="Current loss" value={formatNumber(lastTrainMetric?.loss)} />
-          <StatTile label="it/s" value={formatNumber(lastTrainMetric?.it_per_sec)} />
-          <StatTile label="tokens/s" value={formatNumber(lastTrainMetric?.tokens_per_sec)} />
-          <StatTile label="Peak memory (GB)" value={formatNumber(peakMemory)} />
+          <StatTile label={t('monitor.stats.currentLoss')} value={formatNumber(lastTrainMetric?.loss)} />
+          <StatTile label={t('monitor.stats.itPerSec')} value={formatNumber(lastTrainMetric?.it_per_sec)} />
+          <StatTile label={t('monitor.stats.tokensPerSec')} value={formatNumber(lastTrainMetric?.tokens_per_sec)} />
+          <StatTile label={t('monitor.stats.peakMemoryGb')} value={formatNumber(peakMemory)} />
         </div>
       </Card>
 
       <Card>
         <Tabs
           tabs={[
-            { id: 'loss', label: 'Loss' },
-            { id: 'lr', label: 'Learning rate' },
-            { id: 'memory', label: 'Memory' },
+            { id: 'loss', label: t('monitor.tabs.loss') },
+            { id: 'lr', label: t('monitor.tabs.lr') },
+            { id: 'memory', label: t('monitor.tabs.memory') },
           ]}
           activeId={chartTab}
           onChange={setChartTab}
@@ -210,14 +213,14 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
       </Card>
 
       {checkpoints.length > 0 && (
-        <Card title="Checkpoints">
+        <Card title={t('monitor.checkpoints.title')}>
           <ul className="flex flex-col gap-1.5" data-testid="checkpoint-list">
             {checkpoints.map((cp) => (
               <li
                 key={cp.step}
                 className="flex items-center gap-3 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-sm"
               >
-                <span className="shrink-0 font-medium text-text">Step {cp.step}</span>
+                <span className="shrink-0 font-medium text-text">{t('monitor.checkpoints.step', { step: cp.step })}</span>
                 <span
                   className="min-w-0 flex-1 truncate text-right font-mono text-xs text-text-muted"
                   title={cp.adapter_path}
@@ -225,20 +228,20 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
                   {cp.adapter_path}
                 </span>
                 <RowActionButton
-                  label={`Chat with checkpoint at step ${cp.step}`}
+                  label={t('monitor.checkpoints.chatAria', { step: cp.step })}
                   onClick={() => {
                     const state: ChatCheckpointNavState = {
                       model_id: run.config.model_id,
                       adapter_path: cp.adapter_path,
-                      label: `checkpoint @ step ${cp.step} (${run.name})`,
+                      label: t('monitor.checkpoints.label', { step: cp.step, name: run.name }),
                     }
                     navigate('/chat', { state })
                   }}
                 >
-                  Chat
+                  {t('monitor.checkpoints.chat')}
                 </RowActionButton>
                 <RowActionButton
-                  label={`Fuse checkpoint at step ${cp.step}`}
+                  label={t('monitor.checkpoints.fuseAria', { step: cp.step })}
                   onClick={() => {
                     const state: FuseCheckpointNavState = {
                       model_id: run.config.model_id,
@@ -248,9 +251,12 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
                     navigate('/export', { state })
                   }}
                 >
-                  Fuse
+                  {t('monitor.checkpoints.fuse')}
                 </RowActionButton>
-                <CopyButton text={cp.adapter_path} label={`Copy adapter path for step ${cp.step}`} />
+                <CopyButton
+                  text={cp.adapter_path}
+                  label={t('monitor.checkpoints.copyAria', { step: cp.step })}
+                />
               </li>
             ))}
           </ul>
@@ -263,10 +269,10 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
 
       <ConfirmDialog
         open={confirmCancel}
-        title="Cancel run"
-        message={`Cancel "${run.name}"? This will stop training as soon as possible.`}
-        confirmLabel="Cancel run"
-        cancelLabel="Keep running"
+        title={t('monitor.cancelRun')}
+        message={t('monitor.cancelMessage', { name: run.name })}
+        confirmLabel={t('monitor.cancelRun')}
+        cancelLabel={t('monitor.keepRunning')}
         danger
         onConfirm={() => {
           cancelRun.mutate(runId)
@@ -285,32 +291,33 @@ interface TerminalPanelProps {
 }
 
 function TerminalPanel({ status, run, logLines }: TerminalPanelProps) {
+  const { t } = useTranslation('train')
   if (status === 'completed') {
     return (
-      <Card title="Training complete">
+      <Card title={t('monitor.complete.title')}>
         <div className="flex flex-col gap-3">
           <div className="flex gap-6 text-sm">
             <span>
-              Final train loss:{' '}
+              {t('monitor.complete.finalTrainLoss')}{' '}
               <span className="font-medium text-text">{formatNumber(run.final_train_loss)}</span>
             </span>
             <span>
-              Final val loss:{' '}
+              {t('monitor.complete.finalValLoss')}{' '}
               <span className="font-medium text-text">{formatNumber(run.final_val_loss)}</span>
             </span>
           </div>
           {run.adapter_path && (
             <div>
-              <p className="mb-1 text-xs text-text-muted">Adapter path</p>
+              <p className="mb-1 text-xs text-text-muted">{t('monitor.complete.adapterPath')}</p>
               <CodeBlock code={run.adapter_path} />
             </div>
           )}
           <div className="flex gap-3 text-sm">
             <Link to="/chat" className="text-accent hover:underline">
-              Chat with this adapter
+              {t('monitor.complete.chatWithAdapter')}
             </Link>
             <Link to="/export" className="text-accent hover:underline">
-              Export this adapter
+              {t('monitor.complete.exportAdapter')}
             </Link>
           </div>
         </div>
@@ -320,9 +327,9 @@ function TerminalPanel({ status, run, logLines }: TerminalPanelProps) {
 
   if (status === 'failed') {
     return (
-      <Card title="Training failed">
+      <Card title={t('monitor.failed.title')}>
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-danger">{run.error ?? 'Unknown error.'}</p>
+          <p className="text-sm text-danger">{run.error ?? t('monitor.failed.unknownError')}</p>
           <LiveLogViewer lines={logLines} />
         </div>
       </Card>
@@ -330,8 +337,8 @@ function TerminalPanel({ status, run, logLines }: TerminalPanelProps) {
   }
 
   return (
-    <Card title="Training cancelled">
-      <p className="text-sm text-text-muted">This run was cancelled.</p>
+    <Card title={t('monitor.cancelled.title')}>
+      <p className="text-sm text-text-muted">{t('monitor.cancelled.message')}</p>
     </Card>
   )
 }
@@ -360,6 +367,7 @@ function RowActionButton({
 
 // Same copy-to-clipboard pattern as common/CodeBlock, in per-row size.
 function CopyButton({ text, label }: { text: string; label: string }) {
+  const { t } = useTranslation('common')
   const [copied, setCopied] = useState(false)
 
   async function handleCopy() {
@@ -381,7 +389,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
       aria-label={label}
       className="shrink-0 rounded px-2 py-0.5 text-xs text-text-muted hover:bg-surface hover:text-text"
     >
-      {copied ? 'Copied' : 'Copy'}
+      {copied ? t('actions.copied') : t('actions.copy')}
     </button>
   )
 }
@@ -391,14 +399,14 @@ function formatNumber(value: number | null | undefined): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(3)
 }
 
-function formatElapsed(startedAt: string | null, finishedAt: string | null): string {
-  if (!startedAt) return 'Not started'
+function formatElapsed(startedAt: string | null, finishedAt: string | null, t: TFunction): string {
+  if (!startedAt) return t('train:monitor.notStarted')
   const start = new Date(startedAt).getTime()
   const end = finishedAt ? new Date(finishedAt).getTime() : Date.now()
   const seconds = Math.max(0, Math.floor((end - start) / 1000))
   const minutes = Math.floor(seconds / 60)
   const hours = Math.floor(minutes / 60)
-  if (hours > 0) return `${hours}h ${minutes % 60}m`
-  if (minutes > 0) return `${minutes}m ${seconds % 60}s`
-  return `${seconds}s`
+  if (hours > 0) return t('train:duration.hm', { h: hours, m: minutes % 60 })
+  if (minutes > 0) return t('train:duration.ms', { m: minutes % 60, s: seconds % 60 })
+  return t('train:duration.s', { s: seconds })
 }

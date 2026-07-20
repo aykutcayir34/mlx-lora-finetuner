@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useDatasetSearch } from '../../api/queries/datasets'
 import type { HFDatasetSearchResult } from '../../api/types'
 import { Badge } from '../common/Badge'
@@ -17,6 +18,7 @@ interface DatasetSearchPanelProps {
 }
 
 export function DatasetSearchPanel({ onImportQueued }: DatasetSearchPanelProps) {
+  const { t } = useTranslation('datasets')
   const [query, setQuery] = useState('')
   const debouncedQuery = useDebouncedValue(query, DEBOUNCE_MS)
   const search = useDatasetSearch(debouncedQuery)
@@ -26,22 +28,22 @@ export function DatasetSearchPanel({ onImportQueued }: DatasetSearchPanelProps) 
 
   return (
     <div className="flex flex-col gap-4">
-      <Field label="Search query">
+      <Field label={t('common:search.queryLabel')}>
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="e.g. wikisql"
+          placeholder={t('search.queryPlaceholder')}
         />
       </Field>
 
       {debouncedQuery.length === 0 ? (
-        <EmptyState title="Search Hugging Face" description="Type a query above to find datasets." />
+        <EmptyState title={t('common:search.huggingFace')} description={t('search.emptyDescription')} />
       ) : search.isLoading ? (
         <Spinner />
       ) : search.isError ? (
-        <p className="text-sm text-danger">Search failed.</p>
+        <p className="text-sm text-danger">{t('common:errors.searchFailed')}</p>
       ) : results.length === 0 ? (
-        <EmptyState title="No results" description="No datasets matched your search." />
+        <EmptyState title={t('common:search.noResults')} description={t('search.noResultsDescription')} />
       ) : (
         <ul className="flex flex-col gap-2">
           {results.map((result) => (
@@ -52,13 +54,16 @@ export function DatasetSearchPanel({ onImportQueued }: DatasetSearchPanelProps) 
               <div className="min-w-0">
                 <p className="break-all text-sm font-medium text-text">{result.dataset_id}</p>
                 <p className="mt-0.5 text-xs text-text-muted">
-                  {result.downloads.toLocaleString()} downloads · {result.likes.toLocaleString()} likes
+                  {t('common:hfStats', {
+                    downloads: result.downloads.toLocaleString(),
+                    likes: result.likes.toLocaleString(),
+                  })}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {result.imported && <Badge variant="success">Imported</Badge>}
+                {result.imported && <Badge variant="success">{t('search.imported')}</Badge>}
                 <Button size="sm" variant="secondary" onClick={() => setSelected(result)}>
-                  Import
+                  {t('search.import')}
                 </Button>
               </div>
             </li>
