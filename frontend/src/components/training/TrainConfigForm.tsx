@@ -503,6 +503,22 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
               onChange={(e) => update('batch_size', Number(e.target.value))}
             />
           </Field>
+          <Field
+            label="Gradient accumulation steps"
+            htmlFor="gradient-accumulation-steps"
+            error={touched ? errors.gradient_accumulation_steps : undefined}
+            hint="Effective batch = batch size × accumulation steps"
+          >
+            <Input
+              id="gradient-accumulation-steps"
+              type="number"
+              placeholder="1 (default)"
+              value={config.gradient_accumulation_steps ?? ''}
+              onChange={(e) =>
+                update('gradient_accumulation_steps', e.target.value === '' ? null : Number(e.target.value))
+              }
+            />
+          </Field>
           <Field label="Iterations" htmlFor="iters" error={touched ? errors.iters : undefined}>
             <Input
               id="iters"
