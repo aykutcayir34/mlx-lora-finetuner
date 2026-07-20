@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '../common/Button'
 import { Field } from '../common/Field'
 import { Input } from '../common/Input'
@@ -7,6 +8,7 @@ import { useUploadDataset } from '../../api/queries/datasets'
 import { ApiError } from '../../api/client'
 
 export function UploadDropzone() {
+  const { t } = useTranslation('datasets')
   const [file, setFile] = useState<File | null>(null)
   const [name, setName] = useState('')
   const [dragActive, setDragActive] = useState(false)
@@ -36,13 +38,13 @@ export function UploadDropzone() {
       { file, name: name.trim() || undefined },
       {
         onSuccess: (dataset) => {
-          toast(`Uploaded "${dataset.name}".`, { variant: 'success' })
+          toast(t('upload.uploaded', { name: dataset.name }), { variant: 'success' })
           setFile(null)
           setName('')
           if (inputRef.current) inputRef.current.value = ''
         },
         onError: (error) => {
-          const message = error instanceof ApiError ? error.message : 'Upload failed.'
+          const message = error instanceof ApiError ? error.message : t('upload.failed')
           setErrorMessage(message)
           toast(message, { variant: 'error' })
         },
@@ -69,15 +71,15 @@ export function UploadDropzone() {
           dragActive ? 'border-accent bg-accent/5' : 'border-border'
         }`}
       >
-        <p className="text-text">{file ? file.name : 'Drag & drop a .jsonl file here, or click to choose'}</p>
-        <p className="text-xs text-text-muted">JSON Lines (.jsonl)</p>
+        <p className="text-text">{file ? file.name : t('upload.prompt')}</p>
+        <p className="text-xs text-text-muted">{t('upload.format')}</p>
         <input
           ref={inputRef}
           type="file"
           accept=".jsonl"
           className="hidden"
           onChange={(event) => handleFiles(event.target.files)}
-          aria-label="Dataset file"
+          aria-label={t('upload.fileAria')}
         />
       </div>
 
@@ -87,17 +89,17 @@ export function UploadDropzone() {
         </p>
       )}
 
-      <Field label="Name (optional)" htmlFor="dataset-upload-name">
+      <Field label={t('upload.nameLabel')} htmlFor="dataset-upload-name">
         <Input
           id="dataset-upload-name"
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="my-dataset"
+          placeholder={t('upload.namePlaceholder')}
         />
       </Field>
 
       <Button onClick={handleUpload} disabled={!file} loading={upload.isPending} className="self-start">
-        Upload dataset
+        {t('upload.button')}
       </Button>
     </div>
   )

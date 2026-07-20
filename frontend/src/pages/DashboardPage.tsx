@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useModels } from '../api/queries/models'
 import { useSystemStats } from '../api/queries/system'
 import { useRuns } from '../api/queries/training'
@@ -11,6 +12,7 @@ import { PageShell } from '../components/layout/PageShell'
 const RECENT_RUNS_LIMIT = 5
 
 export function DashboardPage() {
+  const { t } = useTranslation('dashboard')
   const { data: stats } = useSystemStats()
   const { data: models } = useModels()
   const { data: runsData } = useRuns(undefined, RECENT_RUNS_LIMIT, 0)
@@ -18,10 +20,7 @@ export function DashboardPage() {
   const showOnboarding = models?.length === 0 && runsData?.total === 0
 
   return (
-    <PageShell
-      title="Dashboard"
-      description="System stats, active jobs and recent runs at a glance."
-    >
+    <PageShell title={t('title')} description={t('description')}>
       <SystemStatsPanel />
       {showOnboarding ? (
         <OnboardingGuide />

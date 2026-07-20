@@ -30,7 +30,7 @@ describe('ActiveRunCard', () => {
   it('renders a quick-start CTA linking to /train when idle', () => {
     renderWithProviders(<ActiveRunCard activeRunId={null} />)
 
-    const link = screen.getByRole('link', { name: 'Yeni eğitim başlat' })
+    const link = screen.getByRole('link', { name: 'Start new training' })
     expect(link).toHaveAttribute('href', '/train')
   })
 
@@ -43,7 +43,7 @@ describe('ActiveRunCard', () => {
     expect(await screen.findByText('active-run')).toBeInTheDocument()
     expect(screen.getByText('Running')).toBeInTheDocument()
 
-    const link = screen.getByRole('link', { name: 'İzlemeye git' })
+    const link = screen.getByRole('link', { name: 'Go to monitor' })
     expect(link).toHaveAttribute('href', '/train')
 
     await waitFor(() => expect(screen.getByText('Train loss')).toBeInTheDocument())

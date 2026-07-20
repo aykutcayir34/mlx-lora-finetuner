@@ -1,1 +1,143 @@
-{}
+{
+  "title": "Veri kümeleri",
+  "description": "Eğitim veri kümelerini yükle, doğrula, böl ve önizle.",
+  "tabs": {
+    "local": "Yerel veri kümeleri",
+    "imports": "İçe aktarmalar"
+  },
+  "list": {
+    "loadFailed": "Veri kümeleri yüklenemedi.",
+    "emptyTitle": "Henüz veri kümesi yok",
+    "emptyDescription": "Başlamak için yukarıdan bir .jsonl dosyası yükle."
+  },
+  "table": {
+    "name": "İsim",
+    "format": "Format",
+    "rows": "Satır",
+    "split": "Bölme",
+    "created": "Oluşturulma",
+    "empty": "Henüz veri kümesi yok."
+  },
+  "chips": {
+    "notSplit": "Bölünmemiş",
+    "train": "train {{n}}",
+    "valid": "valid {{n}}",
+    "test": "test {{n}}"
+  },
+  "formats": {
+    "chat": "Chat",
+    "completions": "Completions",
+    "text": "Text",
+    "dpo": "DPO",
+    "orpo": "ORPO",
+    "grpo": "GRPO",
+    "ftpo": "FTPO"
+  },
+  "detail": {
+    "splitButton": "Veri kümesini böl",
+    "previewTab": "Önizleme",
+    "validateTab": "Doğrulama"
+  },
+  "preview": {
+    "splitAria": "Önizleme bölmesi",
+    "splits": {
+      "raw": "Ham",
+      "train": "Train",
+      "valid": "Valid",
+      "test": "Test"
+    },
+    "pageInfo": "{{rows}} satır · sayfa {{page}} / {{totalPages}}",
+    "loadFailed": "Önizleme yüklenemedi.",
+    "emptyTitle": "Satır yok",
+    "emptyDescription": "Bu bölmede henüz satır yok.",
+    "previous": "Önceki",
+    "next": "Sonraki",
+    "columns": {
+      "prompt": "Prompt",
+      "completion": "Completion",
+      "text": "Text",
+      "chosen": "Chosen",
+      "rejected": "Rejected",
+      "score": "Score",
+      "answer": "Answer",
+      "system": "System"
+    }
+  },
+  "search": {
+    "queryPlaceholder": "örn. wikisql",
+    "emptyDescription": "Veri kümelerini bulmak için yukarıya bir sorgu yaz.",
+    "noResultsDescription": "Aramanla eşleşen veri kümesi yok.",
+    "imported": "İçe aktarıldı",
+    "import": "İçe aktar"
+  },
+  "imports": {
+    "loadFailed": "İçe aktarmalar yüklenemedi.",
+    "emptyTitle": "İçe aktarma yok",
+    "emptyDescription": "Hugging Face'ten içe aktardığın veri kümeleri burada görünecek.",
+    "rowsWritten": "{{rows}} satır yazıldı",
+    "incomplete": "İçe aktarma tamamlanmadı.",
+    "autoSplitDone": "Veri kümesi hazır: \"{{datasetId}}\" için train/valid/test bölmesi oluşturuldu.",
+    "autoSplitFailed": "Otomatik bölme başarısız oldu.",
+    "cancelFailed": "İçe aktarma iptal edilemedi.",
+    "retrying": "\"{{datasetId}}\" içe aktarması yeniden deneniyor.",
+    "retryFailed": "İçe aktarma yeniden denenemedi."
+  },
+  "importDialog": {
+    "title": "Veri kümesini içe aktar",
+    "nameLabel": "İsim",
+    "nameHint": "Veri kümesi kimliğinden otomatik oluşturmak için boş bırak.",
+    "splitLabel": "Split",
+    "splitPlaceholder": "train",
+    "maxRowsLabel": "Maksimum satır",
+    "maxRowsHint": "Tüm satırları içe aktarmak için boş bırak.",
+    "maxRowsPlaceholder": "5000",
+    "autoSplitLabel": "İçe aktarma sonrası otomatik böl",
+    "started": "\"{{datasetId}}\" için içe aktarma başlatıldı.",
+    "alreadyImporting": "Bu veri kümesi zaten içe aktarılıyor.",
+    "startFailed": "İçe aktarma başlatılamadı."
+  },
+  "splitForm": {
+    "trainRatio": "Train oranı",
+    "validRatio": "Valid oranı",
+    "testRatio": "Test oranı",
+    "seed": "Seed",
+    "sum": "Toplam: {{sum}}",
+    "sumError": " — oranların toplamı 1.00 olmalı"
+  },
+  "splitDialog": {
+    "title": "Veri kümesini böl",
+    "action": "Böl",
+    "shuffleLabel": "Bölmeden önce karıştır",
+    "created": "Veri kümesi bölmesi oluşturuldu.",
+    "failed": "Bölme başarısız oldu."
+  },
+  "delete": {
+    "title": "Veri kümesini sil",
+    "message": "\"{{name}}\" silinsin mi? Bu işlem geri alınamaz.",
+    "deleted": "\"{{name}}\" silindi.",
+    "blocked": "Silinemiyor: veri kümesi aktif bir eğitim işi tarafından kullanılıyor.",
+    "failed": "Veri kümesi silinemedi."
+  },
+  "upload": {
+    "prompt": "Bir .jsonl dosyasını buraya sürükleyip bırak veya seçmek için tıkla",
+    "format": "JSON Lines (.jsonl)",
+    "fileAria": "Veri kümesi dosyası",
+    "nameLabel": "İsim (isteğe bağlı)",
+    "namePlaceholder": "my-dataset",
+    "button": "Veri kümesi yükle",
+    "uploaded": "\"{{name}}\" yüklendi.",
+    "failed": "Yükleme başarısız oldu."
+  },
+  "validation": {
+    "run": "Doğrulamayı çalıştır",
+    "failed": "Doğrulama başarısız oldu.",
+    "rowsValid": "<0>{{valid}}</0> / {{total}} satır geçerli",
+    "errors": "Hatalar",
+    "warnings": "Uyarılar",
+    "noIssues": "Sorun bulunamadı.",
+    "columns": {
+      "line": "Satır",
+      "message": "Mesaj"
+    }
+  }
+}

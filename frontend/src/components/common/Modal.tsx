@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { IconButton } from './IconButton'
 
 interface ModalProps {
@@ -10,6 +11,7 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, children, footer }: ModalProps) {
+  const { t } = useTranslation('common')
   useEffect(() => {
     if (!open) return
 
@@ -34,7 +36,7 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
       >
         <div className="mb-4 flex items-center justify-between">
           {title && <h2 className="text-base font-semibold text-text">{title}</h2>}
-          <IconButton aria-label="Close" variant="ghost" onClick={onClose} className="ml-auto">
+          <IconButton aria-label={t('actions.close')} variant="ghost" onClick={onClose} className="ml-auto">
             <CloseIcon />
           </IconButton>
         </div>

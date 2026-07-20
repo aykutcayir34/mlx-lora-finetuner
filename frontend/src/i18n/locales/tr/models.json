@@ -1,1 +1,46 @@
-{}
+{
+  "title": "Modeller",
+  "description": "MLX modellerini ara, indir ve yerel modelleri yönet.",
+  "tabs": {
+    "local": "Yerel Modeller",
+    "downloads": "İndirmeler"
+  },
+  "local": {
+    "loadFailed": "Yerel modeller yüklenemedi.",
+    "emptyTitle": "Yerel model yok",
+    "emptyDescription": "Başlamak için Hugging Face'ten bir model indir.",
+    "deleteTitle": "Modeli sil",
+    "deleteMessage": "\"{{modelId}}\" silinsin mi? Bu işlem geri alınamaz.",
+    "deleted": "\"{{modelId}}\" silindi.",
+    "deleteBlocked": "Silinemiyor: model aktif bir eğitim işi tarafından kullanılıyor.",
+    "deleteFailed": "Model silinemedi."
+  },
+  "card": {
+    "deleteAria": "{{modelId}} modelini sil",
+    "bits": "{{bits}}-bit"
+  },
+  "search": {
+    "authorLabel": "Yazar",
+    "queryPlaceholder": "örn. Llama-3.2-1B",
+    "authorPlaceholder": "mlx-community",
+    "emptyDescription": "MLX modellerini bulmak için yukarıya bir sorgu yaz.",
+    "noResultsDescription": "Aramanla eşleşen model yok.",
+    "downloaded": "İndirildi",
+    "started": "\"{{modelId}}\" indirmesi başlatıldı.",
+    "alreadyDownloading": "Bu model zaten indiriliyor veya indirilmiş.",
+    "startFailed": "İndirme başlatılamadı."
+  },
+  "downloads": {
+    "loadFailed": "İndirmeler yüklenemedi.",
+    "emptyTitle": "İndirme yok",
+    "emptyDescription": "Başlattığın indirmeler burada görünecek.",
+    "filesProgress": "{{done}}/{{total}} dosya",
+    "retryResumes": "Yeniden dene (kaldığı yerden sürer)",
+    "failedFallback": "İndirme başarısız oldu.",
+    "wasCancelled": "İndirme iptal edildi.",
+    "retrying": "\"{{modelId}}\" indirmesi yeniden deneniyor.",
+    "retryFailed": "İndirme yeniden denenemedi.",
+    "cancelledToast": "\"{{modelId}}\" indirmesi iptal edildi.",
+    "cancelFailed": "İndirme iptal edilemedi."
+  }
+}

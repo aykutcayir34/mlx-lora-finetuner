@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Badge } from '../common/Badge'
 import { Card } from '../common/Card'
 import { IconButton } from '../common/IconButton'
@@ -11,6 +12,7 @@ interface ModelCardProps {
 }
 
 export function ModelCard({ model, onDelete, isDeleting = false }: ModelCardProps) {
+  const { t } = useTranslation('models')
   return (
     <Card>
       <div className="flex items-start justify-between gap-2">
@@ -19,7 +21,7 @@ export function ModelCard({ model, onDelete, isDeleting = false }: ModelCardProp
           <p className="mt-0.5 text-xs text-text-muted">{model.model_type}</p>
         </div>
         <IconButton
-          aria-label={`Delete ${model.model_id}`}
+          aria-label={t('card.deleteAria', { modelId: model.model_id })}
           variant="danger"
           onClick={() => onDelete(model)}
           loading={isDeleting}
@@ -31,7 +33,9 @@ export function ModelCard({ model, onDelete, isDeleting = false }: ModelCardProp
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-muted">
         <span>{formatBytes(model.size_bytes)}</span>
-        {model.quantization && <Badge variant="info">{model.quantization.bits}-bit</Badge>}
+        {model.quantization && (
+          <Badge variant="info">{t('card.bits', { bits: model.quantization.bits })}</Badge>
+        )}
         <span>{new Date(model.downloaded_at).toLocaleDateString()}</span>
       </div>
     </Card>

@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export type ToastVariant = 'success' | 'error' | 'info'
 
@@ -35,6 +36,7 @@ const VARIANT_CLASSES: Record<ToastVariant, string> = {
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation('common')
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const nextId = useRef(0)
 
@@ -66,7 +68,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <span>{item.message}</span>
             <button
               type="button"
-              aria-label="Dismiss"
+              aria-label={t('actions.dismiss')}
               onClick={() => dismiss(item.id)}
               className="text-text-muted hover:text-text"
             >

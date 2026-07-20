@@ -17,9 +17,9 @@ describe('DashboardPage', () => {
 
     renderWithProviders(<DashboardPage />)
 
-    expect(await screen.findByText('Başlarken')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Modellere git' })).toHaveAttribute('href', '/models')
-    expect(screen.queryByText('Son eğitimler')).not.toBeInTheDocument()
+    expect(await screen.findByText('Getting started')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Go to models' })).toHaveAttribute('href', '/models')
+    expect(screen.queryByText('Recent runs')).not.toBeInTheDocument()
   })
 
   it('shows the active-run/quick-counts row and recent runs list when data exists', async () => {
@@ -27,11 +27,11 @@ describe('DashboardPage', () => {
 
     renderWithProviders(<DashboardPage />)
 
-    expect(await screen.findByText('Son eğitimler')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Yeni eğitim başlat' })).toHaveAttribute(
+    expect(await screen.findByText('Recent runs')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Start new training' })).toHaveAttribute(
       'href',
       '/train',
     )
-    expect(screen.queryByText('Başlarken')).not.toBeInTheDocument()
+    expect(screen.queryByText('Getting started')).not.toBeInTheDocument()
   })
 })

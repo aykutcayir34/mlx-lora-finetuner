@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useRun, useRunMetrics } from '../../api/queries/training'
 import { LossChart } from '../charts/LossChart'
 import { StatusBadge } from '../common/Badge'
@@ -12,14 +13,13 @@ interface ActiveRunCardProps {
 }
 
 export function ActiveRunCard({ activeRunId }: ActiveRunCardProps) {
+  const { t } = useTranslation('dashboard')
   if (!activeRunId) {
     return (
-      <Card title="Eğitim yok">
-        <p className="mb-3 text-sm text-text-muted">
-          Şu anda çalışan bir eğitim işi yok. Yeni bir LoRA fine-tuning işi başlat.
-        </p>
+      <Card title={t('activeRun.noneTitle')}>
+        <p className="mb-3 text-sm text-text-muted">{t('activeRun.noneDescription')}</p>
         <Link to="/train" className={CTA_LINK_CLASSES}>
-          Yeni eğitim başlat
+          {t('activeRun.startCta')}
         </Link>
       </Card>
     )
@@ -29,6 +29,7 @@ export function ActiveRunCard({ activeRunId }: ActiveRunCardProps) {
 }
 
 function ActiveRunCardContent({ activeRunId }: { activeRunId: string }) {
+  const { t } = useTranslation('dashboard')
   const { data: run } = useRun(activeRunId)
   const { data: metricsData } = useRunMetrics(activeRunId, 0)
 
@@ -40,7 +41,7 @@ function ActiveRunCardContent({ activeRunId }: { activeRunId: string }) {
           {run && <StatusBadge status={run.status} className="mt-1" />}
         </div>
         <Link to="/train" className="text-sm text-accent hover:underline">
-          İzlemeye git
+          {t('activeRun.goToMonitor')}
         </Link>
       </div>
       <LossChart data={metricsData?.metrics ?? []} />

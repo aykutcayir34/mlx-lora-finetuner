@@ -14,7 +14,7 @@ describe('QuickCounts', () => {
     await waitFor(() => expect(screen.getByText('2')).toBeInTheDocument())
     expect(screen.getByText('1')).toBeInTheDocument()
 
-    expect(screen.getByRole('link', { name: /Yerel modeller/ })).toHaveAttribute('href', '/models')
-    expect(screen.getByRole('link', { name: /Datasetler/ })).toHaveAttribute('href', '/datasets')
+    expect(screen.getByRole('link', { name: /Local models/ })).toHaveAttribute('href', '/models')
+    expect(screen.getByRole('link', { name: /Datasets/ })).toHaveAttribute('href', '/datasets')
   })
 })

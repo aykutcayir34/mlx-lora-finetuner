@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '../common/Button'
 import { Tabs } from '../common/Tabs'
 import { DatasetPreviewTable } from './DatasetPreviewTable'
@@ -13,6 +14,7 @@ interface DatasetDetailProps {
 type DetailTab = 'preview' | 'validate'
 
 export function DatasetDetail({ dataset }: DatasetDetailProps) {
+  const { t } = useTranslation('datasets')
   const [tab, setTab] = useState<DetailTab>('preview')
   const [splitOpen, setSplitOpen] = useState(false)
 
@@ -24,14 +26,14 @@ export function DatasetDetail({ dataset }: DatasetDetailProps) {
           <p className="text-xs text-text-muted">{dataset.dataset_id}</p>
         </div>
         <Button size="sm" variant="secondary" onClick={() => setSplitOpen(true)}>
-          Split dataset
+          {t('detail.splitButton')}
         </Button>
       </div>
 
       <Tabs
         tabs={[
-          { id: 'preview', label: 'Preview' },
-          { id: 'validate', label: 'Validate' },
+          { id: 'preview', label: t('detail.previewTab') },
+          { id: 'validate', label: t('detail.validateTab') },
         ]}
         activeId={tab}
         onChange={(id) => setTab(id as DetailTab)}
