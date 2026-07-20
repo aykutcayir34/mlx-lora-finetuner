@@ -298,6 +298,58 @@ describe('ChatPage', () => {
     })
   })
 
+  it('checkpoint navigation state preselects the model and sends the external adapter_path in generate', async () => {
+    const user = userEvent.setup()
+    const checkpointPath = '/data/runs/run_9/checkpoints/0000100_adapters.safetensors'
+    renderWithProviders(<ChatPage />, {
+      route: '/chat',
+      routeState: {
+        model_id: 'mlx-community/Qwen2.5-0.5B-Instruct-4bit',
+        adapter_path: checkpointPath,
+        label: 'checkpoint @ step 100 (my-run)',
+      },
+    })
+
+    expect(MockWebSocket.instances).toHaveLength(1)
+    act(() => MockWebSocket.instances[0].open())
+    const socket = MockWebSocket.instances[0]
+
+    // The navigation state wins over the "first model" auto-select default.
+    await waitFor(() =>
+      expect(screen.getByLabelText('Model')).toHaveValue('mlx-community/Qwen2.5-0.5B-Instruct-4bit'),
+    )
+
+    // The checkpoint adapter is not in GET /adapters — it shows up as an
+    // extra external entry, preselected, alongside the model's own adapters.
+    const adapterSelect = screen.getByLabelText('Adapter') as HTMLSelectElement
+    await waitFor(() => {
+      const labels = Array.from(adapterSelect.options).map((o) => o.textContent)
+      expect(labels).toContain('checkpoint @ step 100 (my-run)')
+      expect(labels).toContain('qwen-lora-v1')
+    })
+    expect(adapterSelect).toHaveValue(checkpointPath)
+
+    await user.type(screen.getByLabelText('Message'), 'Hello{Enter}')
+
+    await waitFor(() => expect(socket.sentFrames).toHaveLength(1))
+    expect(socket.sentFrames[0]).toMatchObject({
+      type: 'generate',
+      model_id: 'mlx-community/Qwen2.5-0.5B-Instruct-4bit',
+      adapter_path: checkpointPath,
+    })
+  })
+
+  it('without navigation state the adapter picker only lists GET /adapters entries', async () => {
+    await renderReady()
+
+    const adapterSelect = screen.getByLabelText('Adapter') as HTMLSelectElement
+    await waitFor(() => {
+      const labels = Array.from(adapterSelect.options).map((o) => o.textContent)
+      expect(labels).toEqual(['None (base model)', 'smol-lora-v1'])
+    })
+    expect(adapterSelect).toHaveValue('')
+  })
+
   it('includes prior turns as history in subsequent generate frames', async () => {
     const { user, socket } = await renderReady()
 

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Checkpoint } from '../../stores/trainingStore'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import type { ChatCheckpointNavState, FuseCheckpointNavState } from '../../routes'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCancelRun, useRun, useRunLogs, useRunMetrics } from '../../api/queries/training'
 import { queryKeys } from '../../api/queries/keys'
@@ -34,6 +35,7 @@ type Mode = 'loading' | 'live' | 'past'
 
 export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const runQuery = useRun(runId)
   const cancelRun = useCancelRun()
   const [mode, setMode] = useState<Mode>('loading')
@@ -222,6 +224,32 @@ export function RunMonitor({ runId, WebSocketImpl }: RunMonitorProps) {
                 >
                   {cp.adapter_path}
                 </span>
+                <RowActionButton
+                  label={`Chat with checkpoint at step ${cp.step}`}
+                  onClick={() => {
+                    const state: ChatCheckpointNavState = {
+                      model_id: run.config.model_id,
+                      adapter_path: cp.adapter_path,
+                      label: `checkpoint @ step ${cp.step} (${run.name})`,
+                    }
+                    navigate('/chat', { state })
+                  }}
+                >
+                  Chat
+                </RowActionButton>
+                <RowActionButton
+                  label={`Fuse checkpoint at step ${cp.step}`}
+                  onClick={() => {
+                    const state: FuseCheckpointNavState = {
+                      model_id: run.config.model_id,
+                      adapter_path: cp.adapter_path,
+                      suggested_name: `${run.name}-step-${cp.step}`,
+                    }
+                    navigate('/export', { state })
+                  }}
+                >
+                  Fuse
+                </RowActionButton>
                 <CopyButton text={cp.adapter_path} label={`Copy adapter path for step ${cp.step}`} />
               </li>
             ))}
@@ -305,6 +333,28 @@ function TerminalPanel({ status, run, logLines }: TerminalPanelProps) {
     <Card title="Training cancelled">
       <p className="text-sm text-text-muted">This run was cancelled.</p>
     </Card>
+  )
+}
+
+// Per-row action button matching the CopyButton sizing below.
+function RowActionButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="shrink-0 rounded px-2 py-0.5 text-xs text-text-muted hover:bg-surface hover:text-text"
+    >
+      {children}
+    </button>
   )
 }
 

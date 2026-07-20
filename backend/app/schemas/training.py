@@ -74,6 +74,7 @@ class TrainingConfig(BaseModel):
     steps_per_eval: int = 100
     val_batches: int = 25
     seed: int = 42
+    gradient_accumulation_steps: int | None = Field(default=None, ge=1)
     beta: float | None = None
     group_size: int | None = None
     temperature: float | None = None

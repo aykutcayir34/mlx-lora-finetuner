@@ -598,6 +598,89 @@ describe('TrainConfigForm', () => {
     expect(await screen.findByText('A training job is already queued or running.')).toBeInTheDocument()
   })
 
+  it('renders the gradient accumulation field in every mode and submits null when left empty', async () => {
+    const user = userEvent.setup()
+    let capturedBody: unknown = null
+    server.use(
+      http.post('/api/v1/train/jobs', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json(makeRunSummary({ run_id: 'run_captured' }), { status: 201 })
+      }),
+    )
+    const { onCreated } = renderForm()
+    await waitForPickersLoaded()
+
+    // Spot-check the field is present in sft…
+    const field = screen.getByLabelText('Gradient accumulation steps')
+    expect(field).toHaveValue(null)
+    expect(field).toHaveAttribute('placeholder', '1 (default)')
+    expect(
+      screen.getByText('Effective batch = batch size × accumulation steps'),
+    ).toBeInTheDocument()
+
+    // …and that it is not mode-specific: still present (and untouched) in grpo.
+    await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+    expect(screen.getByLabelText('Gradient accumulation steps')).toHaveValue(null)
+
+    await user.type(screen.getByLabelText('Run name'), 'my-grpo-run')
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-grpo-data/ }))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+    expect(capturedBody).toMatchObject({
+      train_mode: 'grpo',
+      gradient_accumulation_steps: null,
+    })
+  })
+
+  it('submits the typed gradient_accumulation_steps value', async () => {
+    const user = userEvent.setup()
+    let capturedBody: unknown = null
+    server.use(
+      http.post('/api/v1/train/jobs', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json(makeRunSummary({ run_id: 'run_captured' }), { status: 201 })
+      }),
+    )
+    const { onCreated } = renderForm()
+    await waitForPickersLoaded()
+
+    await user.type(screen.getByLabelText('Gradient accumulation steps'), '4')
+    await user.type(screen.getByLabelText('Run name'), 'my-accum-run')
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-chat-data/ }))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+    expect(capturedBody).toMatchObject({ gradient_accumulation_steps: 4 })
+  })
+
+  it('blocks submit with a validation error when gradient_accumulation_steps is 0', async () => {
+    const user = userEvent.setup()
+    let posted = false
+    server.use(
+      http.post('/api/v1/train/jobs', () => {
+        posted = true
+        return HttpResponse.json(makeRunSummary(), { status: 201 })
+      }),
+    )
+    const { onCreated } = renderForm()
+    await waitForPickersLoaded()
+
+    await user.type(screen.getByLabelText('Gradient accumulation steps'), '0')
+    await user.type(screen.getByLabelText('Run name'), 'bad-accum-run')
+    await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+    await user.click(screen.getByRole('radio', { name: /my-chat-data/ }))
+    await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+    expect(
+      await screen.findByText('Gradient accumulation steps must be an integer of at least 1.'),
+    ).toBeInTheDocument()
+    expect(posted).toBe(false)
+    expect(onCreated).not.toHaveBeenCalled()
+  })
+
   it('Load YAML: choosing a file prefills the form from the imported config', async () => {
     const user = userEvent.setup()
     const imported = {

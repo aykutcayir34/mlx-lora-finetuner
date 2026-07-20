@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { PageShell } from '../components/layout/PageShell'
+import { parseChatCheckpointNavState } from '../routes'
 import { useModels } from '../api/queries/models'
 import { useAdapters } from '../api/queries/adapters'
 import { useChatStore, type ChatSessionState } from '../stores/chatStore'
@@ -30,12 +32,34 @@ function buildWireMessages(session: ChatSessionState | undefined, systemPrompt: 
 }
 
 export function ChatPage() {
+  const location = useLocation()
+  // Optional checkpoint payload from the RunMonitor "Chat" action; absent
+  // navigation state keeps the page behavior identical to before.
+  const [checkpointNav] = useState(() => parseChatCheckpointNavState(location.state))
+
   const { data: models } = useModels()
   const { data: adapterData } = useAdapters()
-  const adapters = useMemo(() => adapterData?.adapters ?? [], [adapterData])
+  // A checkpoint adapter is not in GET /adapters — surface it as an extra
+  // "external" picker entry following the same AdapterInfo data model.
+  const adapters = useMemo(() => {
+    const list = adapterData?.adapters ?? []
+    if (!checkpointNav || list.some((a) => a.adapter_path === checkpointNav.adapter_path)) {
+      return list
+    }
+    return [
+      ...list,
+      {
+        adapter_path: checkpointNav.adapter_path,
+        run_id: null,
+        name: checkpointNav.label,
+        base_model_id: checkpointNav.model_id,
+        created_at: '',
+      },
+    ]
+  }, [adapterData, checkpointNav])
 
-  const [selectedModelId, setSelectedModelId] = useState('')
-  const [selectedAdapterPath, setSelectedAdapterPath] = useState('')
+  const [selectedModelId, setSelectedModelId] = useState(checkpointNav?.model_id ?? '')
+  const [selectedAdapterPath, setSelectedAdapterPath] = useState(checkpointNav?.adapter_path ?? '')
   const [compareMode, setCompareMode] = useState(false)
   const [systemPrompt, setSystemPrompt] = useState('')
   const [params, setParams] = useState<GenerationParams>(DEFAULT_PARAMS)

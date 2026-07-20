@@ -82,6 +82,7 @@ export function makeRunSummary(overrides: Partial<RunSummary> = {}): RunSummary 
       steps_per_eval: 100,
       val_batches: 25,
       seed: 42,
+      gradient_accumulation_steps: null,
       beta: null,
       group_size: null,
       temperature: null,

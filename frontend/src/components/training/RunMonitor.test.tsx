@@ -1,5 +1,13 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, screen, waitFor, within } from '@testing-library/react'
+
+// Capture router navigations from the checkpoint-row Chat/Fuse actions while
+// keeping the rest of react-router-dom (MemoryRouter, Link) real.
+const { mockNavigate } = vi.hoisted(() => ({ mockNavigate: vi.fn() }))
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return { ...actual, useNavigate: () => mockNavigate }
+})
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { server } from '../../test/server'
@@ -83,6 +91,7 @@ function makeMetric(step: number, kind: 'train' | 'val', overrides: Partial<Metr
 beforeEach(() => {
   MockWebSocket.instances = []
   useTrainingStore.getState().reset(null)
+  mockNavigate.mockClear()
 })
 
 afterEach(() => {
@@ -199,6 +208,56 @@ describe('RunMonitor - live run', () => {
     expect(
       within(rows[1]).getByText('/adapters/run_1/0000200_adapters.safetensors'),
     ).toBeInTheDocument()
+  })
+
+  it('checkpoint rows offer Chat and Fuse actions that navigate with the checkpoint payload', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get('/api/v1/train/jobs/run_1', () =>
+        HttpResponse.json(makeRunSummary({ run_id: 'run_1', status: 'running' })),
+      ),
+      http.get('/api/v1/train/jobs/run_1/metrics', () => HttpResponse.json({ metrics: [] })),
+      http.get('/api/v1/train/jobs/run_1/logs', () => HttpResponse.json({ lines: [] })),
+    )
+
+    renderWithProviders(
+      <RunMonitor
+        runId="run_1"
+        WebSocketImpl={MockWebSocket as unknown as typeof WebSocket}
+      />,
+    )
+
+    await screen.findByText('my-run')
+    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1))
+    act(() => {
+      MockWebSocket.instances[0].open()
+      MockWebSocket.instances[0].emit({
+        type: 'checkpoint',
+        step: 100,
+        adapter_path: '/adapters/run_1/0000100_adapters.safetensors',
+      })
+    })
+
+    await screen.findByText('Checkpoints')
+    const row = within(screen.getByTestId('checkpoint-list')).getByRole('listitem')
+
+    await user.click(within(row).getByRole('button', { name: 'Chat with checkpoint at step 100' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/chat', {
+      state: {
+        model_id: 'mlx-community/SmolLM-135M-Instruct-4bit',
+        adapter_path: '/adapters/run_1/0000100_adapters.safetensors',
+        label: 'checkpoint @ step 100 (my-run)',
+      },
+    })
+
+    await user.click(within(row).getByRole('button', { name: 'Fuse checkpoint at step 100' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/export', {
+      state: {
+        model_id: 'mlx-community/SmolLM-135M-Instruct-4bit',
+        adapter_path: '/adapters/run_1/0000100_adapters.safetensors',
+        suggested_name: 'my-run-step-100',
+      },
+    })
   })
 
   it('shows the Cancel confirm flow and posts to the cancel endpoint', async () => {

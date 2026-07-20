@@ -191,6 +191,9 @@ export interface TrainingConfig {
   steps_per_eval: number
   val_batches: number
   seed: number
+  // Valid for every mode: ≥ 1 when set (422 otherwise); null → library
+  // default 1. Effective batch = batch_size × this.
+  gradient_accumulation_steps: number | null
   beta: number | null
   group_size: number | null
   temperature: number | null

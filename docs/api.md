@@ -176,6 +176,7 @@ partial temp output is removed). `409 conflict` if already terminal; `404` if un
   "load_in_bits": null, "grad_checkpoint": false,
   "save_every": 100, "steps_per_report": 10, "steps_per_eval": 100,
   "val_batches": 25, "seed": 42,
+  "gradient_accumulation_steps": null,
   "beta": null, "group_size": null, "temperature": null,
   "max_completion_length": null, "reward_functions": null,
   "sft_loss_type": null,
@@ -184,6 +185,8 @@ partial temp output is removed). `409 conflict` if already terminal; `404` if un
 }
 ```
 Conditional validation: `dpo|orpo|cpo` require `beta`; `grpo` requires `group_size`.
+`gradient_accumulation_steps` is valid for every mode: optional, must be ≥ 1 when
+set (else 422); null → library default 1. Effective batch = batch_size × this.
 `sft_loss_type` is only accepted for `sft` (null → library default `nll`).
 `lambda_mse_target`, `tau_mse_target`, `lambda_mse`, `clip_epsilon_logits` are only
 accepted for `ftpo` and are all optional (null → library defaults 0.05 / 1.0 / 0.4 / 2.0).

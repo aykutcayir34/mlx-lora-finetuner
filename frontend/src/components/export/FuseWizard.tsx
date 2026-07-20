@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import { parseFuseCheckpointNavState } from '../../routes'
 import { useAdapters } from '../../api/queries/adapters'
 import { useFuse } from '../../api/queries/export'
 import { queryKeys } from '../../api/queries/keys'
@@ -17,16 +19,21 @@ import { JobProgressPanel } from './JobProgressPanel'
 type SourceMode = 'adapter' | 'manual'
 
 export function FuseWizard() {
+  const location = useLocation()
   const adapters = useAdapters()
   const fuse = useFuse()
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
-  const [sourceMode, setSourceMode] = useState<SourceMode>('adapter')
+  // Optional checkpoint payload from the RunMonitor "Fuse" action: prefills
+  // the manual model_id+adapter_path source. Absent state changes nothing.
+  const [checkpointNav] = useState(() => parseFuseCheckpointNavState(location.state))
+
+  const [sourceMode, setSourceMode] = useState<SourceMode>(checkpointNav ? 'manual' : 'adapter')
   const [selectedAdapterPath, setSelectedAdapterPath] = useState('')
-  const [modelId, setModelId] = useState('')
-  const [adapterPath, setAdapterPath] = useState('')
-  const [outputName, setOutputName] = useState('')
+  const [modelId, setModelId] = useState(checkpointNav?.model_id ?? '')
+  const [adapterPath, setAdapterPath] = useState(checkpointNav?.adapter_path ?? '')
+  const [outputName, setOutputName] = useState(checkpointNav?.suggested_name ?? '')
   const [deQuantize, setDeQuantize] = useState(false)
   const [exportId, setExportId] = useState<string | undefined>(undefined)
 

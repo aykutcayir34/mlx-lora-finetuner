@@ -22,6 +22,7 @@ export const DEFAULT_TRAINING_CONFIG: TrainingConfig = {
   steps_per_eval: 100,
   val_batches: 25,
   seed: 42,
+  gradient_accumulation_steps: null,
   beta: null,
   group_size: null,
   temperature: null,
@@ -204,6 +205,13 @@ export function validateTrainingConfig(
   }
   if (!Number.isFinite(config.val_batches) || config.val_batches < 1) {
     errors.val_batches = 'Validation batches must be at least 1.'
+  }
+  // Optional for every mode; null → library default 1.
+  if (
+    config.gradient_accumulation_steps !== null &&
+    (!Number.isInteger(config.gradient_accumulation_steps) || config.gradient_accumulation_steps < 1)
+  ) {
+    errors.gradient_accumulation_steps = 'Gradient accumulation steps must be an integer of at least 1.'
   }
 
   if (config.train_type !== 'full') {

@@ -25,6 +25,7 @@ function buildGroups(config: TrainingConfig): ConfigGroup[] {
       title: 'Training',
       rows: [
         ['batch_size', config.batch_size],
+        ['gradient_accumulation_steps', config.gradient_accumulation_steps],
         ['iters', config.iters],
         ['learning_rate', config.learning_rate],
         ['max_seq_length', config.max_seq_length],
