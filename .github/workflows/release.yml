@@ -1,0 +1,85 @@
+name: Release
+
+# Manually dispatched: creates the annotated tag at the current main HEAD
+# and publishes a GitHub release whose body is the matching CHANGELOG
+# section. Exists so releases are one reproducible action instead of a
+# manual UI flow (see CONTRIBUTING.md release steps).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, e.g. v0.2.0 (must match a '## [X.Y.Z]' CHANGELOG section)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate input and extract CHANGELOG section
+        id: notes
+        shell: python
+        run: |
+          import os, re, sys
+
+          tag = os.environ["TAG"].strip()
+          if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+              sys.exit(f"tag '{tag}' must look like vX.Y.Z")
+          version = tag[1:]
+
+          text = open("CHANGELOG.md").read()
+          match = re.search(
+              rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)",
+              text,
+              re.M | re.S,
+          )
+          if match is None:
+              sys.exit(f"CHANGELOG.md has no '## [{version}]' section")
+          body = match.group(1).strip()
+
+          pyproject = open("backend/pyproject.toml").read()
+          if f'version = "{version}"' not in pyproject:
+              sys.exit(f"backend/pyproject.toml version does not match {version}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"body<<NOTES_EOF\n{body}\nNOTES_EOF\n")
+        env:
+          TAG: ${{ inputs.tag }}
+
+      - name: Create tag and release
+        uses: actions/github-script@v9
+        env:
+          TAG: ${{ inputs.tag }}
+          BODY: ${{ steps.notes.outputs.body }}
+        with:
+          script: |
+            const tag = process.env.TAG.trim();
+            const existing = await github.rest.git
+              .getRef({ owner: context.repo.owner, repo: context.repo.repo, ref: `tags/${tag}` })
+              .catch(() => null);
+            if (existing) {
+              core.setFailed(`tag ${tag} already exists`);
+              return;
+            }
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/${tag}`,
+              sha: context.sha,
+            });
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: tag,
+              body: process.env.BODY,
+              draft: false,
+              prerelease: false,
+            });
+            core.info(`published ${release.data.html_url}`);
