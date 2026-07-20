@@ -10,8 +10,10 @@ A local web studio for LoRA fine-tuning of LLMs on Apple Silicon, built on top o
 React/TypeScript/Vite frontend, similar in spirit to Unsloth Studio but running
 entirely on-device via MLX — no cloud GPUs, no data leaving your Mac.
 
-To see the UI, run it locally: `make run` builds the frontend and serves the
-whole app from a single process on http://127.0.0.1:8000 (see
+![Demo: browsing models and datasets, then configuring a GRPO run](docs/screenshots/demo.gif)
+
+To try it yourself: `make run` builds the frontend and serves the whole app
+from a single process on http://127.0.0.1:8000 (see
 [Production / single-command run](#production--single-command-run)).
 
 ## Features
