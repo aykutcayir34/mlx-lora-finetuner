@@ -1,0 +1,52 @@
+{
+  "appName": "MLX LoRA Finetuner",
+  "actions": {
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "retry": "Retry",
+    "copy": "Copy",
+    "copied": "Copied",
+    "close": "Close",
+    "upload": "Upload",
+    "download": "Download",
+    "clear": "Clear",
+    "save": "Save",
+    "reload": "Reload",
+    "tryAgain": "Try again",
+    "search": "Search",
+    "confirm": "Confirm",
+    "dismiss": "Dismiss"
+  },
+  "status": {
+    "queued": "Queued",
+    "running": "Running",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
+  "rawStatus": {
+    "running": "running",
+    "completed": "completed",
+    "failed": "failed",
+    "cancelled": "cancelled"
+  },
+  "language": {
+    "label": "Language",
+    "en": "EN",
+    "tr": "TR"
+  },
+  "loading": "Loading",
+  "table": {
+    "noData": "No data"
+  },
+  "errors": {
+    "somethingWentWrong": "Something went wrong",
+    "searchFailed": "Search failed."
+  },
+  "search": {
+    "huggingFace": "Search Hugging Face",
+    "queryLabel": "Search query",
+    "noResults": "No results"
+  },
+  "hfStats": "{{downloads}} downloads · {{likes}} likes"
+}

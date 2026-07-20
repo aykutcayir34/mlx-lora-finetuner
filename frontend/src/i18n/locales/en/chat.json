@@ -1,0 +1,36 @@
+{
+  "page": {
+    "title": "Chat",
+    "description": "Chat with a base model or a trained adapter."
+  },
+  "trainingActive": "Chat is disabled while training is running",
+  "reconnecting": "Connection lost — reconnecting…",
+  "clearConversation": "Clear conversation",
+  "columns": {
+    "adapter": "Adapter",
+    "base": "Base"
+  },
+  "topBar": {
+    "model": "Model",
+    "adapter": "Adapter",
+    "noneAdapter": "None (base model)",
+    "compare": "Compare with/without adapter"
+  },
+  "window": {
+    "systemPrompt": "System prompt",
+    "systemPromptPlaceholder": "Optional system prompt sent with every message...",
+    "message": "Message",
+    "messagePlaceholder": "Message... (Enter to send, Shift+Enter for newline)",
+    "send": "Send",
+    "stop": "Stop"
+  },
+  "usage": "{{tokens}} tokens · {{tps}} tok/s",
+  "genParams": {
+    "title": "Generation parameters",
+    "maxTokens": "Max tokens",
+    "temperature": "Temperature ({{value}})",
+    "topP": "Top P ({{value}})",
+    "repetitionPenalty": "Repetition penalty (optional)",
+    "nonePlaceholder": "none"
+  }
+}

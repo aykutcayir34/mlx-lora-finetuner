@@ -1,0 +1,30 @@
+{
+  "page": {
+    "title": "Arena",
+    "description": "Compare two models or adapters side by side."
+  },
+  "trainingActive": "Arena is disabled while training is running",
+  "reconnecting": "Connection lost — reconnecting…",
+  "intro": "Each message starts a fresh single-turn comparison — prior turns are shown for reference but are not resent as conversation history to either side.",
+  "sides": {
+    "a": "A",
+    "b": "B",
+    "sideA": "Side A",
+    "sideB": "Side B"
+  },
+  "picker": {
+    "model": "Model",
+    "adapter": "Adapter",
+    "noneBase": "None (base)",
+    "modelAria": "{{label}} Model",
+    "adapterAria": "{{label}} Adapter"
+  },
+  "composer": {
+    "message": "Message",
+    "placeholder": "Message... (Enter to send, Shift+Enter for newline)",
+    "send": "Send",
+    "stop": "Stop"
+  },
+  "waiting": "Waiting…",
+  "usage": "{{tokens}} tokens · {{tps}} tok/s"
+}

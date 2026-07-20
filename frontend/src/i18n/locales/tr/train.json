@@ -1,0 +1,228 @@
+{
+  "page": {
+    "title": "Eğitim",
+    "description": "LoRA fine-tuning işlerini yapılandırıp başlat, canlı metrikleri izle."
+  },
+  "form": {
+    "loadYaml": "YAML yükle",
+    "yamlFileAria": "Eğitim yapılandırması YAML dosyası",
+    "startTraining": "Eğitimi başlat",
+    "cards": {
+      "run": "Çalıştırma",
+      "model": "Model",
+      "dataset": "Veri kümesi",
+      "modeType": "Mod ve tür",
+      "sft": "SFT",
+      "preferenceRl": "Tercih / RL",
+      "lora": "LoRA",
+      "basics": "Temel ayarlar",
+      "optimizer": "Optimizer",
+      "memory": "Bellek",
+      "reporting": "Raporlama"
+    },
+    "fields": {
+      "runName": "Çalıştırma adı",
+      "runNamePlaceholder": "my-run",
+      "trainMode": "Eğitim modu",
+      "trainType": "Eğitim türü",
+      "sftLoss": "SFT loss",
+      "beta": "Beta",
+      "groupSize": "Grup boyutu",
+      "temperature": "Temperature",
+      "maxCompletionLength": "Maks. tamamlama uzunluğu",
+      "lambdaMseTarget": "Lambda MSE hedefi",
+      "tauMseTarget": "Tau MSE hedefi",
+      "lambdaMse": "Lambda MSE",
+      "clipEpsilonLogits": "Clip epsilon (logit)",
+      "rank": "Rank",
+      "scale": "Scale",
+      "dropout": "Dropout",
+      "batchSize": "Batch boyutu",
+      "gradAccumSteps": "Gradyan biriktirme adımı",
+      "gradAccumHint": "Etkin batch = batch boyutu × biriktirme adımı",
+      "iterations": "İterasyon",
+      "learningRate": "Öğrenme oranı",
+      "maxSeqLength": "Maks. dizi uzunluğu",
+      "numLayers": "Katman sayısı",
+      "seed": "Seed",
+      "optimizer": "Optimizer",
+      "lrSchedule": "LR çizelgesi",
+      "loadInBits": "Yükleme bit sayısı",
+      "gradCheckpoint": "Gradient checkpointing",
+      "saveEvery": "Kayıt sıklığı",
+      "stepsPerReport": "Rapor başına adım",
+      "stepsPerEval": "Değerlendirme başına adım",
+      "valBatches": "Doğrulama batch sayısı",
+      "defaultPlaceholder": "{{value}} (varsayılan)"
+    },
+    "options": {
+      "trainType": {
+        "lora": "LoRA",
+        "dora": "DoRA",
+        "full": "Full fine-tune"
+      },
+      "lrSchedule": {
+        "cosine": "Kosinüs",
+        "linear": "Doğrusal",
+        "constant": "Sabit"
+      },
+      "sftLoss": {
+        "default": "Kütüphane varsayılanı (nll)",
+        "nll": "NLL",
+        "chunkedNll": "Chunked NLL",
+        "dft": "DFT (Dynamic Fine-Tuning)"
+      },
+      "loadInBits": {
+        "none": "Yok (tam hassasiyet)",
+        "bits4": "4-bit",
+        "bits6": "6-bit",
+        "bits8": "8-bit"
+      },
+      "rewards": {
+        "r1_accuracy_reward_func": "Doğruluk",
+        "r1_int_reward_func": "Tamsayı yanıt",
+        "r1_strict_format_reward_func": "Katı format",
+        "r1_soft_format_reward_func": "Esnek format",
+        "r1_count_xml": "XML etiket sayısı"
+      }
+    },
+    "noModels": {
+      "text": "Henüz yerel model yok.",
+      "link": "Modeller sayfasına git",
+      "suffix": "ve bir model indir."
+    },
+    "noDatasets": {
+      "text": "Henüz train/valid/test bölmeli bir veri kümesi yok.",
+      "link": "Veri kümeleri sayfasına git",
+      "suffix": "ve bir veri kümesi yükleyip böl."
+    },
+    "loadModelsFailed": "Yerel modeller yüklenemedi.",
+    "loadDatasetsFailed": "Veri kümeleri yüklenemedi.",
+    "datasetRows": "({{n}} satır)",
+    "ftpoHint": "Hepsi isteğe bağlı — kütüphane varsayılanlarını kullanmak için boş bırakın.",
+    "rewards": {
+      "legend": "Ödül fonksiyonları",
+      "customFile": "Özel ödül dosyası",
+      "none": "Yok",
+      "missingFile": "{{name}}.py (eksik)",
+      "upload": ".py yükle",
+      "deleteFile": "Dosyayı sil",
+      "fileAria": "Ödül fonksiyonları Python dosyası",
+      "fromFile": "{{name}}.py dosyasından",
+      "noneSelectedBuiltins": "Hiçbiri seçilmedi → kütüphane varsayılanı (beş yerleşik fonksiyonun tümü).",
+      "noneSelected": "Hiçbiri seçilmedi → kütüphane varsayılanı (beşinin tümü)."
+    },
+    "toasts": {
+      "configLoaded": "Yapılandırma YAML'dan yüklendi.",
+      "importFailed": "YAML yapılandırması içe aktarılamadı.",
+      "runCreated": "\"{{name}}\" çalıştırması oluşturuldu.",
+      "trainingActive": "Zaten kuyrukta veya çalışmakta olan bir eğitim işi var.",
+      "createFailed": "Eğitim çalıştırması oluşturulamadı.",
+      "rewardUploaded": "\"{{name}}\" ödül dosyası yüklendi.",
+      "rewardUploadFailed": "Ödül dosyası yüklenemedi.",
+      "rewardDeleted": "\"{{name}}\" ödül dosyası silindi.",
+      "rewardDeleteFailed": "Ödül dosyası silinemedi."
+    },
+    "errors": {
+      "nameRequired": "Çalıştırma adı zorunludur.",
+      "modelRequired": "Bir model seçin.",
+      "datasetRequired": "Bölmeleri olan bir veri kümesi seçin.",
+      "datasetFormat": "\"{{format}}\" veri kümesi formatı \"{{mode}}\" modu ile uyumlu değil. Gereken: {{needs}}.",
+      "batchSize": "Batch boyutu en az 1 olmalıdır.",
+      "iters": "İterasyon sayısı en az 1 olmalıdır.",
+      "learningRate": "Öğrenme oranı 0'dan büyük olmalıdır.",
+      "maxSeqLength": "Maks. dizi uzunluğu en az 1 olmalıdır.",
+      "numLayers": "Katman sayısı en az 1 olmalıdır.",
+      "seed": "Seed sıfır veya daha büyük olmalıdır.",
+      "saveEvery": "Kayıt sıklığı en az 1 olmalıdır.",
+      "stepsPerReport": "Rapor başına adım en az 1 olmalıdır.",
+      "stepsPerEval": "Değerlendirme başına adım en az 1 olmalıdır.",
+      "valBatches": "Doğrulama batch sayısı en az 1 olmalıdır.",
+      "gradAccum": "Gradyan biriktirme adımı en az 1 olan bir tamsayı olmalıdır.",
+      "loraRank": "LoRA rank en az 1 olmalıdır.",
+      "loraScale": "LoRA scale 0'dan büyük olmalıdır.",
+      "loraDropout": "LoRA dropout 0 ile 1 arasında olmalıdır.",
+      "betaRequired": "dpo/orpo/cpo için beta zorunludur.",
+      "betaPositive": "Beta 0'dan büyük olmalıdır.",
+      "groupSizeRequired": "grpo için grup boyutu zorunludur.",
+      "groupSizeMin": "Grup boyutu en az 1 olmalıdır.",
+      "temperaturePositive": "Temperature 0'dan büyük olmalıdır.",
+      "maxCompletionLengthMin": "Maks. tamamlama uzunluğu en az 1 olmalıdır.",
+      "lambdaMseTarget": "Lambda MSE hedefi sıfır veya daha büyük olmalıdır.",
+      "tauMseTarget": "Tau MSE hedefi 0'dan büyük olmalıdır.",
+      "lambdaMse": "Lambda MSE sıfır veya daha büyük olmalıdır.",
+      "clipEpsilon": "Clip epsilon 0'dan büyük olmalıdır."
+    }
+  },
+  "monitor": {
+    "loading": "Çalıştırma yükleniyor…",
+    "loadFailed": "{{runId}} çalıştırması yüklenemedi.",
+    "cancelRun": "Çalıştırmayı iptal et",
+    "keepRunning": "Devam ettir",
+    "cancelMessage": "\"{{name}}\" iptal edilsin mi? Eğitim mümkün olan en kısa sürede durdurulacak.",
+    "notStarted": "Başlamadı",
+    "stats": {
+      "currentLoss": "Güncel loss",
+      "itPerSec": "it/sn",
+      "tokensPerSec": "token/sn",
+      "peakMemoryGb": "Tepe bellek (GB)"
+    },
+    "tabs": {
+      "loss": "Loss",
+      "lr": "Öğrenme oranı",
+      "memory": "Bellek"
+    },
+    "checkpoints": {
+      "title": "Checkpoint'ler",
+      "step": "Adım {{step}}",
+      "chat": "Sohbet",
+      "fuse": "Fuse",
+      "chatAria": "{{step}}. adımdaki checkpoint ile sohbet et",
+      "fuseAria": "{{step}}. adımdaki checkpoint'i fuse et",
+      "copyAria": "{{step}}. adımın adapter yolunu kopyala",
+      "label": "checkpoint @ adım {{step}} ({{name}})"
+    },
+    "complete": {
+      "title": "Eğitim tamamlandı",
+      "finalTrainLoss": "Son eğitim loss'u:",
+      "finalValLoss": "Son doğrulama loss'u:",
+      "adapterPath": "Adapter yolu",
+      "chatWithAdapter": "Bu adapter ile sohbet et",
+      "exportAdapter": "Bu adapter'ı dışa aktar"
+    },
+    "failed": {
+      "title": "Eğitim başarısız oldu",
+      "unknownError": "Bilinmeyen hata."
+    },
+    "cancelled": {
+      "title": "Eğitim iptal edildi",
+      "message": "Bu çalıştırma iptal edildi."
+    }
+  },
+  "logs": {
+    "title": "Loglar",
+    "follow": "Çıktıyı takip et",
+    "empty": "Henüz log çıktısı yok."
+  },
+  "runList": {
+    "title": "Çalıştırmalar",
+    "newRun": "Yeni çalıştırma",
+    "empty": "Henüz çalıştırma yok."
+  },
+  "exportYaml": "YAML dışa aktar",
+  "duration": {
+    "hm": "{{h}}sa {{m}}dk",
+    "ms": "{{m}}dk {{s}}sn",
+    "s": "{{s}}sn"
+  },
+  "charts": {
+    "empty": "Henüz metrik yok",
+    "step": "Adım",
+    "loss": "Loss",
+    "trainLoss": "Eğitim loss'u",
+    "valLoss": "Doğrulama loss'u",
+    "learningRate": "Öğrenme oranı",
+    "peakMemoryGb": "Tepe bellek (GB)",
+    "peakMemory": "Tepe bellek"
+  }
+}

@@ -1,0 +1,228 @@
+{
+  "page": {
+    "title": "Train",
+    "description": "Configure and launch LoRA fine-tuning jobs, watch live metrics."
+  },
+  "form": {
+    "loadYaml": "Load YAML",
+    "yamlFileAria": "Training config YAML file",
+    "startTraining": "Start training",
+    "cards": {
+      "run": "Run",
+      "model": "Model",
+      "dataset": "Dataset",
+      "modeType": "Mode & type",
+      "sft": "SFT",
+      "preferenceRl": "Preference / RL",
+      "lora": "LoRA",
+      "basics": "Basics",
+      "optimizer": "Optimizer",
+      "memory": "Memory",
+      "reporting": "Reporting"
+    },
+    "fields": {
+      "runName": "Run name",
+      "runNamePlaceholder": "my-run",
+      "trainMode": "Train mode",
+      "trainType": "Train type",
+      "sftLoss": "SFT loss",
+      "beta": "Beta",
+      "groupSize": "Group size",
+      "temperature": "Temperature",
+      "maxCompletionLength": "Max completion length",
+      "lambdaMseTarget": "Lambda MSE target",
+      "tauMseTarget": "Tau MSE target",
+      "lambdaMse": "Lambda MSE",
+      "clipEpsilonLogits": "Clip epsilon (logits)",
+      "rank": "Rank",
+      "scale": "Scale",
+      "dropout": "Dropout",
+      "batchSize": "Batch size",
+      "gradAccumSteps": "Gradient accumulation steps",
+      "gradAccumHint": "Effective batch = batch size × accumulation steps",
+      "iterations": "Iterations",
+      "learningRate": "Learning rate",
+      "maxSeqLength": "Max sequence length",
+      "numLayers": "Num layers",
+      "seed": "Seed",
+      "optimizer": "Optimizer",
+      "lrSchedule": "LR schedule",
+      "loadInBits": "Load in bits",
+      "gradCheckpoint": "Gradient checkpointing",
+      "saveEvery": "Save every",
+      "stepsPerReport": "Steps per report",
+      "stepsPerEval": "Steps per eval",
+      "valBatches": "Val batches",
+      "defaultPlaceholder": "{{value}} (default)"
+    },
+    "options": {
+      "trainType": {
+        "lora": "LoRA",
+        "dora": "DoRA",
+        "full": "Full fine-tune"
+      },
+      "lrSchedule": {
+        "cosine": "Cosine",
+        "linear": "Linear",
+        "constant": "Constant"
+      },
+      "sftLoss": {
+        "default": "Library default (nll)",
+        "nll": "NLL",
+        "chunkedNll": "Chunked NLL",
+        "dft": "DFT (Dynamic Fine-Tuning)"
+      },
+      "loadInBits": {
+        "none": "None (full precision)",
+        "bits4": "4-bit",
+        "bits6": "6-bit",
+        "bits8": "8-bit"
+      },
+      "rewards": {
+        "r1_accuracy_reward_func": "Accuracy",
+        "r1_int_reward_func": "Integer answer",
+        "r1_strict_format_reward_func": "Strict format",
+        "r1_soft_format_reward_func": "Soft format",
+        "r1_count_xml": "XML tag count"
+      }
+    },
+    "noModels": {
+      "text": "No local models yet.",
+      "link": "Go to the Models page",
+      "suffix": "to download one."
+    },
+    "noDatasets": {
+      "text": "No datasets with train/valid/test splits yet.",
+      "link": "Go to the Datasets page",
+      "suffix": "to upload and split one."
+    },
+    "loadModelsFailed": "Failed to load local models.",
+    "loadDatasetsFailed": "Failed to load datasets.",
+    "datasetRows": "({{n}} rows)",
+    "ftpoHint": "All optional — leave empty to use the library defaults.",
+    "rewards": {
+      "legend": "Reward functions",
+      "customFile": "Custom reward file",
+      "none": "None",
+      "missingFile": "{{name}}.py (missing)",
+      "upload": "Upload .py",
+      "deleteFile": "Delete file",
+      "fileAria": "Reward functions Python file",
+      "fromFile": "from {{name}}.py",
+      "noneSelectedBuiltins": "None selected → library default (all five built-ins).",
+      "noneSelected": "None selected → library default (all five)."
+    },
+    "toasts": {
+      "configLoaded": "Config loaded from YAML.",
+      "importFailed": "Failed to import the YAML config.",
+      "runCreated": "Run \"{{name}}\" created.",
+      "trainingActive": "A training job is already queued or running.",
+      "createFailed": "Failed to create the training run.",
+      "rewardUploaded": "Reward file \"{{name}}\" uploaded.",
+      "rewardUploadFailed": "Failed to upload the reward file.",
+      "rewardDeleted": "Reward file \"{{name}}\" deleted.",
+      "rewardDeleteFailed": "Failed to delete the reward file."
+    },
+    "errors": {
+      "nameRequired": "Run name is required.",
+      "modelRequired": "Select a model.",
+      "datasetRequired": "Select a dataset with splits.",
+      "datasetFormat": "Dataset format \"{{format}}\" is not compatible with mode \"{{mode}}\". Needs: {{needs}}.",
+      "batchSize": "Batch size must be at least 1.",
+      "iters": "Iterations must be at least 1.",
+      "learningRate": "Learning rate must be greater than 0.",
+      "maxSeqLength": "Max sequence length must be at least 1.",
+      "numLayers": "Number of layers must be at least 1.",
+      "seed": "Seed must be zero or greater.",
+      "saveEvery": "Save every must be at least 1.",
+      "stepsPerReport": "Steps per report must be at least 1.",
+      "stepsPerEval": "Steps per eval must be at least 1.",
+      "valBatches": "Validation batches must be at least 1.",
+      "gradAccum": "Gradient accumulation steps must be an integer of at least 1.",
+      "loraRank": "LoRA rank must be at least 1.",
+      "loraScale": "LoRA scale must be greater than 0.",
+      "loraDropout": "LoRA dropout must be between 0 and 1.",
+      "betaRequired": "Beta is required for dpo/orpo/cpo.",
+      "betaPositive": "Beta must be greater than 0.",
+      "groupSizeRequired": "Group size is required for grpo.",
+      "groupSizeMin": "Group size must be at least 1.",
+      "temperaturePositive": "Temperature must be greater than 0.",
+      "maxCompletionLengthMin": "Max completion length must be at least 1.",
+      "lambdaMseTarget": "Lambda MSE target must be zero or greater.",
+      "tauMseTarget": "Tau MSE target must be greater than 0.",
+      "lambdaMse": "Lambda MSE must be zero or greater.",
+      "clipEpsilon": "Clip epsilon must be greater than 0."
+    }
+  },
+  "monitor": {
+    "loading": "Loading run…",
+    "loadFailed": "Failed to load run {{runId}}.",
+    "cancelRun": "Cancel run",
+    "keepRunning": "Keep running",
+    "cancelMessage": "Cancel \"{{name}}\"? This will stop training as soon as possible.",
+    "notStarted": "Not started",
+    "stats": {
+      "currentLoss": "Current loss",
+      "itPerSec": "it/s",
+      "tokensPerSec": "tokens/s",
+      "peakMemoryGb": "Peak memory (GB)"
+    },
+    "tabs": {
+      "loss": "Loss",
+      "lr": "Learning rate",
+      "memory": "Memory"
+    },
+    "checkpoints": {
+      "title": "Checkpoints",
+      "step": "Step {{step}}",
+      "chat": "Chat",
+      "fuse": "Fuse",
+      "chatAria": "Chat with checkpoint at step {{step}}",
+      "fuseAria": "Fuse checkpoint at step {{step}}",
+      "copyAria": "Copy adapter path for step {{step}}",
+      "label": "checkpoint @ step {{step}} ({{name}})"
+    },
+    "complete": {
+      "title": "Training complete",
+      "finalTrainLoss": "Final train loss:",
+      "finalValLoss": "Final val loss:",
+      "adapterPath": "Adapter path",
+      "chatWithAdapter": "Chat with this adapter",
+      "exportAdapter": "Export this adapter"
+    },
+    "failed": {
+      "title": "Training failed",
+      "unknownError": "Unknown error."
+    },
+    "cancelled": {
+      "title": "Training cancelled",
+      "message": "This run was cancelled."
+    }
+  },
+  "logs": {
+    "title": "Logs",
+    "follow": "Follow output",
+    "empty": "No log output yet."
+  },
+  "runList": {
+    "title": "Runs",
+    "newRun": "New run",
+    "empty": "No runs yet."
+  },
+  "exportYaml": "Export YAML",
+  "duration": {
+    "hm": "{{h}}h {{m}}m",
+    "ms": "{{m}}m {{s}}s",
+    "s": "{{s}}s"
+  },
+  "charts": {
+    "empty": "No metrics yet",
+    "step": "Step",
+    "loss": "Loss",
+    "trainLoss": "Train loss",
+    "valLoss": "Val loss",
+    "learningRate": "Learning rate",
+    "peakMemoryGb": "Peak memory (GB)",
+    "peakMemory": "Peak memory"
+  }
+}

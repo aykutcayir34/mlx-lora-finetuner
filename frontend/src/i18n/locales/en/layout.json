@@ -1,0 +1,24 @@
+{
+  "health": {
+    "healthy": "Backend healthy",
+    "unreachable": "Backend unreachable"
+  },
+  "nav": {
+    "primary": "Primary",
+    "dashboard": "Dashboard",
+    "models": "Models",
+    "datasets": "Datasets",
+    "train": "Train",
+    "chat": "Chat",
+    "arena": "Arena",
+    "export": "Export",
+    "recipes": "Recipes",
+    "history": "History"
+  },
+  "footer": {
+    "activeRun": "Active run: {{id}} ({{status}})",
+    "noActiveJob": "No active job",
+    "memory": "Memory: {{used}} / {{total}} GB",
+    "memoryUnknown": "Memory: —"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "page": {
+    "title": "Dışa Aktar",
+    "description": "Adapter'ları fuse et, GGUF'a dönüştür ve Ollama Modelfile'ları oluştur."
+  },
+  "tabs": {
+    "fuse": "Fuse",
+    "gguf": "GGUF",
+    "ollama": "Ollama"
+  },
+  "trainingActive": "Eğitim aktifken export yapılamaz. Eğitim bitince tekrar deneyin.",
+  "manualPath": "Elle yol gir",
+  "fuse": {
+    "title": "Adapter'ı temel modele fuse et",
+    "fromAdapter": "Adapter'dan",
+    "adapter": "Adapter",
+    "noAdapters": "Adapter bulunamadı.",
+    "selectAdapter": "Bir adapter seçin…",
+    "baseModelId": "Temel model id",
+    "baseModelPlaceholder": "mlx-community/SmolLM-135M-Instruct-4bit",
+    "adapterPath": "Adapter yolu",
+    "adapterPathPlaceholder": "/abs/path/to/adapters",
+    "outputName": "Çıktı adı",
+    "outputNamePlaceholder": "my-model",
+    "deQuantize": "De-quantize",
+    "deQuantizeHint": "GGUF'a çevirecekseniz zorunlu — quantize base modeller aksi halde dönüştürülemez",
+    "submit": "Fuse",
+    "startFailed": "Fuse işlemi başlatılamadı.",
+    "completed": "Fuse tamamlandı.",
+    "failed": "Fuse başarısız oldu."
+  },
+  "gguf": {
+    "title": "Fuse edilmiş modeli GGUF'a dönüştür",
+    "fromArtifact": "Fuse edilmiş artifact'tan",
+    "fusedModel": "Fuse edilmiş model",
+    "noFused": "Fuse edilmiş artifact bulunamadı.",
+    "selectFused": "Fuse edilmiş bir model seçin…",
+    "fusedPath": "Fuse edilmiş model yolu",
+    "fusedPathPlaceholder": "/abs/path/to/fused",
+    "preflight": "Ön kontroller",
+    "checking": "Kontrol ediliyor…",
+    "outtype": "Çıktı türü",
+    "outputName": "Çıktı adı",
+    "outputNamePlaceholder": "my-model",
+    "submit": "Dönüştür",
+    "startFailed": "GGUF dönüşümü başlatılamadı.",
+    "completed": "GGUF dönüşümü tamamlandı.",
+    "failed": "GGUF dönüşümü başarısız oldu."
+  },
+  "ollama": {
+    "title": "Ollama Modelfile oluştur",
+    "fromGguf": "GGUF artifact'tan",
+    "ggufFile": "GGUF dosyası",
+    "noGguf": "GGUF artifact bulunamadı.",
+    "selectGguf": "Bir GGUF dosyası seçin…",
+    "ggufPath": "GGUF yolu",
+    "ggufPathPlaceholder": "/abs/path/to/model.gguf",
+    "modelFamily": "Model ailesi",
+    "familyCustom": "Özel",
+    "customTemplate": "Özel şablon",
+    "templateRequired": "Özel aile için bir şablon gereklidir.",
+    "name": "Ad",
+    "namePlaceholder": "my-model",
+    "submit": "Oluştur",
+    "created": "Modelfile oluşturuldu.",
+    "createFailed": "Modelfile oluşturulamadı."
+  },
+  "job": {
+    "title": "Export işi",
+    "loading": "İş durumu yükleniyor…",
+    "output": "Çıktı:",
+    "failed": "Export başarısız oldu."
+  },
+  "modelfile": {
+    "title": "Modelfile",
+    "savedTo": "Kaydedildiği yer:",
+    "usage": "Kullanım:"
+  },
+  "artifacts": {
+    "title": "Artifact'lar",
+    "emptyTitle": "Henüz artifact yok",
+    "emptyDescription": "Burada görmek için bir adapter fuse edin, GGUF'a dönüştürün veya bir Modelfile oluşturun.",
+    "columns": {
+      "kind": "Tür",
+      "path": "Yol",
+      "size": "Boyut",
+      "sourceRun": "Kaynak çalıştırma",
+      "created": "Oluşturulma"
+    }
+  }
+}
