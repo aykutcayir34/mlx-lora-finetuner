@@ -153,7 +153,7 @@ describe('ChatPage', () => {
     )
 
     expect(await screen.findByTestId('training-banner')).toHaveTextContent(
-      'Eğitim sürerken sohbet kapalı',
+      'Chat is disabled while training is running',
     )
     expect(socket.readyState).toBe(MockWebSocket.OPEN)
     expect(MockWebSocket.instances).toHaveLength(1)

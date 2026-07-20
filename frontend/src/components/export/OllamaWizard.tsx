@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { useArtifacts, useOllamaModelfile } from '../../api/queries/export'
 import { queryKeys } from '../../api/queries/keys'
@@ -13,16 +14,18 @@ import { ModelfilePreview } from './ModelfilePreview'
 
 type SourceMode = 'gguf' | 'manual'
 
-const FAMILY_OPTIONS: { value: OllamaModelFamily; label: string }[] = [
-  { value: 'qwen', label: 'Qwen' },
-  { value: 'llama', label: 'Llama' },
-  { value: 'smollm', label: 'SmolLM' },
-  { value: 'mistral', label: 'Mistral' },
-  { value: 'custom', label: 'Custom' },
-]
-
 export function OllamaWizard() {
+  const { t } = useTranslation('export')
   const artifacts = useArtifacts()
+
+  // Family names are proper nouns; only "Custom" is translated.
+  const familyOptions: { value: OllamaModelFamily; label: string }[] = [
+    { value: 'qwen', label: 'Qwen' },
+    { value: 'llama', label: 'Llama' },
+    { value: 'smollm', label: 'SmolLM' },
+    { value: 'mistral', label: 'Mistral' },
+    { value: 'custom', label: t('ollama.familyCustom') },
+  ]
   const ollamaModelfile = useOllamaModelfile()
   const queryClient = useQueryClient()
   const { toast } = useToast()
@@ -55,10 +58,10 @@ export function OllamaWizard() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: queryKeys.export.artifacts })
-          toast('Modelfile oluşturuldu.', { variant: 'success' })
+          toast(t('ollama.created'), { variant: 'success' })
         },
         onError: (error) => {
-          toast(error instanceof Error ? error.message : 'Modelfile oluşturulamadı.', {
+          toast(error instanceof Error ? error.message : t('ollama.createFailed'), {
             variant: 'error',
           })
         },
@@ -67,7 +70,7 @@ export function OllamaWizard() {
   }
 
   return (
-    <Card title="Generate Ollama Modelfile">
+    <Card title={t('ollama.title')}>
       <div className="flex flex-col gap-4">
         <div className="flex gap-2">
           <Button
@@ -76,7 +79,7 @@ export function OllamaWizard() {
             size="sm"
             onClick={() => setSourceMode('gguf')}
           >
-            From GGUF artifact
+            {t('ollama.fromGguf')}
           </Button>
           <Button
             type="button"
@@ -84,46 +87,46 @@ export function OllamaWizard() {
             size="sm"
             onClick={() => setSourceMode('manual')}
           >
-            Manual path
+            {t('manualPath')}
           </Button>
         </div>
 
         {sourceMode === 'gguf' ? (
           <Field
-            label="GGUF file"
-            hint={ggufArtifacts.length === 0 ? 'No GGUF artifacts found.' : undefined}
+            label={t('ollama.ggufFile')}
+            hint={ggufArtifacts.length === 0 ? t('ollama.noGguf') : undefined}
           >
             <Select
               value={selectedArtifactPath}
               onChange={(e) => setSelectedArtifactPath(e.target.value)}
               options={[
-                { value: '', label: 'Select a GGUF file…' },
+                { value: '', label: t('ollama.selectGguf') },
                 ...ggufArtifacts.map((a) => ({ value: a.path, label: a.path })),
               ]}
             />
           </Field>
         ) : (
-          <Field label="GGUF path">
+          <Field label={t('ollama.ggufPath')}>
             <Input
               value={manualPath}
               onChange={(e) => setManualPath(e.target.value)}
-              placeholder="/abs/path/to/model.gguf"
+              placeholder={t('ollama.ggufPathPlaceholder')}
             />
           </Field>
         )}
 
-        <Field label="Model family">
+        <Field label={t('ollama.modelFamily')}>
           <Select
             value={modelFamily}
             onChange={(e) => setModelFamily(e.target.value as OllamaModelFamily)}
-            options={FAMILY_OPTIONS}
+            options={familyOptions}
           />
         </Field>
 
         {needsTemplate && (
           <Field
-            label="Custom template"
-            error={touched && templateMissing ? 'Custom family requires a template.' : undefined}
+            label={t('ollama.customTemplate')}
+            error={touched && templateMissing ? t('ollama.templateRequired') : undefined}
           >
             <textarea
               value={customTemplate}
@@ -135,8 +138,8 @@ export function OllamaWizard() {
           </Field>
         )}
 
-        <Field label="Name">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="my-model" />
+        <Field label={t('ollama.name')}>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('ollama.namePlaceholder')} />
         </Field>
 
         <div>
@@ -146,7 +149,7 @@ export function OllamaWizard() {
             disabled={touched && !canSubmit}
             loading={ollamaModelfile.isPending}
           >
-            Generate
+            {t('ollama.submit')}
           </Button>
         </div>
 

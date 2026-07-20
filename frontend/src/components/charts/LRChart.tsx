@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useTranslation } from 'react-i18next'
 import type { MetricEvent } from '../../api/types'
 import { downsample } from './downsample'
 
@@ -24,6 +25,7 @@ interface LRChartProps {
 }
 
 export function LRChart({ data }: LRChartProps) {
+  const { t } = useTranslation('train')
   const points = downsample(
     data.filter((event) => event.kind === 'train' && event.learning_rate !== null),
   )
@@ -31,7 +33,7 @@ export function LRChart({ data }: LRChartProps) {
   if (points.length === 0) {
     return (
       <div className="flex items-center justify-center rounded-lg border border-dashed border-border p-8 text-sm text-text-muted">
-        No metrics yet
+        {t('charts.empty')}
       </div>
     )
   }
@@ -45,14 +47,14 @@ export function LRChart({ data }: LRChartProps) {
           type="number"
           stroke={AXIS_COLOR}
           tick={{ fill: AXIS_COLOR }}
-          label={{ value: 'Step', position: 'insideBottom', offset: -4, fill: AXIS_COLOR }}
+          label={{ value: t('charts.step'), position: 'insideBottom', offset: -4, fill: AXIS_COLOR }}
         />
         <YAxis
           dataKey="learning_rate"
           stroke={AXIS_COLOR}
           tick={{ fill: AXIS_COLOR }}
           label={{
-            value: 'Learning rate',
+            value: t('charts.learningRate'),
             angle: -90,
             position: 'insideLeft',
             fill: AXIS_COLOR,
@@ -62,7 +64,7 @@ export function LRChart({ data }: LRChartProps) {
         <Line
           type="monotone"
           dataKey="learning_rate"
-          name="Learning rate"
+          name={t('charts.learningRate')}
           stroke={LR_COLOR}
           strokeWidth={2}
           dot={false}

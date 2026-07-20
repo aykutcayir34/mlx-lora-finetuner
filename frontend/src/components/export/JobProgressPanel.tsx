@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useExportJob } from '../../api/queries/export'
 import type { ExportJobInfo } from '../../api/types'
 import { Card } from '../common/Card'
@@ -14,6 +15,7 @@ interface JobProgressPanelProps {
 /** Polls a running export job and renders its progress log, status and output path.
  * Shared by the fuse and GGUF wizards, which only differ in the request they submit. */
 export function JobProgressPanel({ exportId, onSettled }: JobProgressPanelProps) {
+  const { t } = useTranslation('export')
   const job = useExportJob(exportId)
   const settledFor = useRef<string | null>(null)
 
@@ -31,14 +33,14 @@ export function JobProgressPanel({ exportId, onSettled }: JobProgressPanelProps)
   if (!exportId) return null
 
   return (
-    <Card title="Export job" className="mt-4">
+    <Card title={t('job.title')} className="mt-4">
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           {job.data ? (
             <StatusBadge status={job.data.status} />
           ) : (
             <span className="flex items-center gap-2 text-sm text-text-muted">
-              <Spinner size="sm" /> Loading job status…
+              <Spinner size="sm" /> {t('job.loading')}
             </span>
           )}
         </div>
@@ -49,12 +51,12 @@ export function JobProgressPanel({ exportId, onSettled }: JobProgressPanelProps)
 
         {job.data?.status === 'completed' && job.data.output_path && (
           <p className="text-sm text-text">
-            Output: <span className="font-mono text-text-muted">{job.data.output_path}</span>
+            {t('job.output')} <span className="font-mono text-text-muted">{job.data.output_path}</span>
           </p>
         )}
 
         {job.data?.status === 'failed' && (
-          <p className="text-sm text-danger">{job.data.error ?? 'Export failed.'}</p>
+          <p className="text-sm text-danger">{job.data.error ?? t('job.failed')}</p>
         )}
       </div>
     </Card>

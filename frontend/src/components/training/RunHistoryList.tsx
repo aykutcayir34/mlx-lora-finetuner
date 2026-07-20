@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useRuns } from '../../api/queries/training'
 import { Card } from '../common/Card'
 import { Button } from '../common/Button'
@@ -10,17 +11,18 @@ interface RunHistoryListProps {
 }
 
 export function RunHistoryList({ selectedRunId, onSelect, onNewRun }: RunHistoryListProps) {
+  const { t } = useTranslation('train')
   const runsQuery = useRuns(undefined, 20, 0)
   const runs = runsQuery.data?.runs ?? []
 
   return (
-    <Card title="Runs" className="flex w-72 flex-shrink-0 flex-col gap-3">
+    <Card title={t('runList.title')} className="flex w-72 flex-shrink-0 flex-col gap-3">
       <Button size="sm" onClick={onNewRun} className="w-full">
-        New run
+        {t('runList.newRun')}
       </Button>
       <div className="flex flex-col gap-1.5">
         {runs.length === 0 ? (
-          <p className="text-sm text-text-muted">No runs yet.</p>
+          <p className="text-sm text-text-muted">{t('runList.empty')}</p>
         ) : (
           runs.map((run) => (
             <button

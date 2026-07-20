@@ -26,5 +26,6 @@
     "stop": "Durdur"
   },
   "waiting": "Bekleniyor…",
-  "usage": "{{tokens}} token · {{tps}} token/sn"
+  "usage": "{{tokens}} token · {{tps}} token/sn",
+  "connectionLost": "Bağlantı koptu"
 }

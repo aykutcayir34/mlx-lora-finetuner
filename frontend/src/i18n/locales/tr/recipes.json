@@ -1,1 +1,43 @@
-{}
+{
+  "page": {
+    "title": "Tarifler",
+    "description": "Belgeleri eğitim veri kümelerine dönüştür."
+  },
+  "toasts": {
+    "completed": "Dönüşüm tamamlandı — veri kümesi Veri Kümeleri sayfasında hazır.",
+    "failed": "Dönüşüm başarısız oldu.",
+    "started": "\"{{name}}\" için dönüşüm başlatıldı.",
+    "startFailed": "Dönüşüm başlatılamadı."
+  },
+  "form": {
+    "dropzone": "Bir belgeyi buraya sürükleyip bırakın veya seçmek için tıklayın",
+    "formats": "PDF, DOCX, CSV, TXT veya MD",
+    "fileAria": "Belge dosyası",
+    "unsupported": "Desteklenmeyen dosya türü. Bir .pdf, .docx, .csv, .txt veya .md dosyası seçin.",
+    "datasetName": "Veri kümesi adı",
+    "namePlaceholder": "my-recipe-dataset",
+    "outputFormat": "Çıktı formatı",
+    "formatOptions": {
+      "text": "Metin",
+      "completions": "Completions",
+      "chat": "Chat"
+    },
+    "chunkSize": "Parça boyutu (karakter)",
+    "chunkOverlap": "Parça örtüşmesi (karakter)",
+    "promptColumn": "Prompt sütunu",
+    "promptPlaceholder": "question",
+    "completionColumn": "Completion sütunu",
+    "completionPlaceholder": "answer",
+    "systemPrompt": "Sistem istemi (isteğe bağlı)",
+    "systemPromptPlaceholder": "Yardımsever bir asistansın.",
+    "submit": "Veri kümesine dönüştür"
+  },
+  "job": {
+    "title": "Dönüşüm işi",
+    "loading": "İş durumu yükleniyor…",
+    "rowsEmitted": "{{n}} satır üretildi",
+    "ready": "\"{{name}}\" veri kümesi hazır.",
+    "seeDatasets": "Veri Kümeleri sayfasında görebilirsiniz.",
+    "failed": "Dönüşüm başarısız oldu."
+  }
+}

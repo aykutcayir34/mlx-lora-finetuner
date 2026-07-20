@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Table, type TableColumn } from '../common/Table'
 import { StatusBadge } from '../common/Badge'
 import type { RunSummary } from '../../api/types'
@@ -12,7 +14,11 @@ function formatLoss(value: number | null): string {
   return value === null ? '—' : value.toFixed(4)
 }
 
-function formatDuration(startedAt: string | null, finishedAt: string | null): string {
+function formatDuration(
+  startedAt: string | null,
+  finishedAt: string | null,
+  t: TFunction,
+): string {
   if (!startedAt || !finishedAt) return '—'
   const seconds = Math.max(
     0,
@@ -20,16 +26,17 @@ function formatDuration(startedAt: string | null, finishedAt: string | null): st
   )
   const minutes = Math.floor(seconds / 60)
   const hours = Math.floor(minutes / 60)
-  if (hours > 0) return `${hours}h ${minutes % 60}m`
-  if (minutes > 0) return `${minutes}m ${seconds % 60}s`
-  return `${seconds}s`
+  if (hours > 0) return t('history:duration.hm', { h: hours, m: minutes % 60 })
+  if (minutes > 0) return t('history:duration.ms', { m: minutes, s: seconds % 60 })
+  return t('history:duration.s', { s: seconds })
 }
 
 export function HistoryTable({ runs, selectedRunId, onSelect }: HistoryTableProps) {
+  const { t } = useTranslation('history')
   const columns: TableColumn<RunSummary>[] = [
     {
       key: 'name',
-      header: 'Name',
+      header: t('table.name'),
       render: (run) => (
         <button
           type="button"
@@ -43,25 +50,25 @@ export function HistoryTable({ runs, selectedRunId, onSelect }: HistoryTableProp
         </button>
       ),
     },
-    { key: 'status', header: 'Status', render: (run) => <StatusBadge status={run.status} /> },
-    { key: 'model', header: 'Model', render: (run) => run.config.model_id },
-    { key: 'dataset', header: 'Dataset', render: (run) => run.config.dataset_id },
+    { key: 'status', header: t('table.status'), render: (run) => <StatusBadge status={run.status} /> },
+    { key: 'model', header: t('table.model'), render: (run) => run.config.model_id },
+    { key: 'dataset', header: t('table.dataset'), render: (run) => run.config.dataset_id },
     {
       key: 'mode',
-      header: 'Mode / Type',
+      header: t('table.modeType'),
       render: (run) => `${run.config.train_mode} / ${run.config.train_type}`,
     },
-    { key: 'train_loss', header: 'Train loss', render: (run) => formatLoss(run.final_train_loss) },
-    { key: 'val_loss', header: 'Val loss', render: (run) => formatLoss(run.final_val_loss) },
+    { key: 'train_loss', header: t('table.trainLoss'), render: (run) => formatLoss(run.final_train_loss) },
+    { key: 'val_loss', header: t('table.valLoss'), render: (run) => formatLoss(run.final_val_loss) },
     {
       key: 'created_at',
-      header: 'Created',
+      header: t('table.created'),
       render: (run) => new Date(run.created_at).toLocaleString(),
     },
     {
       key: 'duration',
-      header: 'Duration',
-      render: (run) => formatDuration(run.started_at, run.finished_at),
+      header: t('table.duration'),
+      render: (run) => formatDuration(run.started_at, run.finished_at, t),
     },
   ]
 
@@ -71,7 +78,7 @@ export function HistoryTable({ runs, selectedRunId, onSelect }: HistoryTableProp
         columns={columns}
         data={runs}
         rowKey={(run) => run.run_id}
-        emptyMessage="No runs found."
+        emptyMessage={t('table.empty')}
       />
     </div>
   )

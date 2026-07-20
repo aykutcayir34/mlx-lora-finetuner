@@ -32,5 +32,6 @@
     "topP": "Top P ({{value}})",
     "repetitionPenalty": "Tekrar cezası (isteğe bağlı)",
     "nonePlaceholder": "yok"
-  }
+  },
+  "connectionLost": "Bağlantı koptu"
 }

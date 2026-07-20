@@ -1,1 +1,74 @@
-{}
+{
+  "page": {
+    "title": "History",
+    "description": "Browse, inspect and clone past training runs."
+  },
+  "loadFailed": "Failed to load run history.",
+  "empty": {
+    "title": "No runs found",
+    "description": "No training runs match the current filters."
+  },
+  "pagination": {
+    "showing": "Showing {{from}}–{{to}} of {{total}}",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "filters": {
+    "model": "Model",
+    "mode": "Mode",
+    "status": "Status",
+    "sort": "Sort",
+    "allModels": "All models",
+    "allModes": "All modes",
+    "allStatuses": "All statuses",
+    "sortOptions": {
+      "newestFirst": "Newest first",
+      "oldestFirst": "Oldest first",
+      "trainLossAsc": "Train loss (low to high)",
+      "trainLossDesc": "Train loss (high to low)"
+    }
+  },
+  "table": {
+    "name": "Name",
+    "status": "Status",
+    "model": "Model",
+    "dataset": "Dataset",
+    "modeType": "Mode / Type",
+    "trainLoss": "Train loss",
+    "valLoss": "Val loss",
+    "created": "Created",
+    "duration": "Duration",
+    "empty": "No runs found."
+  },
+  "duration": {
+    "hm": "{{h}}h {{m}}m",
+    "ms": "{{m}}m {{s}}s",
+    "s": "{{s}}s"
+  },
+  "detail": {
+    "clone": "Clone",
+    "cloneFailed": "Failed to clone this run.",
+    "tabs": {
+      "charts": "Charts",
+      "config": "Config",
+      "diff": "Diff"
+    },
+    "compareAgainst": "Compare against",
+    "selectRun": "Select a run…",
+    "selectRunHint": "Select a run to compare configs."
+  },
+  "config": {
+    "showGrouped": "Show grouped view",
+    "showJson": "Show JSON",
+    "groups": {
+      "general": "General",
+      "training": "Training",
+      "lora": "LoRA",
+      "checkpointing": "Checkpointing & eval",
+      "modeSpecific": "Mode-specific"
+    }
+  },
+  "diff": {
+    "field": "Field"
+  }
+}

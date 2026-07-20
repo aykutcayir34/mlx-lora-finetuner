@@ -42,6 +42,12 @@ export interface ModeOption {
   enabled: boolean
 }
 
+/** Option whose visible label is a train-namespace i18n key resolved at render time. */
+export interface TranslatableOption<V extends string = string> {
+  value: V
+  labelKey: string
+}
+
 // Faz 2 (T15): all modes are wired end to end against mlx-lm-lora 3.0.0 and
 // verified with real training runs (see task report). All enabled.
 export const MODE_OPTIONS: ModeOption[] = [
@@ -105,46 +111,47 @@ export function defaultOverridesForMode(mode: TrainMode): ModeSpecificFields {
 // GRPO reward function registry, pinned by mlx-lm-lora 3.0.0 (see docs/api.md).
 // Array order is the canonical submit order; the backend 422s on unknown names.
 // Nothing selected → `reward_functions: null` → the library uses all five.
-export const GRPO_REWARD_FUNCTIONS: { value: string; label: string }[] = [
-  { value: 'r1_accuracy_reward_func', label: 'Accuracy' },
-  { value: 'r1_int_reward_func', label: 'Integer answer' },
-  { value: 'r1_strict_format_reward_func', label: 'Strict format' },
-  { value: 'r1_soft_format_reward_func', label: 'Soft format' },
-  { value: 'r1_count_xml', label: 'XML tag count' },
+export const GRPO_REWARD_FUNCTIONS: TranslatableOption[] = [
+  { value: 'r1_accuracy_reward_func', labelKey: 'form.options.rewards.r1_accuracy_reward_func' },
+  { value: 'r1_int_reward_func', labelKey: 'form.options.rewards.r1_int_reward_func' },
+  { value: 'r1_strict_format_reward_func', labelKey: 'form.options.rewards.r1_strict_format_reward_func' },
+  { value: 'r1_soft_format_reward_func', labelKey: 'form.options.rewards.r1_soft_format_reward_func' },
+  { value: 'r1_count_xml', labelKey: 'form.options.rewards.r1_count_xml' },
 ]
 
-export const TRAIN_TYPE_OPTIONS: { value: TrainType; label: string }[] = [
-  { value: 'lora', label: 'LoRA' },
-  { value: 'dora', label: 'DoRA' },
-  { value: 'full', label: 'Full fine-tune' },
+export const TRAIN_TYPE_OPTIONS: TranslatableOption<TrainType>[] = [
+  { value: 'lora', labelKey: 'form.options.trainType.lora' },
+  { value: 'dora', labelKey: 'form.options.trainType.dora' },
+  { value: 'full', labelKey: 'form.options.trainType.full' },
 ]
 
+// Proper names, identical in every language — no i18n keys needed.
 export const OPTIMIZER_OPTIONS = [
   { value: 'adamw', label: 'AdamW' },
   { value: 'adam', label: 'Adam' },
   { value: 'sgd', label: 'SGD' },
 ]
 
-export const LR_SCHEDULE_OPTIONS = [
-  { value: 'cosine', label: 'Cosine' },
-  { value: 'linear', label: 'Linear' },
-  { value: 'constant', label: 'Constant' },
+export const LR_SCHEDULE_OPTIONS: TranslatableOption[] = [
+  { value: 'cosine', labelKey: 'form.options.lrSchedule.cosine' },
+  { value: 'linear', labelKey: 'form.options.lrSchedule.linear' },
+  { value: 'constant', labelKey: 'form.options.lrSchedule.constant' },
 ]
 
 // '' maps to null → the backend/library default (nll), same trick as
 // LOAD_IN_BITS_OPTIONS below.
-export const SFT_LOSS_OPTIONS = [
-  { value: '', label: 'Library default (nll)' },
-  { value: 'nll', label: 'NLL' },
-  { value: 'chunked_nll', label: 'Chunked NLL' },
-  { value: 'dft', label: 'DFT (Dynamic Fine-Tuning)' },
+export const SFT_LOSS_OPTIONS: TranslatableOption[] = [
+  { value: '', labelKey: 'form.options.sftLoss.default' },
+  { value: 'nll', labelKey: 'form.options.sftLoss.nll' },
+  { value: 'chunked_nll', labelKey: 'form.options.sftLoss.chunkedNll' },
+  { value: 'dft', labelKey: 'form.options.sftLoss.dft' },
 ]
 
-export const LOAD_IN_BITS_OPTIONS = [
-  { value: '', label: 'None (full precision)' },
-  { value: '4', label: '4-bit' },
-  { value: '6', label: '6-bit' },
-  { value: '8', label: '8-bit' },
+export const LOAD_IN_BITS_OPTIONS: TranslatableOption[] = [
+  { value: '', labelKey: 'form.options.loadInBits.none' },
+  { value: '4', labelKey: 'form.options.loadInBits.bits4' },
+  { value: '6', labelKey: 'form.options.loadInBits.bits6' },
+  { value: '8', labelKey: 'form.options.loadInBits.bits8' },
 ]
 
 const MODE_COMPATIBLE_FORMATS: Record<TrainMode, DatasetFormat[]> = {
@@ -164,7 +171,20 @@ export function isFormatCompatibleWithMode(format: DatasetFormat, mode: TrainMod
   return MODE_COMPATIBLE_FORMATS[mode].includes(format)
 }
 
-export type FormErrors = Partial<Record<keyof TrainingConfig | 'lora' | 'dataset_format', string>>
+/**
+ * A validation finding, identified by its key under `train:form.errors.*`.
+ * The English locale values are the canonical messages (byte-identical to the
+ * strings this validator used to return); rendering goes through t() so the
+ * same finding surfaces in the active language.
+ */
+export interface FormError {
+  key: string
+  params?: Record<string, string>
+}
+
+export type FormErrors = Partial<
+  Record<keyof TrainingConfig | 'lora' | 'dataset_format', FormError>
+>
 
 /** Client-side validation mirroring the contract in docs/api.md. */
 export function validateTrainingConfig(
@@ -173,83 +193,90 @@ export function validateTrainingConfig(
 ): FormErrors {
   const errors: FormErrors = {}
 
-  if (!config.name.trim()) errors.name = 'Run name is required.'
-  if (!config.model_id) errors.model_id = 'Select a model.'
-  if (!config.dataset_id) errors.dataset_id = 'Select a dataset with splits.'
+  if (!config.name.trim()) errors.name = { key: 'nameRequired' }
+  if (!config.model_id) errors.model_id = { key: 'modelRequired' }
+  if (!config.dataset_id) errors.dataset_id = { key: 'datasetRequired' }
 
   if (config.dataset_id && datasetFormat && !isFormatCompatibleWithMode(datasetFormat, config.train_mode)) {
-    errors.dataset_format = `Dataset format "${datasetFormat}" is not compatible with mode "${config.train_mode}". Needs: ${compatibleFormatsForMode(config.train_mode).join(', ')}.`
+    errors.dataset_format = {
+      key: 'datasetFormat',
+      params: {
+        format: datasetFormat,
+        mode: config.train_mode,
+        needs: compatibleFormatsForMode(config.train_mode).join(', '),
+      },
+    }
   }
 
   if (!Number.isFinite(config.batch_size) || config.batch_size < 1) {
-    errors.batch_size = 'Batch size must be at least 1.'
+    errors.batch_size = { key: 'batchSize' }
   }
   if (!Number.isFinite(config.iters) || config.iters < 1) {
-    errors.iters = 'Iterations must be at least 1.'
+    errors.iters = { key: 'iters' }
   }
   if (!Number.isFinite(config.learning_rate) || config.learning_rate <= 0) {
-    errors.learning_rate = 'Learning rate must be greater than 0.'
+    errors.learning_rate = { key: 'learningRate' }
   }
   if (!Number.isFinite(config.max_seq_length) || config.max_seq_length < 1) {
-    errors.max_seq_length = 'Max sequence length must be at least 1.'
+    errors.max_seq_length = { key: 'maxSeqLength' }
   }
   if (!Number.isFinite(config.num_layers) || config.num_layers < 1) {
-    errors.num_layers = 'Number of layers must be at least 1.'
+    errors.num_layers = { key: 'numLayers' }
   }
   if (!Number.isFinite(config.seed) || config.seed < 0) {
-    errors.seed = 'Seed must be zero or greater.'
+    errors.seed = { key: 'seed' }
   }
   if (!Number.isFinite(config.save_every) || config.save_every < 1) {
-    errors.save_every = 'Save every must be at least 1.'
+    errors.save_every = { key: 'saveEvery' }
   }
   if (!Number.isFinite(config.steps_per_report) || config.steps_per_report < 1) {
-    errors.steps_per_report = 'Steps per report must be at least 1.'
+    errors.steps_per_report = { key: 'stepsPerReport' }
   }
   if (!Number.isFinite(config.steps_per_eval) || config.steps_per_eval < 1) {
-    errors.steps_per_eval = 'Steps per eval must be at least 1.'
+    errors.steps_per_eval = { key: 'stepsPerEval' }
   }
   if (!Number.isFinite(config.val_batches) || config.val_batches < 1) {
-    errors.val_batches = 'Validation batches must be at least 1.'
+    errors.val_batches = { key: 'valBatches' }
   }
   // Optional for every mode; null → library default 1.
   if (
     config.gradient_accumulation_steps !== null &&
     (!Number.isInteger(config.gradient_accumulation_steps) || config.gradient_accumulation_steps < 1)
   ) {
-    errors.gradient_accumulation_steps = 'Gradient accumulation steps must be an integer of at least 1.'
+    errors.gradient_accumulation_steps = { key: 'gradAccum' }
   }
 
   if (config.train_type !== 'full') {
     if (!Number.isFinite(config.lora.rank) || config.lora.rank < 1) {
-      errors.lora = 'LoRA rank must be at least 1.'
+      errors.lora = { key: 'loraRank' }
     } else if (!Number.isFinite(config.lora.scale) || config.lora.scale <= 0) {
-      errors.lora = 'LoRA scale must be greater than 0.'
+      errors.lora = { key: 'loraScale' }
     } else if (!Number.isFinite(config.lora.dropout) || config.lora.dropout < 0 || config.lora.dropout >= 1) {
-      errors.lora = 'LoRA dropout must be between 0 and 1.'
+      errors.lora = { key: 'loraDropout' }
     }
   }
 
   if (config.train_mode === 'dpo' || config.train_mode === 'orpo' || config.train_mode === 'cpo') {
     if (config.beta === null) {
-      errors.beta = 'Beta is required for dpo/orpo/cpo.'
+      errors.beta = { key: 'betaRequired' }
     } else if (!Number.isFinite(config.beta) || config.beta <= 0) {
-      errors.beta = 'Beta must be greater than 0.'
+      errors.beta = { key: 'betaPositive' }
     }
   }
   if (config.train_mode === 'grpo') {
     if (config.group_size === null) {
-      errors.group_size = 'Group size is required for grpo.'
+      errors.group_size = { key: 'groupSizeRequired' }
     } else if (!Number.isFinite(config.group_size) || config.group_size < 1) {
-      errors.group_size = 'Group size must be at least 1.'
+      errors.group_size = { key: 'groupSizeMin' }
     }
     if (config.temperature !== null && (!Number.isFinite(config.temperature) || config.temperature <= 0)) {
-      errors.temperature = 'Temperature must be greater than 0.'
+      errors.temperature = { key: 'temperaturePositive' }
     }
     if (
       config.max_completion_length !== null &&
       (!Number.isFinite(config.max_completion_length) || config.max_completion_length < 1)
     ) {
-      errors.max_completion_length = 'Max completion length must be at least 1.'
+      errors.max_completion_length = { key: 'maxCompletionLengthMin' }
     }
   }
   if (config.train_mode === 'ftpo') {
@@ -258,22 +285,22 @@ export function validateTrainingConfig(
       config.lambda_mse_target !== null &&
       (!Number.isFinite(config.lambda_mse_target) || config.lambda_mse_target < 0)
     ) {
-      errors.lambda_mse_target = 'Lambda MSE target must be zero or greater.'
+      errors.lambda_mse_target = { key: 'lambdaMseTarget' }
     }
     if (
       config.tau_mse_target !== null &&
       (!Number.isFinite(config.tau_mse_target) || config.tau_mse_target <= 0)
     ) {
-      errors.tau_mse_target = 'Tau MSE target must be greater than 0.'
+      errors.tau_mse_target = { key: 'tauMseTarget' }
     }
     if (config.lambda_mse !== null && (!Number.isFinite(config.lambda_mse) || config.lambda_mse < 0)) {
-      errors.lambda_mse = 'Lambda MSE must be zero or greater.'
+      errors.lambda_mse = { key: 'lambdaMse' }
     }
     if (
       config.clip_epsilon_logits !== null &&
       (!Number.isFinite(config.clip_epsilon_logits) || config.clip_epsilon_logits <= 0)
     ) {
-      errors.clip_epsilon_logits = 'Clip epsilon must be greater than 0.'
+      errors.clip_epsilon_logits = { key: 'clipEpsilon' }
     }
   }
 

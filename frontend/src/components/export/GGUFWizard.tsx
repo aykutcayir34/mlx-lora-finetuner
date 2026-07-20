@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { useArtifacts, useGguf, useGgufPreflight } from '../../api/queries/export'
 import { queryKeys } from '../../api/queries/keys'
@@ -20,6 +21,7 @@ const OUTTYPE_OPTIONS: { value: GGUFOuttype; label: string }[] = [
 ]
 
 export function GGUFWizard() {
+  const { t } = useTranslation('export')
   const artifacts = useArtifacts()
   const gguf = useGguf()
   const queryClient = useQueryClient()
@@ -50,12 +52,10 @@ export function GGUFWizard() {
         },
         onError: (error) => {
           if (error instanceof ApiError && error.code === 'training_active') {
-            toast('Eğitim aktifken export yapılamaz. Eğitim bitince tekrar deneyin.', {
-              variant: 'error',
-            })
+            toast(t('trainingActive'), { variant: 'error' })
             return
           }
-          toast(error instanceof Error ? error.message : 'GGUF dönüşümü başlatılamadı.', {
+          toast(error instanceof Error ? error.message : t('gguf.startFailed'), {
             variant: 'error',
           })
         },
@@ -64,7 +64,7 @@ export function GGUFWizard() {
   }
 
   return (
-    <Card title="Convert fused model to GGUF">
+    <Card title={t('gguf.title')}>
       <div className="flex flex-col gap-4">
         <div className="flex gap-2">
           <Button
@@ -73,7 +73,7 @@ export function GGUFWizard() {
             size="sm"
             onClick={() => setSourceMode('fused')}
           >
-            From fused artifact
+            {t('gguf.fromArtifact')}
           </Button>
           <Button
             type="button"
@@ -81,38 +81,38 @@ export function GGUFWizard() {
             size="sm"
             onClick={() => setSourceMode('manual')}
           >
-            Manual path
+            {t('manualPath')}
           </Button>
         </div>
 
         {sourceMode === 'fused' ? (
           <Field
-            label="Fused model"
-            hint={fusedArtifacts.length === 0 ? 'No fused artifacts found.' : undefined}
+            label={t('gguf.fusedModel')}
+            hint={fusedArtifacts.length === 0 ? t('gguf.noFused') : undefined}
           >
             <Select
               value={selectedArtifactPath}
               onChange={(e) => setSelectedArtifactPath(e.target.value)}
               options={[
-                { value: '', label: 'Select a fused model…' },
+                { value: '', label: t('gguf.selectFused') },
                 ...fusedArtifacts.map((a) => ({ value: a.path, label: a.path })),
               ]}
             />
           </Field>
         ) : (
-          <Field label="Fused model path">
+          <Field label={t('gguf.fusedPath')}>
             <Input
               value={manualPath}
               onChange={(e) => setManualPath(e.target.value)}
-              placeholder="/abs/path/to/fused"
+              placeholder={t('gguf.fusedPathPlaceholder')}
             />
           </Field>
         )}
 
         {modelPath.length > 0 && (
           <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
-            <span className="text-sm font-medium text-text">Preflight checks</span>
-            {preflight.isLoading && <span className="text-sm text-text-muted">Checking…</span>}
+            <span className="text-sm font-medium text-text">{t('gguf.preflight')}</span>
+            {preflight.isLoading && <span className="text-sm text-text-muted">{t('gguf.checking')}</span>}
             {preflight.data?.checks.map((check) => (
               <div key={check.name} className="flex items-start gap-2 text-sm">
                 <span className={check.ok ? 'text-success' : 'text-danger'} aria-hidden="true">
@@ -124,7 +124,7 @@ export function GGUFWizard() {
           </div>
         )}
 
-        <Field label="Outtype">
+        <Field label={t('gguf.outtype')}>
           <Select
             value={outtype}
             onChange={(e) => setOuttype(e.target.value as GGUFOuttype)}
@@ -132,17 +132,17 @@ export function GGUFWizard() {
           />
         </Field>
 
-        <Field label="Output name">
+        <Field label={t('gguf.outputName')}>
           <Input
             value={outputName}
             onChange={(e) => setOutputName(e.target.value)}
-            placeholder="my-model"
+            placeholder={t('gguf.outputNamePlaceholder')}
           />
         </Field>
 
         <div>
           <Button type="button" onClick={handleSubmit} disabled={!canSubmit} loading={gguf.isPending}>
-            Convert
+            {t('gguf.submit')}
           </Button>
         </div>
 
@@ -151,9 +151,9 @@ export function GGUFWizard() {
           onSettled={(job) => {
             if (job.status === 'completed') {
               queryClient.invalidateQueries({ queryKey: queryKeys.export.artifacts })
-              toast('GGUF dönüşümü tamamlandı.', { variant: 'success' })
+              toast(t('gguf.completed'), { variant: 'success' })
             } else if (job.status === 'failed') {
-              toast(job.error ?? 'GGUF dönüşümü başarısız oldu.', { variant: 'error' })
+              toast(job.error ?? t('gguf.failed'), { variant: 'error' })
             }
           }}
         />

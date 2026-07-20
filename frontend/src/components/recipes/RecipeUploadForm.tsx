@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useConvertRecipe } from '../../api/queries/recipes'
 import { ApiError } from '../../api/client'
 import type { RecipeOutputFormat } from '../../api/types'
@@ -23,12 +24,6 @@ export function detectFileKind(filename: string): RecipeFileKind | null {
   return null
 }
 
-const DOC_FORMAT_OPTIONS = [{ value: 'text', label: 'Text' }]
-const CSV_FORMAT_OPTIONS = [
-  { value: 'completions', label: 'Completions' },
-  { value: 'chat', label: 'Chat' },
-]
-
 interface RecipeUploadFormProps {
   onJobStarted: (jobId: string, datasetName: string) => void
 }
@@ -37,6 +32,7 @@ interface RecipeUploadFormProps {
  * fields depend on the detected file kind: doc types (pdf/docx/txt/md) show
  * chunk_size/chunk_overlap; csv shows column mapping + optional system prompt. */
 export function RecipeUploadForm({ onJobStarted }: RecipeUploadFormProps) {
+  const { t } = useTranslation('recipes')
   const [file, setFile] = useState<File | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const [name, setName] = useState('')
@@ -53,7 +49,13 @@ export function RecipeUploadForm({ onJobStarted }: RecipeUploadFormProps) {
   const { toast } = useToast()
 
   const fileKind = file ? detectFileKind(file.name) : null
-  const formatOptions = fileKind === 'csv' ? CSV_FORMAT_OPTIONS : DOC_FORMAT_OPTIONS
+  const formatOptions =
+    fileKind === 'csv'
+      ? [
+          { value: 'completions', label: t('form.formatOptions.completions') },
+          { value: 'chat', label: t('form.formatOptions.chat') },
+        ]
+      : [{ value: 'text', label: t('form.formatOptions.text') }]
 
   function handleFiles(files: FileList | null) {
     const picked = files?.[0]
@@ -95,11 +97,11 @@ export function RecipeUploadForm({ onJobStarted }: RecipeUploadFormProps) {
       },
       {
         onSuccess: (data) => {
-          toast(`Conversion started for "${data.name}".`, { variant: 'success' })
+          toast(t('toasts.started', { name: data.name }), { variant: 'success' })
           onJobStarted(data.recipe_job_id, data.name)
         },
         onError: (error) => {
-          const message = error instanceof ApiError ? error.message : 'Conversion failed to start.'
+          const message = error instanceof ApiError ? error.message : t('toasts.startFailed')
           setErrorMessage(message)
           toast(message, { variant: 'error' })
         },
@@ -126,23 +128,21 @@ export function RecipeUploadForm({ onJobStarted }: RecipeUploadFormProps) {
           dragActive ? 'border-accent bg-accent/5' : 'border-border'
         }`}
       >
-        <p className="text-text">
-          {file ? file.name : 'Drag & drop a document here, or click to choose'}
-        </p>
-        <p className="text-xs text-text-muted">PDF, DOCX, CSV, TXT or MD</p>
+        <p className="text-text">{file ? file.name : t('form.dropzone')}</p>
+        <p className="text-xs text-text-muted">{t('form.formats')}</p>
         <input
           ref={inputRef}
           type="file"
           accept={ACCEPTED_EXTENSIONS.join(',')}
           className="hidden"
           onChange={(event) => handleFiles(event.target.files)}
-          aria-label="Document file"
+          aria-label={t('form.fileAria')}
         />
       </div>
 
       {file && !fileKind && (
         <p role="alert" className="text-xs text-danger">
-          Unsupported file type. Choose a .pdf, .docx, .csv, .txt or .md file.
+          {t('form.unsupported')}
         </p>
       )}
 
@@ -152,16 +152,16 @@ export function RecipeUploadForm({ onJobStarted }: RecipeUploadFormProps) {
         </p>
       )}
 
-      <Field label="Dataset name" htmlFor="recipe-name">
+      <Field label={t('form.datasetName')} htmlFor="recipe-name">
         <Input
           id="recipe-name"
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="my-recipe-dataset"
+          placeholder={t('form.namePlaceholder')}
         />
       </Field>
 
-      <Field label="Output format" htmlFor="recipe-output-format">
+      <Field label={t('form.outputFormat')} htmlFor="recipe-output-format">
         <Select
           id="recipe-output-format"
           value={outputFormat}
@@ -172,7 +172,7 @@ export function RecipeUploadForm({ onJobStarted }: RecipeUploadFormProps) {
 
       {fileKind === 'doc' && (
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Chunk size (chars)" htmlFor="recipe-chunk-size">
+          <Field label={t('form.chunkSize')} htmlFor="recipe-chunk-size">
             <Input
               id="recipe-chunk-size"
               type="number"
@@ -180,7 +180,7 @@ export function RecipeUploadForm({ onJobStarted }: RecipeUploadFormProps) {
               onChange={(event) => setChunkSize(event.target.value)}
             />
           </Field>
-          <Field label="Chunk overlap (chars)" htmlFor="recipe-chunk-overlap">
+          <Field label={t('form.chunkOverlap')} htmlFor="recipe-chunk-overlap">
             <Input
               id="recipe-chunk-overlap"
               type="number"
@@ -194,30 +194,30 @@ export function RecipeUploadForm({ onJobStarted }: RecipeUploadFormProps) {
       {fileKind === 'csv' && (
         <>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Prompt column" htmlFor="recipe-prompt-column">
+            <Field label={t('form.promptColumn')} htmlFor="recipe-prompt-column">
               <Input
                 id="recipe-prompt-column"
                 value={promptColumn}
                 onChange={(event) => setPromptColumn(event.target.value)}
-                placeholder="question"
+                placeholder={t('form.promptPlaceholder')}
               />
             </Field>
-            <Field label="Completion column" htmlFor="recipe-completion-column">
+            <Field label={t('form.completionColumn')} htmlFor="recipe-completion-column">
               <Input
                 id="recipe-completion-column"
                 value={completionColumn}
                 onChange={(event) => setCompletionColumn(event.target.value)}
-                placeholder="answer"
+                placeholder={t('form.completionPlaceholder')}
               />
             </Field>
           </div>
           {outputFormat === 'chat' && (
-            <Field label="System prompt (optional)" htmlFor="recipe-system-prompt">
+            <Field label={t('form.systemPrompt')} htmlFor="recipe-system-prompt">
               <Input
                 id="recipe-system-prompt"
                 value={systemPrompt}
                 onChange={(event) => setSystemPrompt(event.target.value)}
-                placeholder="You are a helpful assistant."
+                placeholder={t('form.systemPromptPlaceholder')}
               />
             </Field>
           )}
@@ -226,7 +226,7 @@ export function RecipeUploadForm({ onJobStarted }: RecipeUploadFormProps) {
 
       <div>
         <Button type="button" onClick={handleSubmit} disabled={!canSubmit} loading={convert.isPending}>
-          Convert to dataset
+          {t('form.submit')}
         </Button>
       </div>
     </div>

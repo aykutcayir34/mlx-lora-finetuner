@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '../common/Button'
 import { ChatColumn } from './ChatColumn'
 
@@ -24,6 +25,7 @@ export function ChatWindow({
   onStop,
   isSending,
 }: ChatWindowProps) {
+  const { t } = useTranslation('chat')
   const [draft, setDraft] = useState('')
 
   function submit() {
@@ -43,13 +45,13 @@ export function ChatWindow({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <details className="rounded-xl border border-border bg-surface p-3">
-        <summary className="cursor-pointer text-sm font-medium text-text">System prompt</summary>
+        <summary className="cursor-pointer text-sm font-medium text-text">{t('window.systemPrompt')}</summary>
         <textarea
-          aria-label="System prompt"
+          aria-label={t('window.systemPrompt')}
           className="mt-2 h-20 w-full resize-none rounded-lg border border-border bg-surface-raised p-2 text-sm text-text placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
           value={systemPrompt}
           onChange={(event) => onSystemPromptChange(event.target.value)}
-          placeholder="Optional system prompt sent with every message..."
+          placeholder={t('window.systemPromptPlaceholder')}
         />
       </details>
 
@@ -63,20 +65,20 @@ export function ChatWindow({
 
       <div className="flex items-end gap-2">
         <textarea
-          aria-label="Message"
+          aria-label={t('window.message')}
           className="h-16 flex-1 resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Message... (Enter to send, Shift+Enter for newline)"
+          placeholder={t('window.messagePlaceholder')}
         />
         {isSending ? (
           <Button variant="danger" onClick={onStop}>
-            Stop
+            {t('window.stop')}
           </Button>
         ) : (
           <Button variant="primary" onClick={submit} disabled={!draft.trim()}>
-            Send
+            {t('window.send')}
           </Button>
         )}
       </div>

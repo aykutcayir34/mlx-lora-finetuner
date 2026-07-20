@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import i18n from '../../i18n'
 import { ReconnectingWS } from '../../api/ws'
 import type { ArenaWsClientFrame, ArenaWsServerFrame } from '../../api/types'
 import { useArenaStore } from './arenaStore'
-
-const CONNECTION_LOST_MESSAGE = 'Connection lost'
 
 export interface UseArenaSocketOptions {
   /** code === 'training_active' (a whole-turn, side: null error) */
@@ -57,10 +56,10 @@ export function useArenaSocket(options: UseArenaSocketOptions = {}): UseArenaSoc
         setIsGenerating(false)
         const store = useArenaStore.getState()
         if (store.sideA.status === 'waiting' || store.sideA.status === 'streaming') {
-          store.setSideError('a', CONNECTION_LOST_MESSAGE)
+          store.setSideError('a', i18n.t('arena:connectionLost'))
         }
         if (store.sideB.status === 'waiting' || store.sideB.status === 'streaming') {
-          store.setSideError('b', CONNECTION_LOST_MESSAGE)
+          store.setSideError('b', i18n.t('arena:connectionLost'))
         }
       },
       onFrame: (frame) => {

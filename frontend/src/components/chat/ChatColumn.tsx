@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useChatStore } from '../../stores/chatStore'
 import { MessageBubble } from './MessageBubble'
 
@@ -7,6 +8,7 @@ interface ChatColumnProps {
 }
 
 export function ChatColumn({ sessionId, label }: ChatColumnProps) {
+  const { t } = useTranslation('chat')
   const session = useChatStore((state) => state.sessions[sessionId])
   const messages = session?.messages ?? []
   const streamingText = session?.streamingText ?? ''
@@ -28,7 +30,7 @@ export function ChatColumn({ sessionId, label }: ChatColumnProps) {
       {isGenerating && <MessageBubble role="assistant" content={streamingText} streaming />}
       {!isGenerating && usage && (
         <p className="text-xs text-text-muted">
-          {usage.completion_tokens} tokens · {usage.tokens_per_sec.toFixed(1)} tok/s
+          {t('usage', { tokens: usage.completion_tokens, tps: usage.tokens_per_sec.toFixed(1) })}
         </p>
       )}
       {error && (

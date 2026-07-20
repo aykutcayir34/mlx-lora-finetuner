@@ -26,5 +26,6 @@
     "stop": "Stop"
   },
   "waiting": "Waiting…",
-  "usage": "{{tokens}} tokens · {{tps}} tok/s"
+  "usage": "{{tokens}} tokens · {{tps}} tok/s",
+  "connectionLost": "Connection lost"
 }

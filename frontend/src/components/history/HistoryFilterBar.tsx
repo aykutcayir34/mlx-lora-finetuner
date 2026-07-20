@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Field } from '../common/Field'
 import { Select } from '../common/Select'
 import type { ModelInfo } from '../../api/types'
@@ -16,40 +17,43 @@ interface HistoryFilterBarProps {
   onChange: (filters: HistoryFiltersState) => void
 }
 
-const MODE_OPTIONS = [
-  { value: '', label: 'All modes' },
-  { value: 'sft', label: 'SFT' },
-  { value: 'dpo', label: 'DPO' },
-  { value: 'orpo', label: 'ORPO' },
-  { value: 'cpo', label: 'CPO' },
-  { value: 'grpo', label: 'GRPO' },
-]
-
-const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
-  { value: 'queued', label: 'Queued' },
-  { value: 'running', label: 'Running' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'failed', label: 'Failed' },
-  { value: 'cancelled', label: 'Cancelled' },
-]
-
-const SORT_OPTIONS: { value: HistorySort; label: string }[] = [
-  { value: '-created_at', label: 'Newest first' },
-  { value: 'created_at', label: 'Oldest first' },
-  { value: 'final_train_loss', label: 'Train loss (low to high)' },
-  { value: '-final_train_loss', label: 'Train loss (high to low)' },
-]
-
 export function HistoryFilterBar({ models, filters, onChange }: HistoryFilterBarProps) {
+  const { t } = useTranslation('history')
+
   const modelOptions = [
-    { value: '', label: 'All models' },
+    { value: '', label: t('filters.allModels') },
     ...models.map((model) => ({ value: model.model_id, label: model.model_id })),
+  ]
+
+  const modeOptions = [
+    { value: '', label: t('filters.allModes') },
+    // Mode names are acronyms, identical in every language.
+    { value: 'sft', label: 'SFT' },
+    { value: 'dpo', label: 'DPO' },
+    { value: 'orpo', label: 'ORPO' },
+    { value: 'cpo', label: 'CPO' },
+    { value: 'grpo', label: 'GRPO' },
+  ]
+
+  const statusOptions = [
+    { value: '', label: t('filters.allStatuses') },
+    { value: 'queued', label: t('common:status.queued') },
+    { value: 'running', label: t('common:status.running') },
+    { value: 'completed', label: t('common:status.completed') },
+    { value: 'failed', label: t('common:status.failed') },
+    { value: 'cancelled', label: t('common:status.cancelled') },
+  ]
+
+  const sortOptions: { value: HistorySort; label: string }[] = [
+    { value: '-created_at', label: t('filters.sortOptions.newestFirst') },
+    { value: 'created_at', label: t('filters.sortOptions.oldestFirst') },
+    { value: 'final_train_loss', label: t('filters.sortOptions.trainLossAsc') },
+    { value: '-final_train_loss', label: t('filters.sortOptions.trainLossDesc') },
   ]
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <Field label="Model" htmlFor="history-filter-model">
+      <Field label={t('filters.model')} htmlFor="history-filter-model">
         <Select
           id="history-filter-model"
           value={filters.modelId}
@@ -57,28 +61,28 @@ export function HistoryFilterBar({ models, filters, onChange }: HistoryFilterBar
           options={modelOptions}
         />
       </Field>
-      <Field label="Mode" htmlFor="history-filter-mode">
+      <Field label={t('filters.mode')} htmlFor="history-filter-mode">
         <Select
           id="history-filter-mode"
           value={filters.trainMode}
           onChange={(event) => onChange({ ...filters, trainMode: event.target.value })}
-          options={MODE_OPTIONS}
+          options={modeOptions}
         />
       </Field>
-      <Field label="Status" htmlFor="history-filter-status">
+      <Field label={t('filters.status')} htmlFor="history-filter-status">
         <Select
           id="history-filter-status"
           value={filters.status}
           onChange={(event) => onChange({ ...filters, status: event.target.value })}
-          options={STATUS_OPTIONS}
+          options={statusOptions}
         />
       </Field>
-      <Field label="Sort" htmlFor="history-filter-sort">
+      <Field label={t('filters.sort')} htmlFor="history-filter-sort">
         <Select
           id="history-filter-sort"
           value={filters.sort}
           onChange={(event) => onChange({ ...filters, sort: event.target.value as HistorySort })}
-          options={SORT_OPTIONS}
+          options={sortOptions}
         />
       </Field>
     </div>

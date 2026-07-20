@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useTranslation } from 'react-i18next'
 import type { MetricEvent } from '../../api/types'
 import { downsample } from './downsample'
 
@@ -24,12 +25,13 @@ interface MemoryChartProps {
 }
 
 export function MemoryChart({ data }: MemoryChartProps) {
+  const { t } = useTranslation('train')
   const points = downsample(data.filter((event) => event.peak_memory_gb !== null))
 
   if (points.length === 0) {
     return (
       <div className="flex items-center justify-center rounded-lg border border-dashed border-border p-8 text-sm text-text-muted">
-        No metrics yet
+        {t('charts.empty')}
       </div>
     )
   }
@@ -43,14 +45,14 @@ export function MemoryChart({ data }: MemoryChartProps) {
           type="number"
           stroke={AXIS_COLOR}
           tick={{ fill: AXIS_COLOR }}
-          label={{ value: 'Step', position: 'insideBottom', offset: -4, fill: AXIS_COLOR }}
+          label={{ value: t('charts.step'), position: 'insideBottom', offset: -4, fill: AXIS_COLOR }}
         />
         <YAxis
           dataKey="peak_memory_gb"
           stroke={AXIS_COLOR}
           tick={{ fill: AXIS_COLOR }}
           label={{
-            value: 'Peak memory (GB)',
+            value: t('charts.peakMemoryGb'),
             angle: -90,
             position: 'insideLeft',
             fill: AXIS_COLOR,
@@ -60,7 +62,7 @@ export function MemoryChart({ data }: MemoryChartProps) {
         <Line
           type="monotone"
           dataKey="peak_memory_gb"
-          name="Peak memory"
+          name={t('charts.peakMemory')}
           stroke={MEMORY_COLOR}
           strokeWidth={2}
           dot={false}

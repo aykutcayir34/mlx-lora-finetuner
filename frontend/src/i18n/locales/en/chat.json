@@ -32,5 +32,6 @@
     "topP": "Top P ({{value}})",
     "repetitionPenalty": "Repetition penalty (optional)",
     "nonePlaceholder": "none"
-  }
+  },
+  "connectionLost": "Connection lost"
 }

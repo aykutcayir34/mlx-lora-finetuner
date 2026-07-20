@@ -146,6 +146,6 @@ describe('FuseWizard', () => {
     await user.type(screen.getByPlaceholderText('my-model'), 'fused-out')
     await user.click(screen.getByRole('button', { name: 'Fuse' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/Eğitim aktifken/)
+    expect(await screen.findByRole('status')).toHaveTextContent(/while training is active/)
   })
 })
