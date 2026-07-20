@@ -81,6 +81,52 @@ describe('FuseWizard', () => {
     expect(screen.getByText('/abs/exports/my-model-fused')).toBeInTheDocument()
   })
 
+  it('prefills the manual source from checkpoint navigation state and submits model_id+adapter_path', async () => {
+    server.use(...exportHandlers)
+    let capturedBody: unknown = null
+    server.use(
+      http.post('/api/v1/export/fuse', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json({ export_id: 'ex_fuse1', kind: 'fuse' }, { status: 202 })
+      }),
+    )
+
+    const user = userEvent.setup()
+    renderWithProviders(
+      <ToastProvider>
+        <FuseWizard />
+      </ToastProvider>,
+      {
+        route: '/export',
+        routeState: {
+          model_id: 'mlx-community/Qwen2.5-0.5B-Instruct-4bit',
+          adapter_path: '/abs/runs/run_abc/checkpoints/0000200_adapters.safetensors',
+          suggested_name: 'my-run-step-200',
+        },
+      },
+    )
+
+    // The wizard opens on the manual model_id+adapter_path source, prefilled.
+    expect(screen.getByPlaceholderText('mlx-community/SmolLM-135M-Instruct-4bit')).toHaveValue(
+      'mlx-community/Qwen2.5-0.5B-Instruct-4bit',
+    )
+    expect(screen.getByPlaceholderText('/abs/path/to/adapters')).toHaveValue(
+      '/abs/runs/run_abc/checkpoints/0000200_adapters.safetensors',
+    )
+    expect(screen.getByPlaceholderText('my-model')).toHaveValue('my-run-step-200')
+
+    await user.click(screen.getByRole('button', { name: 'Fuse' }))
+
+    await waitFor(() =>
+      expect(capturedBody).toEqual({
+        model_id: 'mlx-community/Qwen2.5-0.5B-Instruct-4bit',
+        adapter_path: '/abs/runs/run_abc/checkpoints/0000200_adapters.safetensors',
+        de_quantize: false,
+        output_name: 'my-run-step-200',
+      }),
+    )
+  })
+
   it('shows a clear toast when the backend reports training_active (409)', async () => {
     server.use(...exportHandlers)
     server.use(
