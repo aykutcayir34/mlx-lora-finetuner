@@ -1,6 +1,6 @@
 [project]
 name = "mlx-lora-finetuner-backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "MLX ile LoRA fine-tuning yapan uygulamanın FastAPI backend'i"
 requires-python = ">=3.11"
 # Bounds policy: lower bound = the minor we develop/lock against, upper
