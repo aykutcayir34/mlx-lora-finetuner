@@ -199,6 +199,11 @@ export interface TrainingConfig {
   temperature: number | null
   max_completion_length: number | null
   reward_functions: string[] | null
+  // grpo-only (422 otherwise): name of an uploaded reward file (see
+  // /train/reward-files). When set, `reward_functions` may contain any names
+  // (the server skips the registry check — the file may register new ones);
+  // null → no custom file, only the five built-ins are valid.
+  reward_functions_file: string | null
   // sft-only (422 otherwise); null → library default 'nll'.
   sft_loss_type: SftLossType | null
   // ftpo-only (422 otherwise); null → library defaults 0.05 / 1.0 / 0.4 / 2.0.
@@ -206,6 +211,14 @@ export interface TrainingConfig {
   tau_mse_target: number | null
   lambda_mse: number | null
   clip_epsilon_logits: number | null
+}
+
+// Custom GRPO reward file (POST/GET /train/reward-files). `functions` are the
+// `@register_reward_function()`-decorated names discovered by a static AST scan.
+export interface RewardFileInfo {
+  name: string
+  functions: string[]
+  uploaded_at: string
 }
 
 export interface RunSummary {

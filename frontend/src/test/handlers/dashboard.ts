@@ -60,6 +60,7 @@ export function makeRunSummary(overrides: Partial<RunSummary> = {}): RunSummary 
       temperature: null,
       max_completion_length: null,
       reward_functions: null,
+      reward_functions_file: null,
       sft_loss_type: null,
       lambda_mse_target: null,
       tau_mse_target: null,

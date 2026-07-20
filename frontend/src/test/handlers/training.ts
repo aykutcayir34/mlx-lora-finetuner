@@ -1,5 +1,11 @@
 import { http, HttpResponse } from 'msw'
-import type { DatasetInfo, ModelInfo, RunSummary, TrainingConfig } from '../../api/types'
+import type {
+  DatasetInfo,
+  ModelInfo,
+  RewardFileInfo,
+  RunSummary,
+  TrainingConfig,
+} from '../../api/types'
 
 // Additional MSW handlers for Train-page tests (TrainConfigForm, RunMonitor,
 // TrainPage). These are additive overrides applied per-test via
@@ -88,6 +94,7 @@ export function makeRunSummary(overrides: Partial<RunSummary> = {}): RunSummary 
       temperature: null,
       max_completion_length: null,
       reward_functions: null,
+      reward_functions_file: null,
       sft_loss_type: null,
       lambda_mse_target: null,
       tau_mse_target: null,
@@ -122,10 +129,59 @@ export function importConfigInvalidHandler(
   )
 }
 
+export function makeRewardFile(overrides: Partial<RewardFileInfo> = {}): RewardFileInfo {
+  return {
+    name: 'my_rewards',
+    functions: ['exact_match_reward', 'length_penalty_reward'],
+    uploaded_at: '2026-07-12T10:00:00Z',
+    ...overrides,
+  }
+}
+
+/** GET /train/reward-files listing the given files (default: none uploaded). */
+export function rewardFilesHandler(files: RewardFileInfo[] = []) {
+  return http.get('/api/v1/train/reward-files', () => HttpResponse.json({ files }))
+}
+
+/** POST /train/reward-files happy path → 201 with the given file info. */
+export function uploadRewardFileHandler(info: RewardFileInfo = makeRewardFile()) {
+  return http.post('/api/v1/train/reward-files', () => HttpResponse.json(info, { status: 201 }))
+}
+
+/** POST /train/reward-files 422 (bad name / bad python / no decorated function / oversize). */
+export function uploadRewardFileInvalidHandler(
+  message = 'no @register_reward_function-decorated function found',
+) {
+  return http.post('/api/v1/train/reward-files', () =>
+    HttpResponse.json(
+      { error: { code: 'validation_error', message, detail: {} } },
+      { status: 422 },
+    ),
+  )
+}
+
+/** DELETE /train/reward-files/{name} happy path → 204. */
+export function deleteRewardFileHandler() {
+  return http.delete(
+    '/api/v1/train/reward-files/:name',
+    () => new HttpResponse(null, { status: 204 }),
+  )
+}
+
+/** DELETE /train/reward-files/{name} 409 — the active run references the file. */
+export function deleteRewardFileConflictHandler(
+  message = 'the active run references this reward file',
+) {
+  return http.delete('/api/v1/train/reward-files/:name', () =>
+    HttpResponse.json({ error: { code: 'conflict', message, detail: {} } }, { status: 409 }),
+  )
+}
+
 export const trainingHandlers = [
   http.get('/api/v1/datasets', () =>
     HttpResponse.json({ datasets: [splitDataset, ftpoDataset, grpoDataset, unsplitDataset] }),
   ),
+  rewardFilesHandler(),
   http.get('/api/v1/train/jobs/:runId/metrics', () => HttpResponse.json({ metrics: [] })),
   http.get('/api/v1/train/jobs/:runId/logs', () => HttpResponse.json({ lines: [] })),
   http.post('/api/v1/train/jobs/:runId/cancel', ({ params }) =>

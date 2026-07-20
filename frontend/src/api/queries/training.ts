@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../client'
-import type { MetricEvent, RunSummary, TrainingConfig } from '../types'
+import type { MetricEvent, RewardFileInfo, RunSummary, TrainingConfig } from '../types'
 import { queryKeys } from './keys'
 
 const TRAINING_RUNS_PREFIX = ['training', 'runs'] as const
@@ -81,6 +81,38 @@ export function useImportTrainingConfig() {
       const formData = new FormData()
       formData.set('file', file)
       return apiClient.post<TrainingConfig>('/train/configs/import', formData)
+    },
+  })
+}
+
+export function useRewardFiles() {
+  return useQuery({
+    queryKey: queryKeys.training.rewardFiles,
+    queryFn: () => apiClient.get<{ files: RewardFileInfo[] }>('/train/reward-files'),
+  })
+}
+
+export function useUploadRewardFile() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData()
+      formData.set('file', file)
+      return apiClient.post<RewardFileInfo>('/train/reward-files', formData)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.training.rewardFiles })
+    },
+  })
+}
+
+export function useDeleteRewardFile() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) =>
+      apiClient.delete<void>(`/train/reward-files/${encodeURIComponent(name)}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.training.rewardFiles })
     },
   })
 }

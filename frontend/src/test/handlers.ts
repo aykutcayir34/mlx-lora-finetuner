@@ -49,6 +49,7 @@ export const handlers = [
   // Empty-list defaults so route-level smoke tests can render every page
   // without per-test overrides (pages fetch these on mount).
   http.get('/api/v1/datasets', () => HttpResponse.json({ datasets: [] })),
+  http.get('/api/v1/train/reward-files', () => HttpResponse.json({ files: [] })),
   http.get('/api/v1/adapters', () => HttpResponse.json({ adapters: [] })),
   http.get('/api/v1/export/artifacts', () => HttpResponse.json({ artifacts: [] })),
   http.get('/api/v1/models/downloads', () => HttpResponse.json({ downloads: [] })),

@@ -28,6 +28,7 @@ export const DEFAULT_TRAINING_CONFIG: TrainingConfig = {
   temperature: null,
   max_completion_length: null,
   reward_functions: null,
+  reward_functions_file: null,
   sft_loss_type: null,
   lambda_mse_target: null,
   tau_mse_target: null,
@@ -65,6 +66,7 @@ type ModeSpecificFields = Pick<
   | 'temperature'
   | 'max_completion_length'
   | 'reward_functions'
+  | 'reward_functions_file'
   | 'sft_loss_type'
   | 'lambda_mse_target'
   | 'tau_mse_target'
@@ -78,6 +80,9 @@ const MODE_FIELDS_CLEARED: ModeSpecificFields = {
   temperature: null,
   max_completion_length: null,
   reward_functions: null,
+  // grpo-only, like reward_functions: cleared on every mode switch so a
+  // custom file never leaks into a non-grpo config (the backend 422s).
+  reward_functions_file: null,
   sft_loss_type: null,
   lambda_mse_target: null,
   tau_mse_target: null,
