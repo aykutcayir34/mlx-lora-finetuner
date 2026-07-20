@@ -1,6 +1,7 @@
+import re
 from enum import Enum
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class TrainMode(str, Enum):
@@ -37,6 +38,21 @@ GRPO_REWARD_FUNCTION_NAMES = frozenset(
         "r1_count_xml",
     }
 )
+
+
+# Contract (docs/api.md): reward file names use the same safe-name charset as
+# export names — letters, digits, `.`, `_`, `-`; no path separators or a
+# leading `.`/`-`. Shared by the schema validator below and
+# `app.services.reward_files_service`.
+REWARD_FILE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+class RewardFileInfo(BaseModel):
+    """One uploaded custom GRPO reward file (docs/api.md /train/reward-files)."""
+
+    name: str
+    functions: list[str]
+    uploaded_at: str
 
 
 class JobStatus(str, Enum):
@@ -80,11 +96,32 @@ class TrainingConfig(BaseModel):
     temperature: float | None = None
     max_completion_length: int | None = None
     reward_functions: list[str] | None = None
+    reward_functions_file: str | None = None
     sft_loss_type: SftLossType | None = None
     lambda_mse_target: float | None = None
     tau_mse_target: float | None = None
     lambda_mse: float | None = None
     clip_epsilon_logits: float | None = None
+
+    @field_validator("reward_functions_file")
+    @classmethod
+    def normalize_reward_functions_file(cls, value: str | None) -> str | None:
+        """Normalize the reference to the stored file's stem.
+
+        docs/api.md: the `.py` extension is optional in the reference, so one
+        trailing `.py` is stripped before validation and the config always
+        stores/compares on the stem (matching what upload derives from the
+        filename and what delete's conflict check compares against).
+        """
+        if value is None:
+            return None
+        name = value[:-3] if value.endswith(".py") else value
+        if not REWARD_FILE_NAME_PATTERN.match(name):
+            raise ValueError(
+                "reward_functions_file must be a plain reward file name "
+                "(letters, digits, '.', '_', '-'; not starting with '.' or '-')"
+            )
+        return name
 
     @model_validator(mode="after")
     def check_mode_conditional_fields(self) -> "TrainingConfig":
@@ -94,7 +131,13 @@ class TrainingConfig(BaseModel):
             raise ValueError("group_size is required for grpo train_mode")
         if self.sft_loss_type is not None and self.train_mode != TrainMode.SFT:
             raise ValueError("sft_loss_type is only accepted for sft train_mode")
-        if self.reward_functions:
+        if self.reward_functions_file is not None and self.train_mode != TrainMode.GRPO:
+            raise ValueError("reward_functions_file is only accepted for grpo train_mode")
+        # When a custom reward file is set the registry check is skipped: the
+        # file may register new names, so they cannot be validated statically.
+        # An unresolvable name then aborts the run at start (reported as a
+        # failed run) — docs/api.md documents this trade-off.
+        if self.reward_functions and self.reward_functions_file is None:
             unknown = sorted(set(self.reward_functions) - GRPO_REWARD_FUNCTION_NAMES)
             if unknown:
                 raise ValueError(

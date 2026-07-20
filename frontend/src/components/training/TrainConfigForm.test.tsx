@@ -1,21 +1,27 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { http, HttpResponse, type RequestHandler } from 'msw'
 import { server } from '../../test/server'
 import { renderWithProviders } from '../../test/render'
+import type { RewardFileInfo } from '../../api/types'
 import { ToastProvider } from '../common/Toast'
 import { TrainConfigForm } from './TrainConfigForm'
 import { DEFAULT_TRAINING_CONFIG } from './defaults'
 import {
+  deleteRewardFileConflictHandler,
+  deleteRewardFileHandler,
   ftpoDataset,
   grpoDataset,
   importConfigHandler,
   importConfigInvalidHandler,
+  makeRewardFile,
   makeRunSummary,
+  rewardFilesHandler,
   splitDataset,
   trainingHandlers,
   trainModel,
+  uploadRewardFileInvalidHandler,
 } from '../../test/handlers/training'
 
 function renderForm(onCreated = vi.fn()) {
@@ -713,6 +719,259 @@ describe('TrainConfigForm', () => {
     expect(screen.getByRole('checkbox', { name: /r1_count_xml/ })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: /r1_int_reward_func/ })).not.toBeChecked()
     expect(await screen.findByText('Config loaded from YAML.')).toBeInTheDocument()
+  })
+
+  describe('custom GRPO reward files', () => {
+    // Handlers passed here are listed BEFORE trainingHandlers in a single
+    // server.use call, so they win over trainingHandlers' empty
+    // reward-files default (first-registered-in-call matches first in MSW).
+    function renderFormWithHandlers(extra: RequestHandler[], onCreated = vi.fn()) {
+      server.use(...extra, ...trainingHandlers)
+      const result = renderWithProviders(
+        <ToastProvider>
+          <TrainConfigForm onCreated={onCreated} />
+        </ToastProvider>,
+      )
+      return { onCreated, ...result }
+    }
+
+    function capturePost() {
+      const captured: { body: unknown } = { body: null }
+      const handler = http.post('/api/v1/train/jobs', async ({ request }) => {
+        captured.body = await request.json()
+        return HttpResponse.json(makeRunSummary({ run_id: 'run_captured' }), { status: 201 })
+      })
+      return { captured, handler }
+    }
+
+    async function fillGrpoRequiredFields(user: ReturnType<typeof userEvent.setup>) {
+      await user.type(screen.getByLabelText('Run name'), 'my-grpo-run')
+      await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+      await user.click(screen.getByRole('radio', { name: /my-grpo-data/ }))
+    }
+
+    it('shows the custom reward file row for grpo only, defaulting to None', async () => {
+      const user = userEvent.setup()
+      renderFormWithHandlers([rewardFilesHandler([makeRewardFile()])])
+      await waitForPickersLoaded()
+
+      expect(screen.queryByLabelText('Custom reward file')).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+
+      const select = screen.getByLabelText('Custom reward file')
+      expect(select).toHaveValue('')
+      await waitFor(() =>
+        expect(screen.getByRole('option', { name: 'my_rewards.py' })).toBeInTheDocument(),
+      )
+      expect(screen.getByRole('button', { name: 'Upload .py' })).toBeInTheDocument()
+      // No file selected yet: only the five built-in checkboxes, default hint.
+      expect(screen.getAllByRole('checkbox')).toHaveLength(5)
+      expect(screen.getByText('None selected → library default (all five).')).toBeInTheDocument()
+    })
+
+    it('selecting a file renders its functions as additional checkboxes and updates the hint', async () => {
+      const user = userEvent.setup()
+      renderFormWithHandlers([rewardFilesHandler([makeRewardFile()])])
+      await waitForPickersLoaded()
+
+      await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+      await waitFor(() =>
+        expect(screen.getByRole('option', { name: 'my_rewards.py' })).toBeInTheDocument(),
+      )
+      await user.selectOptions(screen.getByLabelText('Custom reward file'), 'my_rewards')
+
+      expect(screen.getByText('from my_rewards.py')).toBeInTheDocument()
+      expect(screen.getAllByRole('checkbox')).toHaveLength(7)
+      expect(screen.getByRole('checkbox', { name: /exact_match_reward/ })).not.toBeChecked()
+      expect(screen.getByRole('checkbox', { name: /length_penalty_reward/ })).not.toBeChecked()
+      expect(
+        screen.getByText('None selected → library default (all five built-ins).'),
+      ).toBeInTheDocument()
+    })
+
+    it('submits checked built-ins then customs in stable order, with reward_functions_file set', async () => {
+      const user = userEvent.setup()
+      const { captured, handler } = capturePost()
+      const { onCreated } = renderFormWithHandlers([rewardFilesHandler([makeRewardFile()]), handler])
+      await waitForPickersLoaded()
+
+      await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+      await waitFor(() =>
+        expect(screen.getByRole('option', { name: 'my_rewards.py' })).toBeInTheDocument(),
+      )
+      await user.selectOptions(screen.getByLabelText('Custom reward file'), 'my_rewards')
+
+      // Click in scrambled order — the submitted array must still be
+      // built-ins (registry order) first, then customs (file order).
+      await user.click(screen.getByRole('checkbox', { name: /length_penalty_reward/ }))
+      await user.click(screen.getByRole('checkbox', { name: /r1_count_xml/ }))
+      await user.click(screen.getByRole('checkbox', { name: /exact_match_reward/ }))
+      await user.click(screen.getByRole('checkbox', { name: /r1_accuracy_reward_func/ }))
+
+      await fillGrpoRequiredFields(user)
+      await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+      expect(captured.body).toMatchObject({
+        train_mode: 'grpo',
+        dataset_id: grpoDataset.dataset_id,
+        reward_functions_file: 'my_rewards',
+        reward_functions: [
+          'r1_accuracy_reward_func',
+          'r1_count_xml',
+          'exact_match_reward',
+          'length_penalty_reward',
+        ],
+      })
+    })
+
+    it('switching grpo → sft clears reward_functions_file (submits null)', async () => {
+      const user = userEvent.setup()
+      const { captured, handler } = capturePost()
+      const { onCreated } = renderFormWithHandlers([rewardFilesHandler([makeRewardFile()]), handler])
+      await waitForPickersLoaded()
+
+      await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+      await waitFor(() =>
+        expect(screen.getByRole('option', { name: 'my_rewards.py' })).toBeInTheDocument(),
+      )
+      await user.selectOptions(screen.getByLabelText('Custom reward file'), 'my_rewards')
+      await user.click(screen.getByRole('checkbox', { name: /exact_match_reward/ }))
+
+      await user.click(screen.getByRole('radio', { name: 'SFT' }))
+      expect(screen.queryByLabelText('Custom reward file')).not.toBeInTheDocument()
+
+      await user.type(screen.getByLabelText('Run name'), 'back-to-sft')
+      await user.click(screen.getByRole('radio', { name: new RegExp(trainModel.model_id) }))
+      await user.click(screen.getByRole('radio', { name: /my-chat-data/ }))
+      await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+      expect(captured.body).toMatchObject({
+        train_mode: 'sft',
+        reward_functions: null,
+        reward_functions_file: null,
+      })
+    })
+
+    it('deselecting the file removes custom names from the submitted config, keeping built-ins', async () => {
+      const user = userEvent.setup()
+      const { captured, handler } = capturePost()
+      const { onCreated } = renderFormWithHandlers([rewardFilesHandler([makeRewardFile()]), handler])
+      await waitForPickersLoaded()
+
+      await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+      await waitFor(() =>
+        expect(screen.getByRole('option', { name: 'my_rewards.py' })).toBeInTheDocument(),
+      )
+      await user.selectOptions(screen.getByLabelText('Custom reward file'), 'my_rewards')
+      await user.click(screen.getByRole('checkbox', { name: /exact_match_reward/ }))
+      await user.click(screen.getByRole('checkbox', { name: /r1_int_reward_func/ }))
+
+      await user.selectOptions(screen.getByLabelText('Custom reward file'), '')
+      expect(screen.queryByText('from my_rewards.py')).not.toBeInTheDocument()
+      expect(screen.getAllByRole('checkbox')).toHaveLength(5)
+      expect(screen.getByRole('checkbox', { name: /r1_int_reward_func/ })).toBeChecked()
+
+      await fillGrpoRequiredFields(user)
+      await user.click(screen.getByRole('button', { name: 'Start training' }))
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith('run_captured'))
+      expect(captured.body).toMatchObject({
+        train_mode: 'grpo',
+        reward_functions: ['r1_int_reward_func'],
+        reward_functions_file: null,
+      })
+    })
+
+    it('upload happy path: 201 → success toast, auto-select, functions appear', async () => {
+      const user = userEvent.setup()
+      const uploaded = makeRewardFile()
+      const files: RewardFileInfo[] = []
+      renderFormWithHandlers([
+        http.get('/api/v1/train/reward-files', () => HttpResponse.json({ files })),
+        http.post('/api/v1/train/reward-files', () => {
+          files.push(uploaded)
+          return HttpResponse.json(uploaded, { status: 201 })
+        }),
+      ])
+      await waitForPickersLoaded()
+
+      await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+      const pyFile = new File(['def my_reward(): ...\n'], 'my_rewards.py', {
+        type: 'text/x-python',
+      })
+      await user.upload(screen.getByLabelText('Reward functions Python file'), pyFile)
+
+      expect(await screen.findByText('Reward file "my_rewards" uploaded.')).toBeInTheDocument()
+      expect(screen.getByLabelText('Custom reward file')).toHaveValue('my_rewards')
+      // The invalidated list refetch delivers the file's functions.
+      expect(await screen.findByText('from my_rewards.py')).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: /exact_match_reward/ })).toBeInTheDocument()
+    })
+
+    it('upload 422 surfaces the backend message and keeps None selected', async () => {
+      const user = userEvent.setup()
+      renderFormWithHandlers([
+        uploadRewardFileInvalidHandler(
+          'no @register_reward_function-decorated function found in bad.py',
+        ),
+      ])
+      await waitForPickersLoaded()
+
+      await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+      const pyFile = new File(['x = 1\n'], 'bad.py', { type: 'text/x-python' })
+      await user.upload(screen.getByLabelText('Reward functions Python file'), pyFile)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'no @register_reward_function-decorated function found in bad.py',
+      )
+      expect(screen.getByLabelText('Custom reward file')).toHaveValue('')
+    })
+
+    it('deleting the selected file shows a toast and resets the selection to None', async () => {
+      const user = userEvent.setup()
+      renderFormWithHandlers([
+        rewardFilesHandler([makeRewardFile()]),
+        deleteRewardFileHandler(),
+      ])
+      await waitForPickersLoaded()
+
+      await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+      await waitFor(() =>
+        expect(screen.getByRole('option', { name: 'my_rewards.py' })).toBeInTheDocument(),
+      )
+      await user.selectOptions(screen.getByLabelText('Custom reward file'), 'my_rewards')
+
+      await user.click(screen.getByRole('button', { name: 'Delete file' }))
+
+      expect(await screen.findByText('Reward file "my_rewards" deleted.')).toBeInTheDocument()
+      expect(screen.getByLabelText('Custom reward file')).toHaveValue('')
+    })
+
+    it('delete 409 (active run references the file) surfaces the backend message via toast', async () => {
+      const user = userEvent.setup()
+      renderFormWithHandlers([
+        rewardFilesHandler([makeRewardFile()]),
+        deleteRewardFileConflictHandler('the active run references this reward file'),
+      ])
+      await waitForPickersLoaded()
+
+      await user.click(screen.getByRole('radio', { name: 'GRPO' }))
+      await waitFor(() =>
+        expect(screen.getByRole('option', { name: 'my_rewards.py' })).toBeInTheDocument(),
+      )
+      await user.selectOptions(screen.getByLabelText('Custom reward file'), 'my_rewards')
+
+      await user.click(screen.getByRole('button', { name: 'Delete file' }))
+
+      expect(
+        await screen.findByText('the active run references this reward file'),
+      ).toBeInTheDocument()
+      // The selection is kept — the file still exists.
+      expect(screen.getByLabelText('Custom reward file')).toHaveValue('my_rewards')
+    })
   })
 
   it('Load YAML: surfaces the backend 422 message naming the offending keys', async () => {

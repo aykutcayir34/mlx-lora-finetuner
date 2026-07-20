@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 
 import pytest
 
@@ -74,6 +75,7 @@ class FakeTrainModuleWithLibraryDefaults(FakeTrainModule):
         parser.add_argument("--lambda-mse", type=float, default=0.4)
         parser.add_argument("--clip-epsilon-logits", type=float, default=2.0)
         parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
+        parser.add_argument("--reward-functions-file", type=str, default=None)
         return parser
 
 
@@ -150,6 +152,37 @@ def test_build_worker_args_joins_reward_functions(settings, tmp_path):
 
     assert args.reward_functions == "r1_accuracy_reward_func,r1_count_xml"
     assert args.group_size == 4
+
+
+def test_build_worker_args_forwards_reward_functions_file_as_absolute_path(settings, tmp_path):
+    run_dir = tmp_path / "runs" / "run_reward_file"
+    run_dir.mkdir(parents=True)
+    config = make_config(
+        train_mode="grpo",
+        group_size=4,
+        reward_functions_file="my_rewards",
+        reward_functions=["my_custom_reward"],
+    )
+
+    args = worker._build_worker_args(run_dir, config, train_mod=FakeTrainModule)
+
+    assert args.reward_functions_file == str(settings.rewards_dir / "my_rewards.py")
+    assert Path(args.reward_functions_file).is_absolute()
+    # The names join is unaffected by the file being set.
+    assert args.reward_functions == "my_custom_reward"
+
+
+def test_build_worker_args_reward_functions_file_absent_when_unset(settings, tmp_path):
+    run_dir = tmp_path / "runs" / "run_no_reward_file"
+    run_dir.mkdir(parents=True)
+    config = make_config(train_mode="grpo", group_size=4)
+
+    args = worker._build_worker_args(
+        run_dir, config, train_mod=FakeTrainModuleWithLibraryDefaults
+    )
+
+    # The library's own parser default (None) must survive untouched.
+    assert args.reward_functions_file is None
 
 
 @pytest.mark.parametrize(

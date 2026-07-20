@@ -2,7 +2,13 @@ import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useModels } from '../../api/queries/models'
 import { useDatasets } from '../../api/queries/datasets'
-import { useCreateRun, useImportTrainingConfig } from '../../api/queries/training'
+import {
+  useCreateRun,
+  useDeleteRewardFile,
+  useImportTrainingConfig,
+  useRewardFiles,
+  useUploadRewardFile,
+} from '../../api/queries/training'
 import { ApiError } from '../../api/client'
 import type { LoraParams, SftLossType, TrainingConfig, TrainMode, TrainType } from '../../api/types'
 import { Card } from '../common/Card'
@@ -45,11 +51,26 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
   const [importError, setImportError] = useState<string | null>(null)
   const importInputRef = useRef<HTMLInputElement>(null)
 
+  const rewardFilesQuery = useRewardFiles()
+  const uploadRewardFile = useUploadRewardFile()
+  const deleteRewardFile = useDeleteRewardFile()
+  const [rewardUploadError, setRewardUploadError] = useState<string | null>(null)
+  const rewardFileInputRef = useRef<HTMLInputElement>(null)
+
   const splitDatasets = useMemo(
     () => (datasetsQuery.data?.datasets ?? []).filter((d) => d.splits !== null),
     [datasetsQuery.data],
   )
   const selectedDataset = splitDatasets.find((d) => d.dataset_id === config.dataset_id) ?? null
+
+  const rewardFiles = rewardFilesQuery.data?.files ?? []
+  const selectedRewardFile =
+    rewardFiles.find((f) => f.name === config.reward_functions_file) ?? null
+  // Custom names never duplicate a built-in checkbox: a file function shadowing
+  // a registry name is driven by the built-in checkbox above it.
+  const customRewardFunctions = (selectedRewardFile?.functions ?? []).filter(
+    (name) => !GRPO_REWARD_FUNCTIONS.some((fn) => fn.value === name),
+  )
 
   const errors = validateTrainingConfig(config, selectedDataset?.format ?? null)
   const hasErrors = Object.keys(errors).length > 0
@@ -67,6 +88,7 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
   }
 
   function toggleRewardFunction(name: string) {
+    const fileFunctions = customRewardFunctions
     setConfig((prev) => {
       const selected = new Set(prev.reward_functions ?? [])
       if (selected.has(name)) {
@@ -74,9 +96,68 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
       } else {
         selected.add(name)
       }
-      // Always submit in the fixed registry order, never click order.
-      const ordered = GRPO_REWARD_FUNCTIONS.map((fn) => fn.value).filter((v) => selected.has(v))
+      // Always submit in a stable order, never click order: built-ins in
+      // registry order first, then custom functions in file order.
+      const ordered = [
+        ...GRPO_REWARD_FUNCTIONS.map((fn) => fn.value).filter((v) => selected.has(v)),
+        ...fileFunctions.filter((v) => selected.has(v)),
+      ]
       return { ...prev, reward_functions: ordered.length > 0 ? ordered : null }
+    })
+  }
+
+  /**
+   * Select (or deselect with null) the custom reward file. Custom function
+   * names from the previous file are dropped from `reward_functions` — only
+   * built-in registry names survive a file change.
+   */
+  function selectRewardFile(name: string | null) {
+    setConfig((prev) => {
+      const builtinsOnly = (prev.reward_functions ?? []).filter((v) =>
+        GRPO_REWARD_FUNCTIONS.some((fn) => fn.value === v),
+      )
+      return {
+        ...prev,
+        reward_functions_file: name,
+        reward_functions: builtinsOnly.length > 0 ? builtinsOnly : null,
+      }
+    })
+  }
+
+  function handleRewardFileUpload(files: FileList | null) {
+    const file = files?.[0]
+    // Reset so picking the same file again re-fires the change event.
+    if (rewardFileInputRef.current) rewardFileInputRef.current.value = ''
+    if (!file) return
+    setRewardUploadError(null)
+    uploadRewardFile.mutate(file, {
+      onSuccess: (info) => {
+        toast(`Reward file "${info.name}" uploaded.`, { variant: 'success' })
+        selectRewardFile(info.name)
+      },
+      onError: (error) => {
+        // 422s explain what is wrong (bad name / syntax error / no decorated
+        // function / oversize) — surface the backend message verbatim.
+        setRewardUploadError(
+          error instanceof ApiError ? error.message : 'Failed to upload the reward file.',
+        )
+      },
+    })
+  }
+
+  function handleDeleteRewardFile(name: string) {
+    deleteRewardFile.mutate(name, {
+      onSuccess: () => {
+        toast(`Reward file "${name}" deleted.`, { variant: 'success' })
+        selectRewardFile(null)
+      },
+      onError: (error) => {
+        // 409 conflict when the active run references the file.
+        toast(
+          error instanceof ApiError ? error.message : 'Failed to delete the reward file.',
+          { variant: 'error' },
+        )
+      },
     })
   }
 
@@ -362,6 +443,64 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
           </div>
           <fieldset className="mt-4">
             <legend className="mb-2 block text-sm font-medium text-text">Reward functions</legend>
+            <div className="mb-3 flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <Field label="Custom reward file" htmlFor="reward-functions-file" className="min-w-48">
+                  <Select
+                    id="reward-functions-file"
+                    options={[
+                      { value: '', label: 'None' },
+                      ...rewardFiles.map((f) => ({ value: f.name, label: `${f.name}.py` })),
+                      // Keep a referenced-but-missing name visible instead of
+                      // silently snapping the select to "None".
+                      ...(config.reward_functions_file && !selectedRewardFile
+                        ? [
+                            {
+                              value: config.reward_functions_file,
+                              label: `${config.reward_functions_file}.py (missing)`,
+                            },
+                          ]
+                        : []),
+                    ]}
+                    value={config.reward_functions_file ?? ''}
+                    onChange={(e) => selectRewardFile(e.target.value === '' ? null : e.target.value)}
+                  />
+                </Field>
+                <div className="flex items-end gap-2 self-stretch pb-0.5">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={uploadRewardFile.isPending}
+                    onClick={() => rewardFileInputRef.current?.click()}
+                  >
+                    Upload .py
+                  </Button>
+                  {selectedRewardFile && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      loading={deleteRewardFile.isPending}
+                      onClick={() => handleDeleteRewardFile(selectedRewardFile.name)}
+                    >
+                      Delete file
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <input
+                ref={rewardFileInputRef}
+                type="file"
+                accept=".py"
+                className="hidden"
+                aria-label="Reward functions Python file"
+                onChange={(e) => handleRewardFileUpload(e.target.files)}
+              />
+              {rewardUploadError && (
+                <p role="alert" className="text-xs text-danger">
+                  {rewardUploadError}
+                </p>
+              )}
+            </div>
             <div className="flex flex-col gap-2">
               {GRPO_REWARD_FUNCTIONS.map((fn) => (
                 <label
@@ -382,8 +521,30 @@ export function TrainConfigForm({ onCreated, initialConfig }: TrainConfigFormPro
                 </label>
               ))}
             </div>
+            {selectedRewardFile && customRewardFunctions.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-2 text-xs font-medium text-text-muted">
+                  from {selectedRewardFile.name}.py
+                </p>
+                <div className="flex flex-col gap-2">
+                  {customRewardFunctions.map((name) => (
+                    <label key={name} className="flex items-center gap-2 text-sm text-text" title={name}>
+                      <input
+                        type="checkbox"
+                        checked={(config.reward_functions ?? []).includes(name)}
+                        onChange={() => toggleRewardFunction(name)}
+                        className="h-4 w-4 accent-accent"
+                      />
+                      <code className="font-mono text-xs">{name}</code>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
             <p className="mt-2 text-xs text-text-muted">
-              None selected → library default (all five).
+              {selectedRewardFile
+                ? 'None selected → library default (all five built-ins).'
+                : 'None selected → library default (all five).'}
             </p>
           </fieldset>
         </Card>

@@ -22,6 +22,7 @@ export const queryKeys = {
     metrics: (id: string, afterStep?: number, kind?: string) =>
       ['training', 'metrics', id, afterStep, kind] as const,
     logs: (id: string, tail?: number) => ['training', 'logs', id, tail] as const,
+    rewardFiles: ['training', 'reward-files'] as const,
   },
   history: {
     list: (

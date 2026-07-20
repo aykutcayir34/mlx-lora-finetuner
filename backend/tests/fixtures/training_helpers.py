@@ -119,5 +119,6 @@ def ensure_data_dirs(settings: Settings) -> None:
         settings.runs_dir,
         settings.exports_dir,
         settings.cache_dir,
+        settings.rewards_dir,
     ):
         directory.mkdir(parents=True, exist_ok=True)

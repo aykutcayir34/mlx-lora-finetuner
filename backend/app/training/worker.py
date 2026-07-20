@@ -174,6 +174,13 @@ def _build_worker_args(run_dir: Path, config, train_mod=None):
             default_args[key] = value
     if config.reward_functions:
         default_args["reward_functions"] = ",".join(config.reward_functions)
+    if config.reward_functions_file:
+        # Absolute path under MLXLF_DATA_DIR/rewards; the library importlib-
+        # execs the file (registering its @register_reward_function functions)
+        # BEFORE resolving reward_functions names, so custom names become valid.
+        default_args["reward_functions_file"] = str(
+            settings.rewards_dir / f"{config.reward_functions_file}.py"
+        )
 
     return types.SimpleNamespace(**default_args)
 
