@@ -187,6 +187,17 @@ class JobManager:
                         "call POST /datasets/{id}/split first"
                     )
 
+                if config.reward_functions_file is not None:
+                    from app.services.reward_files_service import resolve_reward_file_path
+
+                    if resolve_reward_file_path(
+                        config.reward_functions_file, settings=self._settings
+                    ) is None:
+                        raise ValidationAppError(
+                            f"reward file '{config.reward_functions_file}' not found — "
+                            "upload it via /train/reward-files"
+                        )
+
                 allowed_formats = DATASET_FORMAT_COMPAT[config.train_mode.value]
                 if dataset_row["format"] not in allowed_formats:
                     raise ValidationAppError(

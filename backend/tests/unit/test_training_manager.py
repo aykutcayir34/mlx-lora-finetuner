@@ -76,6 +76,51 @@ async def test_create_job_missing_train_split_raises_422(settings):
 
 
 @pytest.mark.asyncio
+async def test_create_job_missing_reward_file_raises_422(settings):
+    setup_model_dir(settings)
+    await setup_dataset(settings, fmt="grpo")
+    manager = JobManager(settings=settings, worker_argv_factory=make_worker_argv_factory("happy"))
+    with pytest.raises(ValidationAppError, match="reward file 'my_rewards' not found"):
+        await manager.create_job(
+            make_config(train_mode="grpo", group_size=4, reward_functions_file="my_rewards")
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_job_existing_reward_file_accepted(settings):
+    setup_model_dir(settings)
+    await setup_dataset(settings, fmt="grpo")
+    settings.rewards_dir.mkdir(parents=True, exist_ok=True)
+    (settings.rewards_dir / "my_rewards.py").write_text(
+        "from mlx_lm_lora.trainer.grpo_reward_functions import register_reward_function\n"
+        "@register_reward_function()\n"
+        "def my_reward(prompts, completions, answers, types=None):\n"
+        "    return [1.0]\n"
+    )
+    manager = JobManager(
+        settings=settings,
+        worker_argv_factory=make_worker_argv_factory(
+            "happy", FAKE_WORKER_ITERS=1, FAKE_WORKER_STEP_DELAY=0.0
+        ),
+    )
+
+    summary = await manager.create_job(
+        make_config(
+            train_mode="grpo",
+            group_size=4,
+            reward_functions_file="my_rewards",
+            reward_functions=["my_reward"],
+            iters=1,
+        )
+    )
+    assert summary.config.reward_functions_file == "my_rewards"
+    await _run_to_completion(manager, summary.run_id)
+
+    final = await manager.get_run(summary.run_id)
+    assert final.status.value == "completed"
+
+
+@pytest.mark.asyncio
 async def test_create_job_incompatible_dataset_format_raises_422(settings):
     setup_model_dir(settings)
     await setup_dataset(settings, fmt="dpo")

@@ -40,6 +40,10 @@ class Settings(BaseSettings):
         return self.data_dir / "cache"
 
     @property
+    def rewards_dir(self) -> Path:
+        return self.data_dir / "rewards"
+
+    @property
     def db_path(self) -> Path:
         return self.data_dir / "app.db"
 

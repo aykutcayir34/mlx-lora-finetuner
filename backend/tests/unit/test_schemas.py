@@ -262,3 +262,58 @@ class TestRewardFunctionValidation:
     def test_unknown_reward_function_rejected_with_valid_list(self):
         with pytest.raises(ValidationError, match="unknown reward_functions: r1_typo"):
             self._grpo(reward_functions=["r1_count_xml", "r1_typo"])
+
+
+class TestRewardFunctionsFileValidation:
+    def _grpo(self, **overrides):
+        base = dict(
+            name="my-run",
+            model_id="mlx-community/x",
+            dataset_id="ds_1",
+            train_mode="grpo",
+            group_size=4,
+        )
+        base.update(overrides)
+        return TrainingConfig(**base)
+
+    def test_accepted_for_grpo(self):
+        config = self._grpo(reward_functions_file="my_rewards")
+        assert config.reward_functions_file == "my_rewards"
+
+    def test_py_suffix_is_stripped_in_reference(self):
+        config = self._grpo(reward_functions_file="my_rewards.py")
+        assert config.reward_functions_file == "my_rewards"
+
+    def test_rejected_for_non_grpo_modes(self):
+        with pytest.raises(
+            ValidationError, match="reward_functions_file is only accepted for grpo"
+        ):
+            TrainingConfig(
+                name="my-run",
+                model_id="mlx-community/x",
+                dataset_id="ds_1",
+                train_mode="sft",
+                reward_functions_file="my_rewards",
+            )
+
+    @pytest.mark.parametrize(
+        "bad_name",
+        ["../escape", "sub/dir", ".hidden", "-dash", "spa ce", ""],
+    )
+    def test_unsafe_names_rejected(self, bad_name):
+        with pytest.raises(ValidationError, match="reward_functions_file"):
+            self._grpo(reward_functions_file=bad_name)
+
+    def test_custom_file_skips_registry_check_for_reward_functions(self):
+        # The file may register brand-new names, so arbitrary entries are
+        # accepted when a custom file is set (unresolvable names fail the run
+        # at start instead — docs/api.md).
+        config = self._grpo(
+            reward_functions_file="my_rewards",
+            reward_functions=["my_custom_reward", "r1_count_xml"],
+        )
+        assert config.reward_functions == ["my_custom_reward", "r1_count_xml"]
+
+    def test_registry_check_still_applies_without_custom_file(self):
+        with pytest.raises(ValidationError, match="unknown reward_functions: my_custom_reward"):
+            self._grpo(reward_functions=["my_custom_reward"])

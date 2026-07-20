@@ -19,7 +19,18 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
-from app.api import arena, datasets, export, history, inference, models, recipes, system, training
+from app.api import (
+    arena,
+    datasets,
+    export,
+    history,
+    inference,
+    models,
+    recipes,
+    reward_files,
+    system,
+    training,
+)
 from app.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.db.database import init_db
@@ -86,6 +97,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.runs_dir,
         settings.exports_dir,
         settings.cache_dir,
+        settings.rewards_dir,
     ):
         directory.mkdir(parents=True, exist_ok=True)
 
@@ -118,6 +130,7 @@ def create_app() -> FastAPI:
         models,
         datasets,
         training,
+        reward_files,
         inference,
         arena,
         export,

@@ -112,8 +112,16 @@ def test_render_null_losses_while_running():
             lambda_mse=0.1,
             clip_epsilon_logits=2.0,
         ),
+        _config(
+            name="grpo-custom-rewards",
+            train_mode="grpo",
+            group_size=4,
+            reward_functions_file="my_rewards",
+            # Arbitrary (non-registry) name: allowed because a custom file is set.
+            reward_functions=["my_custom_reward"],
+        ),
     ],
-    ids=["sft", "grpo", "ftpo"],
+    ids=["sft", "grpo", "ftpo", "grpo-reward-file"],
 )
 def test_round_trip_export_import_identical(config):
     text = render_config_yaml(_run(config))
