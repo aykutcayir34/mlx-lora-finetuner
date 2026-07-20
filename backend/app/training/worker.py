@@ -158,6 +158,7 @@ def _build_worker_args(run_dir: Path, config, train_mod=None):
     # ftpo hyperparameters 0.05/1.0/0.4/2.0) with `None`, which then blows up
     # numeric ops (e.g. `beta * kl_term`) inside mlx-lm-lora's trainers.
     optional_overrides: dict[str, Any] = {
+        "gradient_accumulation_steps": config.gradient_accumulation_steps,
         "beta": config.beta,
         "group_size": config.group_size,
         "temperature": config.temperature,

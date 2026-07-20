@@ -73,6 +73,7 @@ class FakeTrainModuleWithLibraryDefaults(FakeTrainModule):
         parser.add_argument("--tau-mse-target", type=float, default=1.0)
         parser.add_argument("--lambda-mse", type=float, default=0.4)
         parser.add_argument("--clip-epsilon-logits", type=float, default=2.0)
+        parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
         return parser
 
 
@@ -271,6 +272,30 @@ def test_build_worker_args_sft_loss_type_falls_back_to_library_default_when_unse
     )
 
     assert args.sft_loss_type == "nll"
+
+
+def test_build_worker_args_forwards_gradient_accumulation_steps_when_set(settings, tmp_path):
+    run_dir = tmp_path / "runs" / "run_grad_accum"
+    run_dir.mkdir(parents=True)
+    config = make_config(gradient_accumulation_steps=4)
+
+    args = worker._build_worker_args(run_dir, config, train_mod=FakeTrainModule)
+
+    assert args.gradient_accumulation_steps == 4
+
+
+def test_build_worker_args_gradient_accumulation_falls_back_to_library_default_when_unset(
+    settings, tmp_path
+):
+    run_dir = tmp_path / "runs" / "run_grad_accum_default"
+    run_dir.mkdir(parents=True)
+    config = make_config()  # gradient_accumulation_steps left None
+
+    args = worker._build_worker_args(
+        run_dir, config, train_mod=FakeTrainModuleWithLibraryDefaults
+    )
+
+    assert args.gradient_accumulation_steps == 1
 
 
 @pytest.mark.parametrize(

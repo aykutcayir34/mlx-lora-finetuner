@@ -94,6 +94,48 @@ class TestTrainingConfigValidation:
                 **{field: 0.5},
             )
 
+    def test_gradient_accumulation_steps_accepted_on_sft(self):
+        config = TrainingConfig(
+            name="my-run",
+            model_id="mlx-community/x",
+            dataset_id="ds_1",
+            train_mode="sft",
+            gradient_accumulation_steps=4,
+        )
+        assert config.gradient_accumulation_steps == 4
+
+    def test_gradient_accumulation_steps_accepted_on_grpo(self):
+        config = TrainingConfig(
+            name="my-run",
+            model_id="mlx-community/x",
+            dataset_id="ds_1",
+            train_mode="grpo",
+            group_size=4,
+            gradient_accumulation_steps=8,
+        )
+        assert config.gradient_accumulation_steps == 8
+
+    def test_gradient_accumulation_steps_null_is_valid(self):
+        config = TrainingConfig(
+            name="my-run",
+            model_id="mlx-community/x",
+            dataset_id="ds_1",
+            train_mode="sft",
+            gradient_accumulation_steps=None,
+        )
+        assert config.gradient_accumulation_steps is None
+
+    @pytest.mark.parametrize("value", [0, -1])
+    def test_gradient_accumulation_steps_below_one_rejected(self, value):
+        with pytest.raises(ValidationError):
+            TrainingConfig(
+                name="my-run",
+                model_id="mlx-community/x",
+                dataset_id="ds_1",
+                train_mode="sft",
+                gradient_accumulation_steps=value,
+            )
+
     def test_sft_loss_type_accepted_on_sft(self):
         config = TrainingConfig(
             name="my-run",
