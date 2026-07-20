@@ -9,6 +9,8 @@ The version's source of truth is `backend/pyproject.toml` (reported by
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-23
+
 ### Added
 
 - Training configs export/load as YAML: download any run's full configuration
@@ -19,6 +21,20 @@ The version's source of truth is `backend/pyproject.toml` (reported by
 - README: end-to-end GRPO fine-tuning walkthrough — dataset format, all five
   reward functions explained, a ready-to-load YAML config, and a UI
   screenshot (#48)
+- `gradient_accumulation_steps` exposed end to end for every train mode —
+  effective batch = batch size × accumulation steps (#50)
+- Chat and Fuse actions on saved checkpoints: talk to a mid-training snapshot
+  or open the export wizard prefilled, straight from the run monitor (#50)
+- Custom GRPO reward functions: upload a `.py` file (functions discovered by
+  a static AST scan — the API never executes it), pick its rewards alongside
+  the built-ins, and the training worker loads it at run start (#51)
+
+### Changed
+
+- Frontend upgraded to React 19 (all four react packages together) with a
+  dependabot group so they keep moving as one (#40)
+- Toolchain bumps: TypeScript 7, Vite 8.1.5, oxlint 1.74, @types/node 26,
+  and GitHub Actions majors across both workflows (#29–#37, #46)
 
 ## [0.1.0] - 2026-07-16
 
