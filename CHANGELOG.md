@@ -9,6 +9,15 @@ The version's source of truth is `backend/pyproject.toml` (reported by
 
 ## [Unreleased]
 
+### Added
+
+- Full UI internationalization: English and Turkish across every surface
+  (~610 keys), with a persistent EN/TR switcher in the top bar and
+  browser-language detection on first visit (#55)
+- Dispatchable release workflow: one action validates the changelog/version
+  coherence, tags main and publishes the GitHub release (#54)
+- Animated UI demo at the top of the README (#53)
+
 ## [0.2.0] - 2026-07-23
 
 ### Added
