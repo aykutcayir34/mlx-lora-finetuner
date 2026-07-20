@@ -179,7 +179,7 @@ partial temp output is removed). `409 conflict` if already terminal; `404` if un
   "gradient_accumulation_steps": null,
   "beta": null, "group_size": null, "temperature": null,
   "max_completion_length": null, "reward_functions": null,
-  "sft_loss_type": null,
+  "reward_functions_file": null, "sft_loss_type": null,
   "lambda_mse_target": null, "tau_mse_target": null,
   "lambda_mse": null, "clip_epsilon_logits": null
 }
@@ -193,7 +193,14 @@ accepted for `ftpo` and are all optional (null → library defaults 0.05 / 1.0 /
 `reward_functions` entries must come from the mlx-lm-lora 3.0.0 registry —
 `r1_accuracy_reward_func | r1_int_reward_func | r1_strict_format_reward_func |
 r1_soft_format_reward_func | r1_count_xml` — unknown names → 422; null or `[]` →
-the library's default set (all five).
+the library's default set (all five). Exception: when `reward_functions_file`
+is set, the registry check is skipped (the file may register new names; an
+unresolvable name then fails the run at start, reported on the run).
+`reward_functions_file` is only accepted for `grpo`: the NAME of an uploaded
+reward file (see /train/reward-files below; same safe-name charset as export
+names, `.py` extension optional in the reference). null → no custom file.
+POST /train/jobs returns 422 `validation_error` if the referenced file does
+not exist.
 Dataset format must be compatible with mode (sft: chat/completions/text; dpo/cpo: dpo;
 orpo: orpo|dpo; grpo: grpo; ftpo: ftpo) → else 422.
 
@@ -215,6 +222,25 @@ orpo: orpo|dpo; grpo: grpo; ftpo: ftpo) → else 422.
 ### GET /train/jobs/{run_id}/metrics?after_step=0&kind=train|val
 `{"metrics": [MetricEvent]}` — persisted metrics for backfill/history.
 ### GET /train/jobs/{run_id}/logs?tail=200 → `{"lines": ["..."]}`
+
+### Custom GRPO reward files
+
+Python files whose functions are decorated with mlx-lm-lora's
+`@register_reward_function()`. Stored under `MLXLF_DATA_DIR/rewards/` and
+referenced by name from `TrainingConfig.reward_functions_file`. The training
+worker EXECUTES the file at run start (this is a local, single-user tool —
+uploading a file is equivalent to running your own script). Function discovery
+for listing purposes is STATIC (AST scan) — the API never executes the file.
+
+### POST /train/reward-files — multipart: `file` (.py)
+→ `201 {"name": "my_rewards", "functions": ["my_reward", ...], "uploaded_at": "..."}`
+Name = the uploaded filename's stem, safe-name charset (`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`
+before the `.py`); re-uploading the same name overwrites. 422 `validation_error`:
+bad name, not parseable Python (syntax error), or no `@register_reward_function`-decorated
+function found. Size cap 256 KiB.
+### GET /train/reward-files → `{"files": [{"name": "...", "functions": [...], "uploaded_at": "..."}]}`
+### DELETE /train/reward-files/{name} → `204`; `409 conflict` if the active
+(queued/running) run's config references it.
 
 ### GET /train/jobs/{run_id}/config.yaml
 Downloads the run's full configuration as YAML (`Content-Type: application/x-yaml`,
