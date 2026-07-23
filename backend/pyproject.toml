@@ -36,7 +36,7 @@ dev = [
     "pytest>=9.1,<10",
     "pytest-asyncio>=1.4,<2",
     "httpx>=0.28,<1",
-    "ruff>=0.15,<1",
+    "ruff>=0.15.22,<1",
 ]
 
 [build-system]
