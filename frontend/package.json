@@ -13,8 +13,8 @@
   "dependencies": {
     "@tanstack/react-query": "^5.101.2",
     "i18next": "^26.3.6",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "react-i18next": "^17.0.10",
     "react-router-dom": "^7.18.1",
     "recharts": "^3.9.2",
