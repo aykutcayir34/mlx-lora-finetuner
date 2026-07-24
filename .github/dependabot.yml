@@ -1,10 +1,20 @@
 version: 2
+
+# Grouping policy: every bump in an ecosystem rewrites the same lockfile
+# (uv.lock / package-lock.json), so ungrouped PRs conflict with each other
+# the moment one of them merges — each survivor then needs a dependabot
+# rebase round before it can land. Grouping collapses that into one PR per
+# ecosystem per week, which is also one CI run instead of N.
 updates:
   # Backend: uv-managed (backend/pyproject.toml + backend/uv.lock).
   - package-ecosystem: "uv"
     directory: "/backend"
     schedule:
       interval: "weekly"
+    groups:
+      backend:
+        patterns:
+          - "*"
 
   # Frontend: npm (frontend/package.json + package-lock.json).
   - package-ecosystem: "npm"
@@ -14,16 +24,25 @@ updates:
     groups:
       # react and react-dom (and their @types) pin each other via peer
       # deps — bumping them separately always produces an ERESOLVE-broken
-      # PR (see #36/#39), so they must move as one.
+      # PR (see #36/#39), so they must move as one. Kept as its own group
+      # (evaluated before `frontend`) so a React major stays reviewable on
+      # its own instead of riding along with routine patches.
       react:
         patterns:
           - "react"
           - "react-dom"
           - "@types/react"
           - "@types/react-dom"
+      frontend:
+        patterns:
+          - "*"
 
   # GitHub Actions used in .github/workflows/.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      actions:
+        patterns:
+          - "*"

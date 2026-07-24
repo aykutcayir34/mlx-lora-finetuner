@@ -36,7 +36,13 @@ dev = [
     "pytest>=9.1,<10",
     "pytest-asyncio>=1.4,<2",
     "httpx>=0.28,<1",
-    "ruff>=0.15,<1",
+    # Linters are the exception to the bounds policy above: a new ruff MINOR
+    # enables new default rules, which is effectively breaking for `make lint`.
+    # 0.16 alone flags 96 findings here (32 are B008 on FastAPI's own Depends()
+    # idiom), so the ceiling is the next minor, not the next major. Dependabot
+    # still proposes the bump — as a PR we can review rules for, instead of an
+    # incidental `uv lock` refresh silently breaking lint for everyone.
+    "ruff>=0.15.21,<0.16",
 ]
 
 [build-system]
