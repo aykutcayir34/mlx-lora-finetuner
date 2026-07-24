@@ -42,7 +42,7 @@ dev = [
     # idiom), so the ceiling is the next minor, not the next major. Dependabot
     # still proposes the bump — as a PR we can review rules for, instead of an
     # incidental `uv lock` refresh silently breaking lint for everyone.
-    "ruff>=0.15.21,<0.16",
+    "ruff>=0.16.0,<0.17",
 ]
 
 [build-system]
