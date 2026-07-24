@@ -981,7 +981,7 @@ dev = [
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "pytest", specifier = ">=9.1,<10" },
     { name = "pytest-asyncio", specifier = ">=1.4,<2" },
-    { name = "ruff", specifier = ">=0.15,<1" },
+    { name = "ruff", specifier = ">=0.15.21,<0.16" },
 ]
 
 [[package]]
