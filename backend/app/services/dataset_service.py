@@ -107,6 +107,21 @@ _ROW_MODELS: dict[DatasetFormat, type[BaseModel]] = {
 }
 
 
+def _accepted_formats_hint() -> str:
+    """`fmt (key+key)` for every format, read off the row models themselves.
+
+    Derived rather than written out so the hint cannot drift from what
+    `_detect_row_format` actually accepts.
+    """
+    parts = []
+    for fmt, model in _ROW_MODELS.items():
+        keys = "+".join(
+            name for name, field in model.model_fields.items() if field.is_required()
+        )
+        parts.append(f"{fmt.value} ({keys})")
+    return ", ".join(parts)
+
+
 def _detect_row_format(obj: object) -> DatasetFormat | None:
     """Detect a single parsed JSON row's format by its keys.
 
@@ -251,25 +266,45 @@ class DatasetService:
         records = await repo.list_()
         return [self._row_to_info(r) for r in records]
 
-    def _sniff_format(self, raw_path: Path) -> DatasetFormat | None:
+    def _sniff_format(self, raw_path: Path) -> tuple[DatasetFormat | None, str]:
+        """Detect the format the sampled rows share.
+
+        Returns `(format, "")`, or `(None, reason)` naming which of the two
+        failure modes hit: keys that match no format at all (the row needs
+        renaming — see `column_map` on the HF import) versus a row that
+        disagrees with the format its predecessors established. Conflating
+        them, as a single "could not detect" message did, leaves the caller
+        with no idea which way to go.
+        """
         detected: DatasetFormat | None = None
         sampled = 0
-        for _, line in _iter_nonblank_lines(raw_path):
+        for line_no, line in _iter_nonblank_lines(raw_path):
             try:
                 obj = json.loads(line)
             except json.JSONDecodeError:
                 continue
             fmt = _detect_row_format(obj)
             if fmt is None:
-                return None
+                found = (
+                    ", ".join(obj.keys()) if isinstance(obj, dict) else "(not a JSON object)"
+                )
+                return None, (
+                    f"line {line_no} has keys [{found}], which match no known format; "
+                    f"expected one of: {_accepted_formats_hint()}"
+                )
             if detected is None:
                 detected = fmt
             elif fmt != detected:
-                return None
+                return None, (
+                    f"line {line_no} looks like '{fmt.value}' but earlier rows are "
+                    f"'{detected.value}'; every row must use the same format"
+                )
             sampled += 1
             if sampled >= _SNIFF_SAMPLE_SIZE:
                 break
-        return detected
+        if detected is None:
+            return None, "no parseable JSON rows"
+        return detected, ""
 
     async def upload(
         self, repo: DatasetsRepo, file: UploadFile, name: str | None
@@ -295,12 +330,10 @@ class DatasetService:
             shutil.rmtree(dataset_dir, ignore_errors=True)
             raise ValidationAppError("uploaded file has no parseable rows")
 
-        fmt = self._sniff_format(raw_path)
+        fmt, reason = self._sniff_format(raw_path)
         if fmt is None:
             shutil.rmtree(dataset_dir, ignore_errors=True)
-            raise ValidationAppError(
-                "could not detect a consistent dataset format from the uploaded file"
-            )
+            raise ValidationAppError(f"could not detect a dataset format: {reason}")
 
         resolved_name = name or Path(file.filename or dataset_id).stem
         created_at = _utcnow_iso()
