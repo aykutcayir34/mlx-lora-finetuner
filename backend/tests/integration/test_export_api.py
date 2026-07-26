@@ -38,7 +38,12 @@ class RecordingSubprocess:
 @pytest_asyncio.fixture
 async def export_service(app, data_dir):
     subprocess = RecordingSubprocess()
-    service = ExportService(get_settings(), run_subprocess=subprocess)
+    # The preflight probes this interpreter for llama.cpp's converter deps,
+    # which the default backend environment does not install; pin the answer
+    # so these tests describe the API, not the machine they run on.
+    service = ExportService(
+        get_settings(), run_subprocess=subprocess, module_available=lambda module: True
+    )
     app.dependency_overrides[get_export_service] = lambda: service
     yield service, subprocess
     app.dependency_overrides.pop(get_export_service, None)
@@ -211,6 +216,7 @@ async def test_gguf_preflight_all_green_via_api(client, export_service, data_dir
     assert data["ok"] is True
     assert {c["name"] for c in data["checks"]} == {
         "llama_cpp_available",
+        "convert_deps_importable",
         "arch_supported",
         "weights_dequantized",
     }

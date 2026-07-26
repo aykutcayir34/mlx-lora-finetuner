@@ -10,6 +10,7 @@ constructor so tests can capture argv without ever spawning a real process.
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import json
 import sys
 import uuid
@@ -44,9 +45,28 @@ CURATED_ARCHS = {"llama", "qwen2", "qwen3", "mistral", "gemma", "gemma2", "phi3"
 
 MODEL_FAMILIES = {"qwen", "llama", "smollm", "mistral", "custom"}
 
+# Third-party modules `convert_hf_to_gguf.py` imports at module level. They are
+# checked against *this* interpreter because `start_gguf` runs the script with
+# `sys.executable`: finding the script on disk says nothing about whether it
+# can get past its own import block.
+CONVERT_SCRIPT_MODULES = ("torch", "transformers", "numpy")
+
 
 class RunSubprocess(Protocol):
     async def __call__(self, *args: str, **kwargs: Any) -> asyncio.subprocess.Process: ...
+
+
+class ModuleAvailable(Protocol):
+    def __call__(self, module: str) -> bool: ...
+
+
+def _module_available(module: str) -> bool:
+    try:
+        return importlib.util.find_spec(module) is not None
+    except (ImportError, ValueError):
+        # A namespace package with a broken parent raises rather than
+        # returning None; either way the import would fail.
+        return False
 
 
 def _now() -> str:
@@ -66,9 +86,11 @@ class ExportService:
         self,
         settings: Settings,
         run_subprocess: RunSubprocess | None = None,
+        module_available: ModuleAvailable | None = None,
     ) -> None:
         self._settings = settings
         self._run_subprocess: RunSubprocess = run_subprocess or asyncio.create_subprocess_exec
+        self._module_available: ModuleAvailable = module_available or _module_available
         # export_id -> streamed stdout lines for jobs started by this process.
         self._progress_logs: dict[str, list[str]] = {}
         self._jinja_env = Environment(
@@ -121,6 +143,16 @@ class ExportService:
             if (candidate / "convert_hf_to_gguf.py").is_file():
                 return candidate
         return None
+
+    def _missing_convert_modules(self, llama_dir: Path | None) -> list[str]:
+        """Modules `convert_hf_to_gguf.py` needs that this interpreter lacks."""
+        required = list(CONVERT_SCRIPT_MODULES)
+        # A full llama.cpp checkout ships gguf-py and the script prepends it to
+        # sys.path itself, so only a bare install (Homebrew's, say) needs the
+        # published `gguf` package.
+        if llama_dir is None or not (llama_dir / "gguf-py" / "gguf").is_dir():
+            required.append("gguf")
+        return [module for module in required if not self._module_available(module)]
 
     # -- fuse -----------------------------------------------------------
 
@@ -197,6 +229,28 @@ class ExportService:
                         f"convert_hf_to_gguf.py içeren bir dizine ayarlayın ya da llama.cpp "
                         f"deposunu {default_dir} içine klonlayın."
                     ),
+                )
+            )
+
+        missing = self._missing_convert_modules(llama_dir)
+        if missing:
+            checks.append(
+                PreflightCheck(
+                    name="convert_deps_importable",
+                    ok=False,
+                    message=(
+                        f"convert_hf_to_gguf.py şu modülleri {sys.executable} içinde "
+                        f"bulamıyor: {', '.join(missing)}. Backend ortamına kurun: "
+                        "cd backend && uv sync --extra gguf"
+                    ),
+                )
+            )
+        else:
+            checks.append(
+                PreflightCheck(
+                    name="convert_deps_importable",
+                    ok=True,
+                    message="dönüştürme bağımlılıkları hazır",
                 )
             )
 

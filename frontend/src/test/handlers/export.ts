@@ -50,6 +50,7 @@ export const exportHandlers = [
       ok: true,
       checks: [
         { name: 'llama_cpp_available', ok: true, message: 'llama.cpp found' },
+        { name: 'convert_deps_importable', ok: true, message: 'converter deps ready' },
         { name: 'arch_supported', ok: true, message: 'llama' },
         { name: 'weights_dequantized', ok: true, message: 'weights are f16' },
       ],

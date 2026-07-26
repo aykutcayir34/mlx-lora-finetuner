@@ -60,6 +60,18 @@ async def settings(tmp_path) -> Settings:
     return s
 
 
+@pytest.fixture(autouse=True)
+def convert_deps_installed(monkeypatch):
+    """Pretend llama.cpp's converter deps are importable.
+
+    The GGUF preflight probes *this* interpreter for `torch` & co., which the
+    default backend environment (and CI) deliberately does not install. Tests
+    about that check inject their own prober; the rest should not depend on
+    whether the machine running them happens to have torch.
+    """
+    monkeypatch.setattr("app.services.export_service._module_available", lambda module: True)
+
+
 @pytest.fixture
 async def conn(settings):
     async with aiosqlite.connect(settings.db_path) as c:
@@ -355,6 +367,92 @@ async def test_preflight_missing_config_fails_arch_and_weights(settings, tmp_pat
     by_name = {c.name: c for c in report.checks}
     assert by_name["arch_supported"].ok is False
     assert by_name["weights_dequantized"].ok is False
+
+
+@pytest.mark.asyncio
+async def test_preflight_missing_convert_deps_fails(settings):
+    """A findable script whose imports do not resolve must not read as ready."""
+    llama_dir = settings.cache_dir / "llama.cpp"
+    llama_dir.mkdir(parents=True, exist_ok=True)
+    (llama_dir / "convert_hf_to_gguf.py").write_text("# stub")
+    model_path = _make_model_dir(settings, "mlx-community/Foo", {"model_type": "llama"})
+
+    service = ExportService(
+        settings,
+        run_subprocess=RecordingSubprocess(),
+        module_available=lambda module: module != "torch",
+    )
+    report = await service.preflight_gguf(str(model_path))
+
+    assert report.ok is False
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["llama_cpp_available"].ok is True
+    assert by_name["convert_deps_importable"].ok is False
+    assert "torch" in by_name["convert_deps_importable"].message
+    assert "uv sync --extra gguf" in by_name["convert_deps_importable"].message
+
+
+@pytest.mark.asyncio
+async def test_preflight_bundled_gguf_py_does_not_require_gguf_package(settings):
+    """A llama.cpp checkout ships gguf-py, so the published package is optional."""
+    llama_dir = settings.cache_dir / "llama.cpp"
+    (llama_dir / "gguf-py" / "gguf").mkdir(parents=True, exist_ok=True)
+    (llama_dir / "convert_hf_to_gguf.py").write_text("# stub")
+    model_path = _make_model_dir(settings, "mlx-community/Foo", {"model_type": "llama"})
+
+    service = ExportService(
+        settings,
+        run_subprocess=RecordingSubprocess(),
+        module_available=lambda module: module != "gguf",
+    )
+    report = await service.preflight_gguf(str(model_path))
+
+    assert report.ok is True
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["convert_deps_importable"].ok is True
+
+
+@pytest.mark.asyncio
+async def test_preflight_bare_install_requires_gguf_package(settings):
+    """Homebrew's layout has no gguf-py, so `gguf` must come from the env."""
+    llama_dir = settings.cache_dir / "llama.cpp"
+    llama_dir.mkdir(parents=True, exist_ok=True)
+    (llama_dir / "convert_hf_to_gguf.py").write_text("# stub")
+    model_path = _make_model_dir(settings, "mlx-community/Foo", {"model_type": "llama"})
+
+    service = ExportService(
+        settings,
+        run_subprocess=RecordingSubprocess(),
+        module_available=lambda module: module != "gguf",
+    )
+    report = await service.preflight_gguf(str(model_path))
+
+    assert report.ok is False
+    by_name = {c.name: c for c in report.checks}
+    assert by_name["convert_deps_importable"].ok is False
+    assert "gguf" in by_name["convert_deps_importable"].message
+
+
+@pytest.mark.asyncio
+async def test_start_gguf_refuses_when_convert_deps_missing(settings, conn):
+    llama_dir = settings.cache_dir / "llama.cpp"
+    llama_dir.mkdir(parents=True, exist_ok=True)
+    (llama_dir / "convert_hf_to_gguf.py").write_text("# stub")
+    model_path = _make_model_dir(settings, "mlx-community/Foo", {"model_type": "llama"})
+    subprocess = RecordingSubprocess()
+
+    service = ExportService(
+        settings,
+        run_subprocess=subprocess,
+        module_available=lambda module: module != "torch",
+    )
+    with pytest.raises(ValidationAppError):
+        await service.start_gguf(
+            conn,
+            GGUFRequest(model_path=str(model_path), outtype="f16", output_name="out"),
+            BackgroundTasks(),
+        )
+    assert subprocess.calls == []
 
 
 @pytest.mark.asyncio
