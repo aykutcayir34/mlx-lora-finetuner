@@ -10,6 +10,7 @@ from app.db.database import init_db
 from app.db.repositories import DatasetsRepo, RunsRepo
 from app.schemas.datasets import DatasetFormat, SplitRequest
 from app.services.dataset_service import (
+    _ROW_MODELS,
     _accepted_formats_hint,
     _compute_split_sizes,
     _detect_row_format,
@@ -108,6 +109,31 @@ class TestAcceptedFormatsHint:
         assert "grpo (prompt+answer)" in hint  # `system` is optional
         assert "dpo (prompt+chosen+rejected)" in hint
         assert "orpo (prompt+chosen+rejected+preference_score)" in hint
+
+
+class TestDetectorMatchesRowModels:
+    """`_detect_row_format` and the row models must agree on every format.
+
+    `_accepted_formats_hint` reads the models; the detector carries its own
+    literal key sets. Nothing but this test stops the two from diverging and
+    making the hint advertise keys that would not actually be detected.
+    """
+
+    _VALUES = {
+        "messages": [{"role": "assistant", "content": "hi"}],
+        "multi_chosen_decoded": [" a"],
+        "preference_score": 0.5,
+    }
+
+    @pytest.mark.parametrize("fmt", list(DatasetFormat))
+    def test_required_keys_detect_as_their_own_format(self, fmt):
+        model = _ROW_MODELS[fmt]
+        row = {
+            name: self._VALUES.get(name, "x")
+            for name, field in model.model_fields.items()
+            if field.is_required()
+        }
+        assert _detect_row_format(row) == fmt
 
 
 class TestSniffFormat:

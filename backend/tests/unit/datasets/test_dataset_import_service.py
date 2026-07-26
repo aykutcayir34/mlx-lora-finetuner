@@ -1,5 +1,7 @@
 import asyncio
+import json
 import threading
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -7,6 +9,7 @@ from pydantic import ValidationError
 from app.db.repositories import DatasetImportsRepo, DatasetsRepo
 from app.schemas.datasets import DatasetImportRequest
 from app.services.dataset_import_service import DatasetImportService
+from app.services.dataset_service import get_dataset_service
 from tests.unit.datasets.conftest import FakeBackgroundTasks, make_conn
 
 
@@ -345,9 +348,22 @@ async def test_column_map_projects_row_and_detects_grpo(import_settings, monkeyp
         assert len(datasets) == 1
         assert datasets[0]["format"] == "grpo"
 
-        # unmapped source columns ("level", "type") must have been dropped
-        output_path = service._job_dir(accepted.import_id) / "output.jsonl"
-        assert not output_path.exists()  # cleaned up on success like today
+        # The registered rows carry the canonical keys and nothing else —
+        # "level" and "type" were dropped, not merely renamed around.
+        registered = [
+            json.loads(line)
+            for line in (Path(datasets[0]["path"]) / "raw.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+            if line.strip()
+        ]
+        assert registered == [
+            {"prompt": "2+2", "answer": "4"},
+            {"prompt": "3+3", "answer": "6"},
+        ]
+
+        # The scratch copy is removed on success, as before.
+        assert not (service._job_dir(accepted.import_id) / "output.jsonl").exists()
     finally:
         await conn.close()
 
@@ -491,6 +507,111 @@ async def test_format_detection_failure_keeps_downloaded_file(import_settings, m
         # in-memory bookkeeping for this import_id must still be dropped
         assert accepted.import_id not in service._cancel_events
         assert accepted.import_id not in service._progress
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_kept_file_and_rows_written_agree(import_settings, monkeypatch):
+    """Handing over a file path while under-reporting its length is a lie.
+
+    Row counts are only checkpointed every _PERSIST_ROW_INTERVAL rows, so a
+    count that is not a multiple of it exposes whether the failure path
+    persists the real total.
+    """
+    rows = [{"foo": i} for i in range(150)]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        accepted = await service.start_import(
+            conn, bt, DatasetImportRequest(dataset_id="org/undetectable-150", split="train")
+        )
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        kept = service._job_dir(accepted.import_id) / "output.jsonl"
+        kept_lines = len([ln for ln in kept.read_text().splitlines() if ln.strip()])
+
+        assert row["status"] == "failed"
+        assert kept_lines == 150
+        assert row["rows_written"] == kept_lines
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_unexpected_error_terminalizes_the_row(import_settings, monkeypatch):
+    """No import may end non-terminal — a `running` row can never be cleared.
+
+    `cancel_import` only signals the worker, which is already gone, so the
+    duplicate guard would reject this dataset for the life of the install.
+    """
+    rows = [{"prompt": "p", "answer": "a"}]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    async def exploding_upload(*args, **kwargs):
+        raise OSError("disk on fire")
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        accepted = await service.start_import(
+            conn, bt, DatasetImportRequest(dataset_id="org/explodes", split="train")
+        )
+        monkeypatch.setattr(
+            get_dataset_service().__class__, "upload", exploding_upload, raising=True
+        )
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        assert row["status"] == "failed"
+        assert "disk on fire" in row["error"]
+        # Not the format-detection path, so nothing is kept.
+        assert not service._job_dir(accepted.import_id).exists()
+        assert accepted.import_id not in service._cancel_events
+        assert accepted.import_id not in service._progress
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_reimport_supersedes_the_previously_kept_file(import_settings, monkeypatch):
+    """Kept files are swept by nothing else, so a re-import must drop them."""
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream",
+        _fake_stream_factory([{"foo": "bar"}]),
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        first = await service.start_import(
+            conn, bt, DatasetImportRequest(dataset_id="org/same", split="train")
+        )
+        await bt.run_all()
+        first_kept = service._job_dir(first.import_id) / "output.jsonl"
+        assert first_kept.exists()
+
+        bt2 = FakeBackgroundTasks()
+        second = await service.start_import(
+            conn, bt2, DatasetImportRequest(dataset_id="org/same", split="train")
+        )
+
+        assert not first_kept.exists()
+        assert not service._job_dir(first.import_id).exists()
+
+        # An unrelated dataset's kept file is left alone.
+        await bt2.run_all()
+        assert (service._job_dir(second.import_id) / "output.jsonl").exists()
     finally:
         await conn.close()
 

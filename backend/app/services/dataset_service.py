@@ -110,8 +110,9 @@ _ROW_MODELS: dict[DatasetFormat, type[BaseModel]] = {
 def _accepted_formats_hint() -> str:
     """`fmt (key+key)` for every format, read off the row models themselves.
 
-    Derived rather than written out so the hint cannot drift from what
-    `_detect_row_format` actually accepts.
+    Derived rather than written out, so the hint cannot drift from the row
+    models. It does not read `_detect_row_format`, which keeps its own literal
+    key sets — `TestDetectorMatchesRowModels` is what ties the two together.
     """
     parts = []
     for fmt, model in _ROW_MODELS.items():

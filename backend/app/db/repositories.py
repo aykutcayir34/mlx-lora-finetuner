@@ -607,6 +607,12 @@ class DatasetImportsRepo:
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
 
+    async def list_ids_by_hf_id(self, hf_dataset_id: str) -> list[str]:
+        cursor = await self._conn.execute(
+            "SELECT id FROM dataset_imports WHERE hf_dataset_id = ?", (hf_dataset_id,)
+        )
+        return [row[0] for row in await cursor.fetchall()]
+
     async def get_active_by_hf_id(self, hf_dataset_id: str) -> dict | None:
         self._conn.row_factory = aiosqlite.Row
         cursor = await self._conn.execute(

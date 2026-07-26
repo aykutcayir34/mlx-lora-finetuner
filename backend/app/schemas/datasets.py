@@ -3,7 +3,7 @@ from enum import Enum
 from pydantic import BaseModel, field_validator, model_validator
 
 # Canonical keys the format detector understands (see
-# `dataset_service._detect_format`). `column_map` values are source column
+# `dataset_service._detect_row_format`). `column_map` values are source column
 # names in the remote dataset; keys must be one of these.
 VALID_COLUMN_MAP_KEYS = {
     "messages",

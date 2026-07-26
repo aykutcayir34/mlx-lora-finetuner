@@ -462,6 +462,10 @@ export interface DatasetImportRequest {
   split: string
   name: string | null
   max_rows: number | null
+  /** Canonical dataset key -> source column, for datasets whose columns carry
+   *  the right data under other names. Rows are projected to exactly these
+   *  keys. Omit for datasets that already use canonical names. */
+  column_map?: Record<string, string>
 }
 
 export interface DatasetImportResponse {

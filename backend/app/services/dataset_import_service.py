@@ -162,6 +162,14 @@ class DatasetImportService:
         if active is not None:
             raise ConflictError(message=f"'{body.dataset_id}' zaten import ediliyor")
 
+        # A format-detection failure keeps its downloaded JSONL (see
+        # `_run_job`) and nothing else ever sweeps those directories, so
+        # re-importing the same dataset is what supersedes them. Without this
+        # every failed attempt at the same dataset leaves another copy behind
+        # — four tries at an 8800-row dataset, four files.
+        for previous_id in await repo.list_ids_by_hf_id(body.dataset_id):
+            shutil.rmtree(self._job_dir(previous_id), ignore_errors=True)
+
         import_id = _new_import_id()
         name = body.name or _slugify(body.dataset_id)
         started_at = _now()
@@ -210,10 +218,9 @@ class DatasetImportService:
         column_map: dict[str, str] | None = None,
     ) -> None:
         conn = await self._open_conn()
+        repo = DatasetImportsRepo(conn)
         cancel_event = self._cancel_events.get(import_id) or threading.Event()
         try:
-            repo = DatasetImportsRepo(conn)
-
             try:
                 stream = await asyncio.to_thread(_load_dataset_stream, hf_dataset_id, config, split)
                 iterator = iter(stream)
@@ -301,6 +308,12 @@ class DatasetImportService:
                 # `exc.message` already names the offending line, its keys and
                 # the accepted formats, so appending the columns again here
                 # would only repeat itself.
+                #
+                # Persist the real count first: row writes are only
+                # checkpointed every _PERSIST_ROW_INTERVAL rows, so without
+                # this the user is handed the path of a 150-row file while
+                # `rows_written` still reads 100.
+                await repo.update_progress(import_id, count)
                 await repo.finish_if_active(
                     import_id,
                     "failed",
@@ -319,6 +332,17 @@ class DatasetImportService:
 
             await repo.update_progress(import_id, count)
             await repo.finish_if_active(import_id, "completed", dataset_info.dataset_id, None, _now())
+            self._cleanup(import_id)
+        except Exception as exc:
+            # Every branch above terminalizes the row itself; this catches what
+            # none of them expect — a failing DB write, an unwritable cache
+            # dir. Without it the row stays `running` forever: this worker is
+            # the only thing that ever finalizes it, `cancel_import` merely
+            # signals it, and the duplicate guard would then reject this
+            # dataset for the life of the install.
+            await repo.finish_if_active(
+                import_id, "failed", None, f"beklenmeyen hata: {exc}", _now()
+            )
             self._cleanup(import_id)
         finally:
             await conn.close()
