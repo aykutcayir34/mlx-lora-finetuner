@@ -1,11 +1,15 @@
 import asyncio
+import json
 import threading
+from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from app.db.repositories import DatasetImportsRepo, DatasetsRepo
 from app.schemas.datasets import DatasetImportRequest
 from app.services.dataset_import_service import DatasetImportService
+from app.services.dataset_service import get_dataset_service
 from tests.unit.datasets.conftest import FakeBackgroundTasks, make_conn
 
 
@@ -283,5 +287,482 @@ async def test_duplicate_active_import_conflicts(import_settings, monkeypatch):
 
         row = await DatasetImportsRepo(conn).get(accepted.import_id)
         assert row["status"] == "completed"
+    finally:
+        await conn.close()
+
+
+# --------------------------------------------------------------------------
+# column_map: schema-level validation
+# --------------------------------------------------------------------------
+
+
+def test_column_map_rejects_unknown_canonical_key():
+    with pytest.raises(ValidationError, match="prob_lem"):
+        DatasetImportRequest(
+            dataset_id="org/name", split="train", column_map={"prob_lem": "problem"}
+        )
+
+
+def test_column_map_rejects_empty_dict():
+    with pytest.raises(ValidationError, match="boş olamaz"):
+        DatasetImportRequest(dataset_id="org/name", split="train", column_map={})
+
+
+def test_column_map_none_is_accepted():
+    body = DatasetImportRequest(dataset_id="org/name", split="train", column_map=None)
+    assert body.column_map is None
+
+
+# --------------------------------------------------------------------------
+# column_map: row projection during import
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_column_map_projects_row_and_detects_grpo(import_settings, monkeypatch):
+    rows = [
+        {"problem": "2+2", "level": "easy", "solution": "4", "type": "arithmetic"},
+        {"problem": "3+3", "level": "easy", "solution": "6", "type": "arithmetic"},
+    ]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        body = DatasetImportRequest(
+            dataset_id="org/grpo-source",
+            split="train",
+            column_map={"prompt": "problem", "answer": "solution"},
+        )
+        accepted = await service.start_import(conn, bt, body)
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        assert row["status"] == "completed"
+        assert row["rows_written"] == 2
+
+        datasets = await DatasetsRepo(conn).list_()
+        assert len(datasets) == 1
+        assert datasets[0]["format"] == "grpo"
+
+        # The registered rows carry the canonical keys and nothing else —
+        # "level" and "type" were dropped, not merely renamed around.
+        registered = [
+            json.loads(line)
+            for line in (Path(datasets[0]["path"]) / "raw.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+            if line.strip()
+        ]
+        assert registered == [
+            {"prompt": "2+2", "answer": "4"},
+            {"prompt": "3+3", "answer": "6"},
+        ]
+
+        # The scratch copy is removed on success, as before.
+        assert not (service._job_dir(accepted.import_id) / "output.jsonl").exists()
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_column_map_projection_drops_extra_columns_that_would_change_format(
+    import_settings, monkeypatch
+):
+    """A row that also happens to carry `chosen`/`rejected` keys must still be
+    detected as grpo once column_map projects it down to prompt/answer only —
+    proving unmapped columns are actually dropped, not merely ignored."""
+    rows = [
+        {
+            "problem": "2+2",
+            "solution": "4",
+            "chosen": "should be dropped",
+            "rejected": "should be dropped too",
+        }
+    ]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        body = DatasetImportRequest(
+            dataset_id="org/grpo-with-dpo-lookalike-columns",
+            split="train",
+            column_map={"prompt": "problem", "answer": "solution"},
+        )
+        accepted = await service.start_import(conn, bt, body)
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        assert row["status"] == "completed"
+
+        datasets = await DatasetsRepo(conn).list_()
+        assert datasets[0]["format"] == "grpo"
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_column_map_missing_source_column_fails_job_with_row_columns(
+    import_settings, monkeypatch
+):
+    rows = [
+        {"problem": "2+2", "solution": "4"},
+        {"problem": "3+3"},  # missing "solution" on this row
+    ]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        body = DatasetImportRequest(
+            dataset_id="org/missing-column",
+            split="train",
+            column_map={"prompt": "problem", "answer": "solution"},
+        )
+        accepted = await service.start_import(conn, bt, body)
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        assert row["status"] == "failed"
+        assert "solution" in row["error"]
+        assert "problem" in row["error"]  # the row's actual columns are named
+
+        datasets = await DatasetsRepo(conn).list_()
+        assert datasets == []
+
+        job_dir = service._job_dir(accepted.import_id)
+        assert not job_dir.exists()
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_no_column_map_behaves_as_before(import_settings, monkeypatch):
+    """Regression: omitting column_map must not alter the raw row written to
+    the JSONL (same rows, same keys, as the pre-column_map behavior)."""
+    rows = [{"prompt": "hi", "answer": "there"}, {"prompt": "yo", "answer": "sup"}]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        body = DatasetImportRequest(dataset_id="org/no-map", split="train")
+        assert body.column_map is None
+        accepted = await service.start_import(conn, bt, body)
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        assert row["status"] == "completed"
+
+        datasets = await DatasetsRepo(conn).list_()
+        assert datasets[0]["format"] == "grpo"
+    finally:
+        await conn.close()
+
+
+# --------------------------------------------------------------------------
+# Format-detection failure keeps the downloaded JSONL (retry doesn't re-download)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_format_detection_failure_keeps_downloaded_file(import_settings, monkeypatch):
+    rows = [{"foo": "bar"}, {"foo": "baz"}]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        body = DatasetImportRequest(dataset_id="org/undetectable", split="train")
+        accepted = await service.start_import(conn, bt, body)
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        assert row["status"] == "failed"
+
+        output_path = service._job_dir(accepted.import_id) / "output.jsonl"
+        assert output_path.exists()
+        assert output_path.read_text().strip().splitlines() == [
+            '{"foo": "bar"}',
+            '{"foo": "baz"}',
+        ]
+        assert str(output_path) in row["error"]
+
+        # in-memory bookkeeping for this import_id must still be dropped
+        assert accepted.import_id not in service._cancel_events
+        assert accepted.import_id not in service._progress
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_column_map_drops_rows_with_a_null_mapped_value(import_settings, monkeypatch):
+    """Detection is key-based, so a null would register rows /validate rejects."""
+    rows = [
+        {"problem": "2+2", "solution": "4"},
+        {"problem": "3+3", "solution": None},
+        {"problem": "4+4", "solution": "8"},
+    ]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        accepted = await service.start_import(
+            conn,
+            bt,
+            DatasetImportRequest(
+                dataset_id="org/has-nulls",
+                split="train",
+                column_map={"prompt": "problem", "answer": "solution"},
+            ),
+        )
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        assert row["status"] == "completed"
+        assert row["rows_written"] == 2  # the null row is not counted
+
+        datasets = await DatasetsRepo(conn).list_()
+        registered = [
+            json.loads(line)
+            for line in (Path(datasets[0]["path"]) / "raw.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+            if line.strip()
+        ]
+        assert registered == [
+            {"prompt": "2+2", "answer": "4"},
+            {"prompt": "4+4", "answer": "8"},
+        ]
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_all_rows_null_fails_and_says_how_many_were_dropped(import_settings, monkeypatch):
+    rows = [{"problem": "2+2", "solution": None}, {"problem": "3+3", "solution": None}]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        accepted = await service.start_import(
+            conn,
+            bt,
+            DatasetImportRequest(
+                dataset_id="org/all-nulls",
+                split="train",
+                column_map={"prompt": "problem", "answer": "solution"},
+            ),
+        )
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        assert row["status"] == "failed"
+        assert "2 satır" in row["error"]
+        assert "null" in row["error"]
+        assert not service._job_dir(accepted.import_id).exists()
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_null_values_are_kept_without_a_column_map(import_settings, monkeypatch):
+    """Backwards compatibility: an import without column_map is untouched."""
+    rows = [{"prompt": "p", "answer": None}]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        accepted = await service.start_import(
+            conn, bt, DatasetImportRequest(dataset_id="org/raw-nulls", split="train")
+        )
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        assert row["status"] == "completed"
+        assert row["rows_written"] == 1
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_kept_file_and_rows_written_agree(import_settings, monkeypatch):
+    """Handing over a file path while under-reporting its length is a lie.
+
+    Row counts are only checkpointed every _PERSIST_ROW_INTERVAL rows, so a
+    count that is not a multiple of it exposes whether the failure path
+    persists the real total.
+    """
+    rows = [{"foo": i} for i in range(150)]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        accepted = await service.start_import(
+            conn, bt, DatasetImportRequest(dataset_id="org/undetectable-150", split="train")
+        )
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        kept = service._job_dir(accepted.import_id) / "output.jsonl"
+        kept_lines = len([ln for ln in kept.read_text().splitlines() if ln.strip()])
+
+        assert row["status"] == "failed"
+        assert kept_lines == 150
+        assert row["rows_written"] == kept_lines
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_unexpected_error_terminalizes_the_row(import_settings, monkeypatch):
+    """No import may end non-terminal — a `running` row can never be cleared.
+
+    `cancel_import` only signals the worker, which is already gone, so the
+    duplicate guard would reject this dataset for the life of the install.
+    """
+    rows = [{"prompt": "p", "answer": "a"}]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    async def exploding_upload(*args, **kwargs):
+        raise OSError("disk on fire")
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        accepted = await service.start_import(
+            conn, bt, DatasetImportRequest(dataset_id="org/explodes", split="train")
+        )
+        monkeypatch.setattr(
+            get_dataset_service().__class__, "upload", exploding_upload, raising=True
+        )
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        assert row["status"] == "failed"
+        assert "disk on fire" in row["error"]
+        # Not the format-detection path, so nothing is kept.
+        assert not service._job_dir(accepted.import_id).exists()
+        assert accepted.import_id not in service._cancel_events
+        assert accepted.import_id not in service._progress
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_reimport_supersedes_the_previously_kept_file(import_settings, monkeypatch):
+    """Kept files are swept by nothing else, so a re-import must drop them."""
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream",
+        _fake_stream_factory([{"foo": "bar"}]),
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        first = await service.start_import(
+            conn, bt, DatasetImportRequest(dataset_id="org/same", split="train")
+        )
+        await bt.run_all()
+        first_kept = service._job_dir(first.import_id) / "output.jsonl"
+        assert first_kept.exists()
+
+        bt2 = FakeBackgroundTasks()
+        second = await service.start_import(
+            conn, bt2, DatasetImportRequest(dataset_id="org/same", split="train")
+        )
+
+        assert not first_kept.exists()
+        assert not service._job_dir(first.import_id).exists()
+
+        # An unrelated dataset's kept file is left alone.
+        await bt2.run_all()
+        assert (service._job_dir(second.import_id) / "output.jsonl").exists()
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_dataset_load_failure_still_cleans_up(import_settings, monkeypatch):
+    def fake_load_dataset_stream(hf_dataset_id, config, split):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", fake_load_dataset_stream
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        body = DatasetImportRequest(dataset_id="org/unreachable", split="train")
+        accepted = await service.start_import(conn, bt, body)
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        assert row["status"] == "failed"
+        assert "dataset yüklenemedi" in row["error"]
+
+        job_dir = service._job_dir(accepted.import_id)
+        assert not job_dir.exists()
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_zero_rows_still_cleans_up(import_settings, monkeypatch):
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory([])
+    )
+
+    service = DatasetImportService(import_settings)
+    conn = await make_conn(import_settings)
+    try:
+        bt = FakeBackgroundTasks()
+        body = DatasetImportRequest(dataset_id="org/empty", split="train")
+        accepted = await service.start_import(conn, bt, body)
+        await bt.run_all()
+
+        row = await DatasetImportsRepo(conn).get(accepted.import_id)
+        assert row["status"] == "failed"
+
+        job_dir = service._job_dir(accepted.import_id)
+        assert not job_dir.exists()
     finally:
         await conn.close()

@@ -69,18 +69,33 @@ def _safe_next(iterator):
         return _STREAM_END
 
 
-def _first_row_keys(path: Path) -> list[str] | None:
-    try:
-        with path.open("r", encoding="utf-8") as f:
-            for line in f:
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                obj = json.loads(stripped)
-                return list(obj.keys()) if isinstance(obj, dict) else None
-    except (OSError, json.JSONDecodeError):
-        return None
-    return None
+class NullMappedValue(Exception):
+    """A mapped source column is present in the row but holds `null`.
+
+    Distinct from a missing column: an absent column is a wrong `column_map`
+    (every row will fail), whereas a null is bad data in one row. The caller
+    fails the job for the former and drops the row for the latter.
+    """
+
+
+def _project_row(row: dict, column_map: dict[str, str]) -> dict:
+    """Project `row` to exactly the canonical keys in `column_map`.
+
+    Raises `KeyError(source_col)` if a mapped source column is absent from
+    this particular row, so the caller can report both the missing column
+    and the row's actual columns. Raises `NullMappedValue` if the column is
+    there but null — detection only looks at keys, so keeping such a row would
+    register a dataset whose every row fails `/validate`.
+    """
+    projected = {}
+    for canonical_key, source_col in column_map.items():
+        if source_col not in row:
+            raise KeyError(source_col)
+        value = row[source_col]
+        if value is None:
+            raise NullMappedValue(source_col)
+        projected[canonical_key] = value
+    return projected
 
 
 def _load_dataset_stream(hf_dataset_id: str, config: str | None, split: str):
@@ -161,6 +176,14 @@ class DatasetImportService:
         if active is not None:
             raise ConflictError(message=f"'{body.dataset_id}' zaten import ediliyor")
 
+        # A format-detection failure keeps its downloaded JSONL (see
+        # `_run_job`) and nothing else ever sweeps those directories, so
+        # re-importing the same dataset is what supersedes them. Without this
+        # every failed attempt at the same dataset leaves another copy behind
+        # — four tries at an 8800-row dataset, four files.
+        for previous_id in await repo.list_ids_by_hf_id(body.dataset_id):
+            shutil.rmtree(self._job_dir(previous_id), ignore_errors=True)
+
         import_id = _new_import_id()
         name = body.name or _slugify(body.dataset_id)
         started_at = _now()
@@ -192,6 +215,7 @@ class DatasetImportService:
             name,
             body.max_rows,
             output_path,
+            body.column_map,
         )
 
         return DatasetImportAccepted(import_id=import_id, dataset_id=body.dataset_id)
@@ -205,12 +229,12 @@ class DatasetImportService:
         name: str,
         max_rows: int | None,
         output_path: Path,
+        column_map: dict[str, str] | None = None,
     ) -> None:
         conn = await self._open_conn()
+        repo = DatasetImportsRepo(conn)
         cancel_event = self._cancel_events.get(import_id) or threading.Event()
         try:
-            repo = DatasetImportsRepo(conn)
-
             try:
                 stream = await asyncio.to_thread(_load_dataset_stream, hf_dataset_id, config, split)
                 iterator = iter(stream)
@@ -222,6 +246,7 @@ class DatasetImportService:
                 return
 
             count = 0
+            dropped = 0
             try:
                 with output_path.open("w", encoding="utf-8") as out:
                     while True:
@@ -230,6 +255,27 @@ class DatasetImportService:
                         row = await asyncio.to_thread(_safe_next, iterator)
                         if row is _STREAM_END:
                             break
+                        if column_map is not None:
+                            try:
+                                row = _project_row(row, column_map)
+                            except KeyError as exc:
+                                missing_col = exc.args[0]
+                                actual_cols = (
+                                    ", ".join(row.keys()) if isinstance(row, dict) else ""
+                                )
+                                await repo.finish_if_active(
+                                    import_id,
+                                    "failed",
+                                    None,
+                                    f"column_map kaynak kolonu bulunamadı: '{missing_col}' "
+                                    f"(satırdaki kolonlar: {actual_cols})",
+                                    _now(),
+                                )
+                                self._cleanup(import_id)
+                                return
+                            except NullMappedValue:
+                                dropped += 1
+                                continue
                         try:
                             line = json.dumps(row, ensure_ascii=False)
                         except TypeError:
@@ -264,9 +310,13 @@ class DatasetImportService:
                 return
 
             if count == 0:
-                await repo.finish_if_active(
-                    import_id, "failed", None, "dataset'ten hiç satır okunamadı", _now()
-                )
+                reason = "dataset'ten hiç satır okunamadı"
+                if dropped:
+                    reason = (
+                        f"{reason} ({dropped} satır, column_map ile eşlenen kolonu "
+                        "null olduğu için düşürüldü)"
+                    )
+                await repo.finish_if_active(import_id, "failed", None, reason, _now())
                 self._cleanup(import_id)
                 return
 
@@ -277,16 +327,44 @@ class DatasetImportService:
                     upload_file = UploadFile(file=fh, filename=f"{name}.jsonl")
                     dataset_info = await dataset_service.upload(datasets_repo, upload_file, name)
             except ValidationAppError as exc:
-                keys = _first_row_keys(output_path)
-                keys_msg = f" (bulunan kolon adları: {', '.join(keys)})" if keys else ""
+                # `exc.message` already names the offending line, its keys and
+                # the accepted formats, so appending the columns again here
+                # would only repeat itself.
+                #
+                # Persist the real count first: row writes are only
+                # checkpointed every _PERSIST_ROW_INTERVAL rows, so without
+                # this the user is handed the path of a 150-row file while
+                # `rows_written` still reads 100.
+                await repo.update_progress(import_id, count)
                 await repo.finish_if_active(
-                    import_id, "failed", None, f"{exc.message}{keys_msg}", _now()
+                    import_id,
+                    "failed",
+                    None,
+                    f"{exc.message} — indirilen satırlar korundu: {output_path}",
+                    _now(),
                 )
-                self._cleanup(import_id)
+                # Format detection is the one failure mode where the download
+                # itself succeeded: keep the JSONL so a retry (e.g. with a
+                # `column_map`, or a direct upload of the file) does not need
+                # to re-stream the whole dataset. Only drop the in-memory
+                # bookkeeping, not the temp dir.
+                self._cancel_events.pop(import_id, None)
+                self._progress.pop(import_id, None)
                 return
 
             await repo.update_progress(import_id, count)
             await repo.finish_if_active(import_id, "completed", dataset_info.dataset_id, None, _now())
+            self._cleanup(import_id)
+        except Exception as exc:
+            # Every branch above terminalizes the row itself; this catches what
+            # none of them expect — a failing DB write, an unwritable cache
+            # dir. Without it the row stays `running` forever: this worker is
+            # the only thing that ever finalizes it, `cancel_import` merely
+            # signals it, and the duplicate guard would then reject this
+            # dataset for the life of the install.
+            await repo.finish_if_active(
+                import_id, "failed", None, f"beklenmeyen hata: {exc}", _now()
+            )
             self._cleanup(import_id)
         finally:
             await conn.close()

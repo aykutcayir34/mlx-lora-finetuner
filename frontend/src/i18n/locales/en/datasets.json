@@ -94,7 +94,27 @@
     "autoSplitLabel": "Split automatically after import",
     "started": "Import started for \"{{datasetId}}\".",
     "alreadyImporting": "This dataset is already importing.",
-    "startFailed": "Failed to start import."
+    "startFailed": "Failed to start import.",
+    "columnMap": {
+      "formatLabel": "Target format",
+      "formatHint": "If the source columns are named differently, pick the target format and map the column names. No mapping is sent while auto-detect is selected.",
+      "autoDetect": "Auto-detect",
+      "missingRequired": "Fill in all required columns for this format before continuing.",
+      "fields": {
+        "messages": { "label": "messages", "placeholder": "e.g. messages" },
+        "prompt": { "label": "prompt", "placeholder": "e.g. problem" },
+        "completion": { "label": "completion", "placeholder": "e.g. completion" },
+        "text": { "label": "text", "placeholder": "e.g. text" },
+        "chosen": { "label": "chosen", "placeholder": "e.g. chosen" },
+        "rejected": { "label": "rejected", "placeholder": "e.g. rejected" },
+        "preference_score": { "label": "preference_score", "placeholder": "e.g. score" },
+        "answer": { "label": "answer", "placeholder": "e.g. solution" },
+        "system": { "label": "system (optional)", "placeholder": "e.g. system" },
+        "context_with_chat_template": { "label": "context_with_chat_template", "placeholder": "e.g. context" },
+        "rejected_decoded": { "label": "rejected_decoded", "placeholder": "e.g. rejected_decoded" },
+        "multi_chosen_decoded": { "label": "multi_chosen_decoded", "placeholder": "e.g. multi_chosen_decoded" }
+      }
+    }
   },
   "splitForm": {
     "trainRatio": "Train ratio",

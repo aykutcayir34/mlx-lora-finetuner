@@ -10,6 +10,8 @@ from app.db.database import init_db
 from app.db.repositories import DatasetsRepo, RunsRepo
 from app.schemas.datasets import DatasetFormat, SplitRequest
 from app.services.dataset_service import (
+    _ROW_MODELS,
+    _accepted_formats_hint,
     _compute_split_sizes,
     _detect_row_format,
     get_dataset_service,
@@ -92,6 +94,90 @@ class TestDetectRowFormat:
 
     def test_non_dict_returns_none(self):
         assert _detect_row_format(["not", "a", "dict"]) is None
+
+
+class TestAcceptedFormatsHint:
+    """The hint is derived from the row models, so it must stay in step."""
+
+    def test_names_every_format(self):
+        hint = _accepted_formats_hint()
+        for fmt in DatasetFormat:
+            assert fmt.value in hint
+
+    def test_lists_required_keys_only(self):
+        hint = _accepted_formats_hint()
+        assert "grpo (prompt+answer)" in hint  # `system` is optional
+        assert "dpo (prompt+chosen+rejected)" in hint
+        assert "orpo (prompt+chosen+rejected+preference_score)" in hint
+
+
+class TestDetectorMatchesRowModels:
+    """`_detect_row_format` and the row models must agree on every format.
+
+    `_accepted_formats_hint` reads the models; the detector carries its own
+    literal key sets. Nothing but this test stops the two from diverging and
+    making the hint advertise keys that would not actually be detected.
+    """
+
+    _VALUES = {
+        "messages": [{"role": "assistant", "content": "hi"}],
+        "multi_chosen_decoded": [" a"],
+        "preference_score": 0.5,
+    }
+
+    @pytest.mark.parametrize("fmt", list(DatasetFormat))
+    def test_required_keys_detect_as_their_own_format(self, fmt):
+        model = _ROW_MODELS[fmt]
+        row = {
+            name: self._VALUES.get(name, "x")
+            for name, field in model.model_fields.items()
+            if field.is_required()
+        }
+        assert _detect_row_format(row) == fmt
+
+
+class TestSniffFormat:
+    """The two failure modes must be distinguishable by the message alone."""
+
+    def _write(self, tmp_path: Path, *rows: object) -> Path:
+        path = tmp_path / "raw.jsonl"
+        path.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+            encoding="utf-8",
+        )
+        return path
+
+    def test_detects_a_uniform_file(self, tmp_path):
+        path = self._write(tmp_path, {"prompt": "p", "answer": "a"})
+        assert get_dataset_service()._sniff_format(path) == (DatasetFormat.GRPO, "")
+
+    def test_unknown_keys_report_the_keys_and_the_accepted_formats(self, tmp_path):
+        # Exactly the shape of Dongwei/Math_8K_for_GRPO, which is why this
+        # message has to point at column_map rather than just say "no".
+        path = self._write(tmp_path, {"problem": "p", "level": "3", "solution": "s"})
+        fmt, reason = get_dataset_service()._sniff_format(path)
+
+        assert fmt is None
+        assert "line 1" in reason
+        assert "problem, level, solution" in reason
+        assert "grpo (prompt+answer)" in reason
+
+    def test_mixed_formats_name_both_sides(self, tmp_path):
+        path = self._write(
+            tmp_path, {"prompt": "p", "answer": "a"}, {"prompt": "p", "completion": "c"}
+        )
+        fmt, reason = get_dataset_service()._sniff_format(path)
+
+        assert fmt is None
+        assert "line 2" in reason
+        assert "'completions'" in reason and "'grpo'" in reason
+        # Must not be mistaken for the unknown-keys case.
+        assert "match no known format" not in reason
+
+    def test_unparseable_rows_are_reported_as_such(self, tmp_path):
+        path = tmp_path / "raw.jsonl"
+        path.write_text("{not json\n", encoding="utf-8")
+        assert get_dataset_service()._sniff_format(path) == (None, "no parseable JSON rows")
 
 
 # --------------------------------------------------------------------------

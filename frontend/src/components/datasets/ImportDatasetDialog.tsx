@@ -4,12 +4,13 @@ import { Button } from '../common/Button'
 import { Field } from '../common/Field'
 import { Input } from '../common/Input'
 import { Modal } from '../common/Modal'
+import { Select, type SelectOption } from '../common/Select'
 import { Slider } from '../common/Slider'
 import { Switch } from '../common/Switch'
 import { useToast } from '../common/Toast'
 import { useImportDataset } from '../../api/queries/datasets'
 import { ApiError } from '../../api/client'
-import type { SplitRequest } from '../../api/types'
+import type { DatasetFormat, DatasetImportRequest, SplitRequest } from '../../api/types'
 
 /** The split ratios/seed to apply automatically once an import completes. */
 export type AutoSplitConfig = SplitRequest
@@ -23,6 +24,23 @@ interface ImportDatasetDialogProps {
 }
 
 const SUM_TOLERANCE = 0.001
+
+/** Client-side only: which canonical keys `column_map` needs for a given
+ * target format. Never sent to the API — only used to decide which column
+ * inputs to show and which keys are required before submitting. */
+const CANONICAL_FIELDS: Record<DatasetFormat, { required: string[]; optional?: string[] }> = {
+  chat: { required: ['messages'] },
+  completions: { required: ['prompt', 'completion'] },
+  text: { required: ['text'] },
+  dpo: { required: ['prompt', 'chosen', 'rejected'] },
+  orpo: { required: ['prompt', 'chosen', 'rejected', 'preference_score'] },
+  grpo: { required: ['prompt', 'answer'], optional: ['system'] },
+  ftpo: { required: ['context_with_chat_template', 'rejected_decoded', 'multi_chosen_decoded'] },
+}
+
+const TARGET_FORMATS: DatasetFormat[] = ['chat', 'completions', 'text', 'dpo', 'orpo', 'grpo', 'ftpo']
+
+type TargetFormat = 'auto' | DatasetFormat
 
 function slugify(hfDatasetId: string) {
   return hfDatasetId.replace('/', '-')
@@ -43,24 +61,62 @@ export function ImportDatasetDialog({
   const [valid, setValid] = useState(0.1)
   const [test, setTest] = useState(0.1)
   const [seed, setSeed] = useState(42)
+  const [targetFormat, setTargetFormat] = useState<TargetFormat>('auto')
+  const [columnValues, setColumnValues] = useState<Record<string, string>>({})
   const importDataset = useImportDataset()
   const { toast } = useToast()
 
+  const formatOptions: SelectOption[] = [
+    { value: 'auto', label: t('importDialog.columnMap.autoDetect') },
+    ...TARGET_FORMATS.map((format) => ({ value: format, label: t(`formats.${format}`) })),
+  ]
+
+  const formatSpec = targetFormat === 'auto' ? null : CANONICAL_FIELDS[targetFormat]
+  const missingRequiredColumn = formatSpec
+    ? formatSpec.required.some((key) => !(columnValues[key] ?? '').trim())
+    : false
+
   const sum = train + valid + test
   const sumIsValid = Math.abs(sum - 1) <= SUM_TOLERANCE
-  const canSubmit = !autoSplit || sumIsValid
+  const canSubmit = (!autoSplit || sumIsValid) && !missingRequiredColumn
+
+  function handleTargetFormatChange(value: string) {
+    setTargetFormat(value as TargetFormat)
+    setColumnValues({})
+  }
+
+  function handleColumnValueChange(key: string, value: string) {
+    setColumnValues((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function buildColumnMap(): Record<string, string> | undefined {
+    if (!formatSpec) return undefined
+    const map: Record<string, string> = {}
+    for (const key of [...formatSpec.required, ...(formatSpec.optional ?? [])]) {
+      const value = (columnValues[key] ?? '').trim()
+      if (value) map[key] = value
+    }
+    return map
+  }
 
   function handleSubmit() {
     if (!canSubmit) return
     const trimmedMaxRows = maxRows.trim()
+    const columnMap = buildColumnMap()
+    const body: DatasetImportRequest = {
+      dataset_id: hfDatasetId,
+      config: null,
+      split: split.trim() || 'train',
+      name: name.trim() || null,
+      max_rows: trimmedMaxRows === '' ? null : Number(trimmedMaxRows),
+    }
+    // An empty map is a 422 from the API, so never send one — `canSubmit`
+    // already blocks it, but not in a way this function can see.
+    if (columnMap && Object.keys(columnMap).length > 0) {
+      body.column_map = columnMap
+    }
     importDataset.mutate(
-      {
-        dataset_id: hfDatasetId,
-        config: null,
-        split: split.trim() || 'train',
-        name: name.trim() || null,
-        max_rows: trimmedMaxRows === '' ? null : Number(trimmedMaxRows),
-      },
+      body,
       {
         onSuccess: (response) => {
           toast(t('importDialog.started', { datasetId: hfDatasetId }), { variant: 'success' })
@@ -130,6 +186,41 @@ export function ImportDatasetDialog({
             placeholder={t('importDialog.maxRowsPlaceholder')}
           />
         </Field>
+
+        <Field
+          label={t('importDialog.columnMap.formatLabel')}
+          htmlFor="import-column-map-format"
+          hint={t('importDialog.columnMap.formatHint')}
+        >
+          <Select
+            id="import-column-map-format"
+            options={formatOptions}
+            value={targetFormat}
+            onChange={(event) => handleTargetFormatChange(event.target.value)}
+          />
+        </Field>
+
+        {formatSpec && (
+          <>
+            {[...formatSpec.required, ...(formatSpec.optional ?? [])].map((key) => (
+              <Field
+                key={key}
+                label={t(`importDialog.columnMap.fields.${key}.label`)}
+                htmlFor={`import-column-map-${key}`}
+              >
+                <Input
+                  id={`import-column-map-${key}`}
+                  value={columnValues[key] ?? ''}
+                  onChange={(event) => handleColumnValueChange(key, event.target.value)}
+                  placeholder={t(`importDialog.columnMap.fields.${key}.placeholder`)}
+                />
+              </Field>
+            ))}
+            {missingRequiredColumn && (
+              <p className="text-xs text-danger">{t('importDialog.columnMap.missingRequired')}</p>
+            )}
+          </>
+        )}
 
         <Switch checked={autoSplit} onChange={setAutoSplit} label={t('importDialog.autoSplitLabel')} />
 
