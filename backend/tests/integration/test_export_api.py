@@ -214,12 +214,13 @@ async def test_gguf_preflight_all_green_via_api(client, export_service, data_dir
     assert response.status_code == 200
     data = response.json()
     assert data["ok"] is True
-    assert {c["name"] for c in data["checks"]} == {
+    # Order matters: docs/api.md freezes it as the shape clients render.
+    assert [c["name"] for c in data["checks"]] == [
         "llama_cpp_available",
         "convert_deps_importable",
         "arch_supported",
         "weights_dequantized",
-    }
+    ]
 
 
 @pytest.mark.asyncio
@@ -231,6 +232,42 @@ async def test_gguf_preflight_missing_llama_cpp_via_api(client, export_service, 
     assert response.status_code == 200
     data = response.json()
     assert data["ok"] is False
+
+
+@pytest.mark.asyncio
+async def test_gguf_preflight_missing_convert_deps_via_api(app, client, data_dir):
+    """The dependency gate must reach the client, not just the service."""
+    settings = get_settings()
+    llama_dir = settings.cache_dir / "llama.cpp"
+    llama_dir.mkdir(parents=True, exist_ok=True)
+    (llama_dir / "convert_hf_to_gguf.py").write_text("# stub")
+    model_path = _make_model_dir(data_dir, "mlx-community/Foo", {"model_type": "llama"})
+    subprocess = RecordingSubprocess()
+    service = ExportService(
+        settings, run_subprocess=subprocess, module_available=lambda module: module != "torch"
+    )
+    app.dependency_overrides[get_export_service] = lambda: service
+    try:
+        preflight = await client.get(
+            "/api/v1/export/gguf/preflight", params={"model_path": str(model_path)}
+        )
+        start = await client.post(
+            "/api/v1/export/gguf",
+            json={"model_path": str(model_path), "outtype": "f16", "output_name": "out"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_export_service, None)
+
+    assert preflight.status_code == 200
+    checks = {c["name"]: c for c in preflight.json()["checks"]}
+    assert preflight.json()["ok"] is False
+    assert checks["llama_cpp_available"]["ok"] is True
+    assert checks["convert_deps_importable"]["ok"] is False
+
+    assert start.status_code == 422
+    detail = start.json()["error"]["detail"]
+    assert [c["name"] for c in detail["checks"]] == ["convert_deps_importable"]
+    assert subprocess.calls == []
 
 
 @pytest.mark.asyncio

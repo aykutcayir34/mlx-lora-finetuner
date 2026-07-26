@@ -64,8 +64,10 @@ def _module_available(module: str) -> bool:
     try:
         return importlib.util.find_spec(module) is not None
     except (ImportError, ValueError):
-        # A namespace package with a broken parent raises rather than
-        # returning None; either way the import would fail.
+        # find_spec raises instead of returning None for a missing parent
+        # package or an already-imported module with no __spec__. Neither can
+        # happen for the top-level names asked about here, but a raising
+        # probe must never be louder than the failed import it stands in for.
         return False
 
 

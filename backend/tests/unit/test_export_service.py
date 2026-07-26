@@ -430,7 +430,9 @@ async def test_preflight_bare_install_requires_gguf_package(settings):
     assert report.ok is False
     by_name = {c.name: c for c in report.checks}
     assert by_name["convert_deps_importable"].ok is False
-    assert "gguf" in by_name["convert_deps_importable"].message
+    # Match the list of missing modules, not the `uv sync --extra gguf` hint
+    # that every failure message ends with.
+    assert "bulamıyor: gguf." in by_name["convert_deps_importable"].message
 
 
 @pytest.mark.asyncio
