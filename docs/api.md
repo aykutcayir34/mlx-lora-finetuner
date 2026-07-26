@@ -153,6 +153,13 @@ Valid canonical keys, by the format they select: `messages` (chat) ·
 Any other key → `422 validation_error`. A mapped source column missing from a
 row fails the job, naming the column and the row's actual columns.
 
+A row whose mapped value is `null` is **dropped** instead of written: detection
+goes by keys, so such a row would be accepted here and then rejected by every
+`/datasets/{id}/validate` afterwards. `rows_written` counts kept rows only, and
+the count of dropped rows is appended to `error` if that leaves nothing to
+import. Dropping applies to `column_map` imports only — without one, rows are
+written exactly as the Hub serves them, as before.
+
 → `202 {"import_id": "di_...", "dataset_id": "org/name"}`.
 `409 conflict` if the same HF dataset is already importing.
 
