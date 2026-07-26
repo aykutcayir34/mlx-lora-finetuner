@@ -1,6 +1,24 @@
 from enum import Enum
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
+
+# Canonical keys the format detector understands (see
+# `dataset_service._detect_format`). `column_map` values are source column
+# names in the remote dataset; keys must be one of these.
+VALID_COLUMN_MAP_KEYS = {
+    "messages",
+    "prompt",
+    "completion",
+    "text",
+    "chosen",
+    "rejected",
+    "preference_score",
+    "answer",
+    "system",
+    "context_with_chat_template",
+    "rejected_decoded",
+    "multi_chosen_decoded",
+}
 
 
 class DatasetFormat(str, Enum):
@@ -81,6 +99,22 @@ class DatasetImportRequest(BaseModel):
     split: str = "train"
     name: str | None = None
     max_rows: int | None = None
+    column_map: dict[str, str] | None = None
+
+    @field_validator("column_map")
+    @classmethod
+    def _validate_column_map(cls, v: dict[str, str] | None) -> dict[str, str] | None:
+        if v is None:
+            return v
+        if not v:
+            raise ValueError("column_map boş olamaz")
+        invalid = sorted(set(v) - VALID_COLUMN_MAP_KEYS)
+        if invalid:
+            raise ValueError(
+                f"geçersiz column_map anahtarı: {', '.join(invalid)} — "
+                f"geçerli anahtarlar: {', '.join(sorted(VALID_COLUMN_MAP_KEYS))}"
+            )
+        return v
 
 
 class DatasetImportAccepted(BaseModel):

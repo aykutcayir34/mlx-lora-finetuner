@@ -215,3 +215,111 @@ async def test_cancel_import_then_double_cancel_and_unknown_id(client, monkeypat
     datasets_resp = await client.get("/api/v1/datasets")
     names = [d["name"] for d in datasets_resp.json()["datasets"]]
     assert "cancel-me" not in names
+
+
+# --------------------------------------------------------------------------
+# column_map
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_import_with_column_map_projects_and_detects_grpo(client, monkeypatch):
+    rows = [
+        {"problem": "2+2", "level": "easy", "solution": "4"},
+        {"problem": "3+3", "level": "easy", "solution": "6"},
+    ]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    response = await client.post(
+        "/api/v1/datasets/import",
+        json={
+            "dataset_id": "mlx-community/grpo-source",
+            "split": "train",
+            "column_map": {"prompt": "problem", "answer": "solution"},
+        },
+    )
+    assert response.status_code == 202
+
+    match = await _poll_import_by_hf_id(client, "mlx-community/grpo-source")
+    assert match["status"] == "completed"
+
+    datasets_resp = await client.get("/api/v1/datasets")
+    dataset = next(d for d in datasets_resp.json()["datasets"] if d["dataset_id"] == match["dataset_id"])
+    assert dataset["format"] == "grpo"
+
+
+@pytest.mark.asyncio
+async def test_import_with_invalid_column_map_key_is_422(client):
+    response = await client.post(
+        "/api/v1/datasets/import",
+        json={
+            "dataset_id": "mlx-community/whatever",
+            "split": "train",
+            "column_map": {"not_a_canonical_key": "problem"},
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
+
+
+@pytest.mark.asyncio
+async def test_import_with_empty_column_map_is_422(client):
+    response = await client.post(
+        "/api/v1/datasets/import",
+        json={"dataset_id": "mlx-community/whatever", "split": "train", "column_map": {}},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
+
+
+@pytest.mark.asyncio
+async def test_import_column_map_missing_source_column_fails_job(client, monkeypatch):
+    rows = [{"problem": "2+2", "solution": "4"}, {"problem": "no solution here"}]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    response = await client.post(
+        "/api/v1/datasets/import",
+        json={
+            "dataset_id": "mlx-community/grpo-missing-col",
+            "split": "train",
+            "column_map": {"prompt": "problem", "answer": "solution"},
+        },
+    )
+    assert response.status_code == 202
+
+    match = await _poll_import_by_hf_id(client, "mlx-community/grpo-missing-col")
+    assert match["status"] == "failed"
+    assert "solution" in match["error"]
+    assert "problem" in match["error"]
+
+
+# --------------------------------------------------------------------------
+# Format-detection failure keeps the downloaded file (path surfaces in error)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_import_format_detection_failure_reports_kept_file_path(client, monkeypatch):
+    rows = [{"foo": "bar"}, {"foo": "baz"}]
+    monkeypatch.setattr(
+        "app.services.dataset_import_service._load_dataset_stream", _fake_stream_factory(rows)
+    )
+
+    response = await client.post(
+        "/api/v1/datasets/import",
+        json={"dataset_id": "mlx-community/undetectable-format", "split": "train"},
+    )
+    assert response.status_code == 202
+
+    match = await _poll_import_by_hf_id(client, "mlx-community/undetectable-format")
+    assert match["status"] == "failed"
+    assert "output.jsonl" in match["error"]
+    import os
+
+    # the path embedded in the error message must point at a file still on disk
+    path_part = match["error"].split("indirilen satırlar korundu: ", 1)[1]
+    assert os.path.exists(path_part)

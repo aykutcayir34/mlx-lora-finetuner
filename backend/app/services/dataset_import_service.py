@@ -69,18 +69,19 @@ def _safe_next(iterator):
         return _STREAM_END
 
 
-def _first_row_keys(path: Path) -> list[str] | None:
-    try:
-        with path.open("r", encoding="utf-8") as f:
-            for line in f:
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                obj = json.loads(stripped)
-                return list(obj.keys()) if isinstance(obj, dict) else None
-    except (OSError, json.JSONDecodeError):
-        return None
-    return None
+def _project_row(row: dict, column_map: dict[str, str]) -> dict:
+    """Project `row` to exactly the canonical keys in `column_map`.
+
+    Raises `KeyError(source_col)` if a mapped source column is absent from
+    this particular row, so the caller can report both the missing column
+    and the row's actual columns.
+    """
+    projected = {}
+    for canonical_key, source_col in column_map.items():
+        if source_col not in row:
+            raise KeyError(source_col)
+        projected[canonical_key] = row[source_col]
+    return projected
 
 
 def _load_dataset_stream(hf_dataset_id: str, config: str | None, split: str):
@@ -192,6 +193,7 @@ class DatasetImportService:
             name,
             body.max_rows,
             output_path,
+            body.column_map,
         )
 
         return DatasetImportAccepted(import_id=import_id, dataset_id=body.dataset_id)
@@ -205,6 +207,7 @@ class DatasetImportService:
         name: str,
         max_rows: int | None,
         output_path: Path,
+        column_map: dict[str, str] | None = None,
     ) -> None:
         conn = await self._open_conn()
         cancel_event = self._cancel_events.get(import_id) or threading.Event()
@@ -230,6 +233,24 @@ class DatasetImportService:
                         row = await asyncio.to_thread(_safe_next, iterator)
                         if row is _STREAM_END:
                             break
+                        if column_map is not None:
+                            try:
+                                row = _project_row(row, column_map)
+                            except KeyError as exc:
+                                missing_col = exc.args[0]
+                                actual_cols = (
+                                    ", ".join(row.keys()) if isinstance(row, dict) else ""
+                                )
+                                await repo.finish_if_active(
+                                    import_id,
+                                    "failed",
+                                    None,
+                                    f"column_map kaynak kolonu bulunamadı: '{missing_col}' "
+                                    f"(satırdaki kolonlar: {actual_cols})",
+                                    _now(),
+                                )
+                                self._cleanup(import_id)
+                                return
                         try:
                             line = json.dumps(row, ensure_ascii=False)
                         except TypeError:
@@ -277,12 +298,23 @@ class DatasetImportService:
                     upload_file = UploadFile(file=fh, filename=f"{name}.jsonl")
                     dataset_info = await dataset_service.upload(datasets_repo, upload_file, name)
             except ValidationAppError as exc:
-                keys = _first_row_keys(output_path)
-                keys_msg = f" (bulunan kolon adları: {', '.join(keys)})" if keys else ""
+                # `exc.message` already names the offending line, its keys and
+                # the accepted formats, so appending the columns again here
+                # would only repeat itself.
                 await repo.finish_if_active(
-                    import_id, "failed", None, f"{exc.message}{keys_msg}", _now()
+                    import_id,
+                    "failed",
+                    None,
+                    f"{exc.message} — indirilen satırlar korundu: {output_path}",
+                    _now(),
                 )
-                self._cleanup(import_id)
+                # Format detection is the one failure mode where the download
+                # itself succeeded: keep the JSONL so a retry (e.g. with a
+                # `column_map`, or a direct upload of the file) does not need
+                # to re-stream the whole dataset. Only drop the in-memory
+                # bookkeeping, not the temp dir.
+                self._cancel_events.pop(import_id, None)
+                self._progress.pop(import_id, None)
                 return
 
             await repo.update_progress(import_id, count)
