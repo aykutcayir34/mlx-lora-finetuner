@@ -58,6 +58,31 @@ async def training_client(training_app):
         yield ac
 
 
+@pytest.fixture
+async def application_and_slow_manager(training_app):
+    """Like `training_client`, but with a worker that cannot finish on its own.
+
+    For tests that must act on a job while it is still running: the default
+    fake worker does 3 steps with no delay, so anything racing it is decided
+    by the scheduler.
+    """
+    application, _ = training_app
+    slow_manager = manager_module.JobManager(
+        settings=get_settings(),
+        worker_argv_factory=make_worker_argv_factory(
+            "happy", FAKE_WORKER_ITERS=100_000, FAKE_WORKER_STEP_DELAY=0.01
+        ),
+        cancel_grace_seconds=0.3,
+    )
+    application.dependency_overrides[manager_module.get_job_manager] = lambda: slow_manager
+    transport = ASGITransport(app=application)
+    try:
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield application, slow_manager, ac
+    finally:
+        await slow_manager.shutdown()
+
+
 @pytest.mark.asyncio
 async def test_create_job_returns_201_running(training_client):
     resp = await training_client.post("/api/v1/train/jobs", json=_config_payload())
@@ -141,19 +166,27 @@ async def test_run_lifecycle_detail_list_metrics_logs(training_app, training_cli
 
 
 @pytest.mark.asyncio
-async def test_cancel_returns_202_and_eventually_cancelled(training_app, training_client):
-    _application, test_manager = training_app
+async def test_cancel_returns_202_and_eventually_cancelled(application_and_slow_manager):
+    # `iters` in the payload does not reach the fake worker — it reads
+    # FAKE_WORKER_ITERS — so the shared fixture's 3 zero-delay steps finish in
+    # microseconds and whether the cancel lands first is a coin toss. It lost
+    # on a busy machine and the run came back `completed`. This manager's
+    # worker is still on step 1 of 100000 when the cancel arrives.
+    _application, slow_manager, client = application_and_slow_manager
 
-    created = await training_client.post("/api/v1/train/jobs", json=_config_payload(iters=1000))
+    created = await client.post("/api/v1/train/jobs", json=_config_payload())
     run_id = created.json()["run_id"]
+    # Pin the premise: 100000 steps at 10ms cannot already be done, so what
+    # follows really does cancel a running job.
+    assert not slow_manager.done_event(run_id).is_set()
 
-    cancel_resp = await training_client.post(f"/api/v1/train/jobs/{run_id}/cancel")
+    cancel_resp = await client.post(f"/api/v1/train/jobs/{run_id}/cancel")
     assert cancel_resp.status_code == 202
     assert cancel_resp.json()["run_id"] == run_id
 
-    await asyncio.wait_for(test_manager.done_event(run_id).wait(), timeout=5)
+    await asyncio.wait_for(slow_manager.done_event(run_id).wait(), timeout=10)
 
-    final = await training_client.get(f"/api/v1/train/jobs/{run_id}")
+    final = await client.get(f"/api/v1/train/jobs/{run_id}")
     assert final.json()["status"] == "cancelled"
 
 
