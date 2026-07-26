@@ -69,18 +69,32 @@ def _safe_next(iterator):
         return _STREAM_END
 
 
+class NullMappedValue(Exception):
+    """A mapped source column is present in the row but holds `null`.
+
+    Distinct from a missing column: an absent column is a wrong `column_map`
+    (every row will fail), whereas a null is bad data in one row. The caller
+    fails the job for the former and drops the row for the latter.
+    """
+
+
 def _project_row(row: dict, column_map: dict[str, str]) -> dict:
     """Project `row` to exactly the canonical keys in `column_map`.
 
     Raises `KeyError(source_col)` if a mapped source column is absent from
     this particular row, so the caller can report both the missing column
-    and the row's actual columns.
+    and the row's actual columns. Raises `NullMappedValue` if the column is
+    there but null — detection only looks at keys, so keeping such a row would
+    register a dataset whose every row fails `/validate`.
     """
     projected = {}
     for canonical_key, source_col in column_map.items():
         if source_col not in row:
             raise KeyError(source_col)
-        projected[canonical_key] = row[source_col]
+        value = row[source_col]
+        if value is None:
+            raise NullMappedValue(source_col)
+        projected[canonical_key] = value
     return projected
 
 
@@ -232,6 +246,7 @@ class DatasetImportService:
                 return
 
             count = 0
+            dropped = 0
             try:
                 with output_path.open("w", encoding="utf-8") as out:
                     while True:
@@ -258,6 +273,9 @@ class DatasetImportService:
                                 )
                                 self._cleanup(import_id)
                                 return
+                            except NullMappedValue:
+                                dropped += 1
+                                continue
                         try:
                             line = json.dumps(row, ensure_ascii=False)
                         except TypeError:
@@ -292,9 +310,13 @@ class DatasetImportService:
                 return
 
             if count == 0:
-                await repo.finish_if_active(
-                    import_id, "failed", None, "dataset'ten hiç satır okunamadı", _now()
-                )
+                reason = "dataset'ten hiç satır okunamadı"
+                if dropped:
+                    reason = (
+                        f"{reason} ({dropped} satır, column_map ile eşlenen kolonu "
+                        "null olduğu için düşürüldü)"
+                    )
+                await repo.finish_if_active(import_id, "failed", None, reason, _now())
                 self._cleanup(import_id)
                 return
 
