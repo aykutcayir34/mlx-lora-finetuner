@@ -41,8 +41,9 @@ from a single process on http://127.0.0.1:8000 (see
   train mode, status) with one-click cloning of a past run's config into a
   fresh prefill.
 - **Export** — fuse a LoRA adapter into the base model, convert the fused model to
-  GGUF (with preflight checks for llama.cpp availability, architecture support,
-  and de-quantization), and render an Ollama `Modelfile` ready for `ollama create`.
+  GGUF (with preflight checks for llama.cpp availability, converter
+  dependencies, architecture support, and de-quantization), and render an
+  Ollama `Modelfile` ready for `ollama create`.
 - **Dashboard** — system stats (memory/disk), the active run at a glance, recent
   runs, and an onboarding guide for first-time setup.
 
@@ -182,8 +183,31 @@ All settings are environment variables with an `MLXLF_` prefix (see
 | `MLXLF_HOST`         | `127.0.0.1`                | Backend bind host.                                                  |
 | `MLXLF_PORT`         | `8000`                     | Backend port.                                                       |
 | `MLXLF_HF_TOKEN`     | *(unset)*                  | Hugging Face token, used for gated/private models and higher rate limits. |
-| `MLXLF_LLAMA_CPP_DIR` | *(unset)*                  | Path to a `llama.cpp` checkout containing `convert_hf_to_gguf.py`, required for GGUF export. Falls back to `<data_dir>/cache/llama.cpp`. |
+| `MLXLF_LLAMA_CPP_DIR` | *(unset)*                  | Path to a `llama.cpp` checkout containing `convert_hf_to_gguf.py`, required for GGUF export. Falls back to `<data_dir>/cache/llama.cpp`. See [GGUF export prerequisites](#gguf-export-prerequisites). |
 | `MLXLF_STATIC_DIR`   | `<repo>/frontend/dist`     | Built frontend served at `/` in production (`mlxlf`). If it contains no `index.html`, nothing is mounted (dev mode). |
+
+### GGUF export prerequisites
+
+GGUF conversion shells out to llama.cpp's `convert_hf_to_gguf.py`, running it
+with the backend's own interpreter. Two things must be in place:
+
+1. **The script.** Point `MLXLF_LLAMA_CPP_DIR` at a directory containing
+   `convert_hf_to_gguf.py` (a `llama.cpp` checkout, or `/opt/homebrew/bin` for
+   Homebrew's `llama.cpp`), or clone the repo into `<data_dir>/cache/llama.cpp`.
+2. **Its dependencies**, in the backend environment — the script imports
+   `torch`, `transformers` and `numpy` at module level, plus `gguf` when the
+   directory does not ship its own `gguf-py` (Homebrew's does not):
+
+   ```bash
+   cd backend && uv sync --extra gguf
+   ```
+
+   `make install` already includes this extra. It is optional because `torch`
+   is a large download that nothing else in the app needs.
+
+`GET /export/gguf/preflight` reports both as the `llama_cpp_available` and
+`convert_deps_importable` checks, and `POST /export/gguf` refuses to start
+until they pass.
 
 ### Data directory layout
 

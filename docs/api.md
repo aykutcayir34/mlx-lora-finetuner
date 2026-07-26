@@ -346,6 +346,7 @@ separators (`/`, `\`) or `..`; must not start with `.` or `-`. Anything else →
 ```json
 {"ok": false, "checks": [
   {"name": "llama_cpp_available", "ok": true, "message": "..."},
+  {"name": "convert_deps_importable", "ok": true, "message": "..."},
   {"name": "arch_supported", "ok": true, "message": "llama"},
   {"name": "weights_dequantized", "ok": false, "message": "weights are 4-bit quantized; re-fuse with de_quantize=true"}
 ]}
