@@ -158,8 +158,14 @@ row fails the job, naming the column and the row's actual columns.
 
 When a job fails *after* the download — i.e. at format detection — the raw
 JSONL is **kept** so a retry does not re-download it, and its path is included
-in `error`. Upload it directly, or re-import with a `column_map`. Every other
-terminal state (completed, cancelled, download failure) removes it.
+in `error`. Upload it directly, or re-import with a `column_map`. `rows_written`
+counts the lines in that kept file. Every other terminal state (completed,
+cancelled, download failure, an unmapped `column_map` column, any unexpected
+error) removes it — no import can end in a non-terminal state.
+
+Starting a new import of the same `hf_dataset_id` deletes that dataset's
+previously kept file first: a re-import supersedes it, and nothing else ever
+sweeps the directory.
 
 ### GET /datasets/imports
 ```json
