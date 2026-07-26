@@ -94,7 +94,27 @@
     "autoSplitLabel": "İçe aktarma sonrası otomatik böl",
     "started": "\"{{datasetId}}\" için içe aktarma başlatıldı.",
     "alreadyImporting": "Bu veri kümesi zaten içe aktarılıyor.",
-    "startFailed": "İçe aktarma başlatılamadı."
+    "startFailed": "İçe aktarma başlatılamadı.",
+    "columnMap": {
+      "formatLabel": "Hedef format",
+      "formatHint": "Kaynak kolonlar farklı adlandırılmışsa hedef formatı seç ve kolon adlarını eşle. Otomatik tespit seçiliyken hiçbir eşleme gönderilmez.",
+      "autoDetect": "Otomatik tespit",
+      "missingRequired": "Devam etmeden önce bu formatın tüm zorunlu kolonlarını doldur.",
+      "fields": {
+        "messages": { "label": "messages", "placeholder": "örn. messages" },
+        "prompt": { "label": "prompt", "placeholder": "örn. problem" },
+        "completion": { "label": "completion", "placeholder": "örn. completion" },
+        "text": { "label": "text", "placeholder": "örn. text" },
+        "chosen": { "label": "chosen", "placeholder": "örn. chosen" },
+        "rejected": { "label": "rejected", "placeholder": "örn. rejected" },
+        "preference_score": { "label": "preference_score", "placeholder": "örn. score" },
+        "answer": { "label": "answer", "placeholder": "örn. solution" },
+        "system": { "label": "system (isteğe bağlı)", "placeholder": "örn. system" },
+        "context_with_chat_template": { "label": "context_with_chat_template", "placeholder": "örn. context" },
+        "rejected_decoded": { "label": "rejected_decoded", "placeholder": "örn. rejected_decoded" },
+        "multi_chosen_decoded": { "label": "multi_chosen_decoded", "placeholder": "örn. multi_chosen_decoded" }
+      }
+    }
   },
   "splitForm": {
     "trainRatio": "Train oranı",
