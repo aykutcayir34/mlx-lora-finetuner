@@ -28,20 +28,29 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
+      {/* Capped to the viewport and laid out as a column: the header and
+          footer keep their size while the body takes the rest and scrolls.
+          Without the cap a dialog taller than the window grows past it in
+          both directions — it is centred — so the footer's buttons become
+          unreachable with nothing to scroll. `min-h-0` is what lets the body
+          shrink below its content height; a flex child refuses to by
+          default, and overflow never kicks in. */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative z-10 w-full max-w-md rounded-xl border border-border bg-surface p-5 shadow-xl"
+        className="relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col rounded-xl border border-border bg-surface p-5 shadow-xl"
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex shrink-0 items-center justify-between">
           {title && <h2 className="text-base font-semibold text-text">{title}</h2>}
           <IconButton aria-label={t('actions.close')} variant="ghost" onClick={onClose} className="ml-auto">
             <CloseIcon />
           </IconButton>
         </div>
-        <div className="text-sm text-text">{children}</div>
-        {footer && <div className="mt-5 flex justify-end gap-2">{footer}</div>}
+        <div data-modal-body className="min-h-0 flex-1 overflow-y-auto text-sm text-text">
+          {children}
+        </div>
+        {footer && <div className="mt-5 flex shrink-0 justify-end gap-2">{footer}</div>}
       </div>
     </div>
   )

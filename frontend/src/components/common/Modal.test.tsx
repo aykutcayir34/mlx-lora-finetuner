@@ -54,4 +54,27 @@ describe('Modal', () => {
     await user.click(backdrop as Element)
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  // jsdom does no layout, so this pins the structure that makes tall content
+  // scrollable rather than the resulting geometry: the body scrolls, and the
+  // footer sits outside it so its buttons cannot be scrolled out of reach.
+  // The geometry itself is checked against a real browser.
+  it('keeps the footer outside the scrollable body', () => {
+    const { container } = render(
+      <Modal open={true} onClose={() => {}} title="Tall" footer={<button>Import</button>}>
+        <p>content</p>
+      </Modal>,
+    )
+
+    const dialog = screen.getByRole('dialog')
+    const body = container.querySelector('[data-modal-body]')
+    expect(body).not.toBeNull()
+    expect(body?.className).toContain('overflow-y-auto')
+    expect(body?.className).toContain('min-h-0')
+    expect(dialog.className).toContain('max-h-')
+
+    const importButton = screen.getByRole('button', { name: 'Import' })
+    expect(body?.contains(importButton)).toBe(false)
+    expect(dialog.contains(importButton)).toBe(true)
+  })
 })
