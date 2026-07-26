@@ -47,6 +47,7 @@ describe('GGUFWizard', () => {
           ok: false,
           checks: [
             { name: 'llama_cpp_available', ok: true, message: 'llama.cpp found' },
+            { name: 'convert_deps_importable', ok: true, message: 'converter deps ready' },
             { name: 'arch_supported', ok: true, message: 'llama' },
             {
               name: 'weights_dequantized',
@@ -67,6 +68,39 @@ describe('GGUFWizard', () => {
 
     expect(
       await screen.findByText('weights are 4-bit quantized; re-fuse with de_quantize=true'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Convert' })).toBeDisabled()
+  })
+
+  it('renders the convert-deps failure message and blocks submit', async () => {
+    server.use(...exportHandlers)
+    server.use(
+      http.get('/api/v1/export/gguf/preflight', () =>
+        HttpResponse.json({
+          ok: false,
+          checks: [
+            { name: 'llama_cpp_available', ok: true, message: 'llama.cpp found' },
+            {
+              name: 'convert_deps_importable',
+              ok: false,
+              message: 'convert_hf_to_gguf.py cannot import: torch',
+            },
+            { name: 'arch_supported', ok: true, message: 'llama' },
+            { name: 'weights_dequantized', ok: true, message: 'weights are f16' },
+          ],
+        }),
+      ),
+    )
+
+    const user = userEvent.setup()
+    renderWizard()
+
+    await screen.findByRole('option', { name: '/abs/exports/my-model-fused' })
+    await user.selectOptions(sourceSelect(), '/abs/exports/my-model-fused')
+    await user.type(screen.getByPlaceholderText('my-model'), 'my-gguf')
+
+    expect(
+      await screen.findByText('convert_hf_to_gguf.py cannot import: torch'),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Convert' })).toBeDisabled()
   })

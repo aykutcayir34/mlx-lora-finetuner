@@ -190,9 +190,14 @@ conversion can never take the API server down with it:
    --adapter-path ... --save-path ...` (optionally `--dequantize`) as a
    background subprocess. Blocked with `training_active` while any run is
    queued/running.
-2. **GGUF preflight** (`GET /export/gguf/preflight`) — three gate checks before
+2. **GGUF preflight** (`GET /export/gguf/preflight`) — four gate checks before
    allowing conversion: `llama_cpp_available` (a `convert_hf_to_gguf.py` file
    found in `MLXLF_LLAMA_CPP_DIR` or `<data_dir>/cache/llama.cpp`),
+   `convert_deps_importable` (the third-party modules that script imports at
+   module level — `torch`, `transformers`, `numpy`, plus `gguf` unless the
+   checkout ships its own `gguf-py` — resolve in `sys.executable`, the same
+   interpreter step 3 hands the script to; a bare `llama.cpp` install such as
+   Homebrew's satisfies the first check but still dies on `import torch`),
    `arch_supported` (the fused model's `config.json` `model_type` is in a
    curated allow-list: `llama`, `qwen2`, `qwen3`, `mistral`, `gemma`, `gemma2`,
    `phi3`), and `weights_dequantized` (no `"quantization"` key in

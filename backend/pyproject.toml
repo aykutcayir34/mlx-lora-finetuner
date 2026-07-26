@@ -30,6 +30,14 @@ mlx = [
     "mlx-lm-lora==3.0.0",
     "mlx-lm==0.31.3",
 ]
+# Dependencies of llama.cpp's `convert_hf_to_gguf.py`, which GGUF export runs
+# with this interpreter. Optional because torch is a large download and no
+# other part of the app touches it — everything else runs on MLX.
+gguf = [
+    "torch>=2.13,<3",
+    "transformers>=5.13,<6",
+    "gguf>=0.19,<1",
+]
 
 [dependency-groups]
 dev = [
