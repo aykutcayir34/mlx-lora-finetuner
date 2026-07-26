@@ -164,8 +164,14 @@ class TestStreamChat:
 
         assert out_frames[-1]["type"] == "done"
         token_frames = [f for f in out_frames if f["type"] == "token"]
-        # Cancellation cuts the (otherwise infinite) stream short.
-        assert 0 < len(token_frames) < 1000
+        # The fake generator never ends, so terminating at all is the proof
+        # that cancellation cut the stream short — and `asyncio.wait_for`
+        # above already enforces that. How many tokens slip through between
+        # `cancel_event.set()` and the service's next check is pure
+        # scheduling, so an upper bound here measures machine load, not
+        # behaviour: it read 1261 and 2114 on a busy machine against a
+        # hand-picked limit of 1000.
+        assert len(token_frames) > 0
         usage = out_frames[-1]["usage"]
         assert usage["prompt_tokens"] == 7
         assert usage["completion_tokens"] >= 1
