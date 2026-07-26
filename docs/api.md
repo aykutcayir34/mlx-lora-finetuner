@@ -130,14 +130,36 @@ HF Hub dataset search proxy (`HfApi.list_datasets`).
 ### POST /datasets/import
 ```json
 {"dataset_id": "org/name", "config": null, "split": "train",
- "name": null, "max_rows": 5000}
+ "name": null, "max_rows": 5000,
+ "column_map": {"prompt": "problem", "answer": "solution"}}
 ```
 `split` defaults to `"train"`; `name` defaults to a slug of the HF id; `max_rows`
 null = all rows. The import streams rows (`datasets` lib, `streaming=True`) into a
-raw JSONL, then registers it as a regular local dataset (format auto-detected —
-unrecognizable columns fail the job with a message listing the columns found).
+raw JSONL, then registers it as a regular local dataset (format auto-detected).
+
+`column_map` (optional) renames source columns to the canonical keys the format
+detector expects, for the common case of a dataset that carries the right data
+under the wrong names — `{"prompt": "problem", "answer": "solution"}` turns a
+`problem/level/solution/type` row into a `grpo` row. Keys are canonical, values
+are source columns. When given, each row is projected to **exactly** the mapped
+keys, so unmapped source columns are dropped and cannot flip detection to
+another format.
+
+Valid canonical keys, by the format they select: `messages` (chat) ·
+`prompt`+`completion` (completions) · `text` (text) ·
+`prompt`+`chosen`+`rejected` (dpo, plus `preference_score` → orpo) ·
+`prompt`+`answer`+optional `system` (grpo) ·
+`context_with_chat_template`+`rejected_decoded`+`multi_chosen_decoded` (ftpo).
+Any other key → `422 validation_error`. A mapped source column missing from a
+row fails the job, naming the column and the row's actual columns.
+
 → `202 {"import_id": "di_...", "dataset_id": "org/name"}`.
 `409 conflict` if the same HF dataset is already importing.
+
+When a job fails *after* the download — i.e. at format detection — the raw
+JSONL is **kept** so a retry does not re-download it, and its path is included
+in `error`. Upload it directly, or re-import with a `column_map`. Every other
+terminal state (completed, cancelled, download failure) removes it.
 
 ### GET /datasets/imports
 ```json
