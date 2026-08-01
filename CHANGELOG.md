@@ -14,9 +14,31 @@ The version's source of truth is `backend/pyproject.toml` (reported by
 - Full UI internationalization: English and Turkish across every surface
   (~610 keys), with a persistent EN/TR switcher in the top bar and
   browser-language detection on first visit (#55)
+- HF import column mapping: `column_map` renames source columns onto the
+  canonical keys the format detector expects, so a dataset carrying the right
+  data under the wrong names imports as the right format (#71)
 - Dispatchable release workflow: one action validates the changelog/version
   coherence, tags main and publishes the GitHub release (#54)
 - Animated UI demo at the top of the README (#53)
+
+### Fixed
+
+- GGUF preflight now gates on the converter's own imports, so conversion fails
+  up front with a named missing dependency instead of mid-run (#69)
+- Dataset import says *why* format detection failed, not just that it did (#71)
+- Tall modals cap their height and scroll their body instead of overflowing the
+  viewport (#73)
+- Two cancel tests no longer measure machine load, which made them flaky on
+  busy runners (#72)
+
+### Changed
+
+- Dependency bumps: huggingface-hub, @tanstack/react-query, @vitejs/plugin-react,
+  oxlint, @tailwindcss/vite, react 19.2.8, setup-python 7, fastapi 0.139.2
+  (#57–#65, #76)
+- Dependabot groups updates per ecosystem so lockfile rewrites stop conflicting
+  with each other, and ruff is capped at the next minor — a linter minor ships
+  new rules, which breaks `make lint` like a breaking release would (#66)
 
 ## [0.2.0] - 2026-07-23
 
