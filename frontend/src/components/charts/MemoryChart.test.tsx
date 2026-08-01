@@ -17,8 +17,21 @@ const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect
 
 beforeAll(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
-  Element.prototype.getBoundingClientRect = () =>
-    ({ width: 500, height: 300, top: 0, left: 0, bottom: 300, right: 500, x: 0, y: 0 }) as DOMRect
+  Element.prototype.getBoundingClientRect = function (this: Element) {
+    // Recharts subtracts the measured legend height from the plot area; a
+    // uniform 300px would leave zero height and skip drawing the curves.
+    const height = this.classList?.contains('recharts-legend-wrapper') ? 24 : 300
+    return {
+      width: 500,
+      height,
+      top: 0,
+      left: 0,
+      bottom: height,
+      right: 500,
+      x: 0,
+      y: 0,
+    } as DOMRect
+  }
 })
 
 afterAll(() => {
@@ -52,6 +65,62 @@ describe('MemoryChart', () => {
 
     expect(container.querySelector('.recharts-responsive-container')).toBeTruthy()
     expect(screen.getByText('Peak memory (GB)')).toBeInTheDocument()
+  })
+
+  it('renders a single, solid series when no compare prop is given', () => {
+    const data: MetricEvent[] = [
+      makeEvent({ step: 0, peak_memory_gb: 4.1 }),
+      makeEvent({ step: 1, peak_memory_gb: 4.3 }),
+    ]
+
+    const { container } = render(<MemoryChart data={data} />)
+
+    const curves = Array.from(container.querySelectorAll('.recharts-line-curve'))
+    expect(curves).toHaveLength(1)
+    expect(curves[0].getAttribute('stroke-dasharray')).toBeNull()
+    expect(container.querySelector('.recharts-legend-wrapper')).toBeNull()
+  })
+
+  it('overlays a comparison run as a dashed, differently coloured series', () => {
+    const data: MetricEvent[] = [
+      makeEvent({ step: 0, peak_memory_gb: 4.1 }),
+      makeEvent({ step: 1, peak_memory_gb: 4.3 }),
+    ]
+    const compareData: MetricEvent[] = [
+      makeEvent({ run_id: 'run-2', step: 0, peak_memory_gb: 6.1 }),
+      makeEvent({ run_id: 'run-2', step: 1, peak_memory_gb: 6.4 }),
+      makeEvent({ run_id: 'run-2', step: 2, peak_memory_gb: 6.6 }),
+    ]
+
+    const { container } = render(
+      <MemoryChart
+        data={data}
+        compare={{ data: compareData, label: 'run-b', baseLabel: 'run-a' }}
+      />,
+    )
+
+    expect(screen.getByText('Peak memory · run-a')).toBeInTheDocument()
+    expect(screen.getByText('Peak memory · run-b')).toBeInTheDocument()
+
+    const curves = Array.from(container.querySelectorAll('.recharts-line-curve'))
+    expect(curves).toHaveLength(2)
+    const dashed = curves.filter((path) => path.getAttribute('stroke-dasharray'))
+    expect(dashed).toHaveLength(1)
+    expect(dashed[0].getAttribute('stroke')).toBe('var(--color-compare)')
+  })
+
+  it('keeps rendering the base run when the comparison run has no metrics', () => {
+    const data: MetricEvent[] = [
+      makeEvent({ step: 0, peak_memory_gb: 4.1 }),
+      makeEvent({ step: 1, peak_memory_gb: 4.3 }),
+    ]
+
+    const { container } = render(
+      <MemoryChart data={data} compare={{ data: [], label: 'run-b', baseLabel: 'run-a' }} />,
+    )
+
+    expect(screen.getByText('Peak memory (GB)')).toBeInTheDocument()
+    expect(container.querySelectorAll('.recharts-line-curve')).toHaveLength(1)
   })
 
   it('renders the empty state when given no data', () => {

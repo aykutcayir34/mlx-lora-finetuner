@@ -11,6 +11,7 @@ import { Field } from '../common/Field'
 import { LossChart } from '../charts/LossChart'
 import { LRChart } from '../charts/LRChart'
 import { MemoryChart } from '../charts/MemoryChart'
+import type { CompareSeries } from '../charts/compare'
 import { ExportConfigLink } from '../training/ExportConfigLink'
 import { ConfigViewer } from './ConfigViewer'
 import { ConfigDiff } from './ConfigDiff'
@@ -18,7 +19,7 @@ import type { RunSummary } from '../../api/types'
 
 interface RunDetailPanelProps {
   run: RunSummary
-  /** Candidate runs for the config-diff picker (typically the currently loaded page of results). */
+  /** Candidate runs for the comparison picker (typically the currently loaded page of results). */
   otherRuns: RunSummary[]
 }
 
@@ -28,12 +29,35 @@ export function RunDetailPanel({ run, otherRuns }: RunDetailPanelProps) {
   const { t } = useTranslation('history')
   const navigate = useNavigate()
   const [tab, setTab] = useState<DetailTab>('charts')
-  const [diffRunId, setDiffRunId] = useState('')
+  const [compareRunId, setCompareRunId] = useState('')
   const metricsQuery = useRunMetrics(run.run_id, 0, undefined)
   const cloneRun = useCloneRun()
 
   const metrics = metricsQuery.data?.metrics ?? []
-  const diffRun = otherRuns.find((candidate) => candidate.run_id === diffRunId) ?? null
+  const compareRun = otherRuns.find((candidate) => candidate.run_id === compareRunId) ?? null
+  // Disabled (never fetched) while no comparison run is picked — `useRunMetrics`
+  // keys off a falsy run id.
+  const compareMetricsQuery = useRunMetrics(compareRun?.run_id ?? '', 0, undefined)
+  const compareMetrics = compareMetricsQuery.data?.metrics ?? []
+
+  // A comparison run that is still loading, failed to fetch, or simply has no
+  // metrics (e.g. a run that failed before its first step) degrades to a note:
+  // the base run's charts keep rendering untouched.
+  const compare: CompareSeries | undefined =
+    compareRun && compareMetrics.length > 0
+      ? { data: compareMetrics, label: compareRun.name, baseLabel: run.name }
+      : undefined
+
+  let compareNote: string | null = null
+  if (compareRun && !compare) {
+    if (compareMetricsQuery.isError) {
+      compareNote = t('detail.compareFailed', { name: compareRun.name })
+    } else if (compareMetricsQuery.isLoading) {
+      compareNote = t('detail.compareLoading', { name: compareRun.name })
+    } else {
+      compareNote = t('detail.compareEmpty', { name: compareRun.name })
+    }
+  }
 
   function handleClone() {
     cloneRun.mutate(run.run_id, {
@@ -69,6 +93,29 @@ export function RunDetailPanel({ run, otherRuns }: RunDetailPanelProps) {
         </div>
       </div>
 
+      {/* One comparison run governs both tabs: the charts overlay it and the
+          diff tab diffs its config against the base run. */}
+      <Field
+        label={t('detail.compareAgainst')}
+        htmlFor="history-compare-run"
+        hint={t('detail.compareHint')}
+      >
+        <Select
+          id="history-compare-run"
+          value={compareRunId}
+          onChange={(event) => setCompareRunId(event.target.value)}
+          options={[
+            { value: '', label: t('detail.selectRun') },
+            ...otherRuns
+              .filter((candidate) => candidate.run_id !== run.run_id)
+              .map((candidate) => ({
+                value: candidate.run_id,
+                label: `${candidate.name} (${candidate.run_id})`,
+              })),
+          ]}
+        />
+      </Field>
+
       <Tabs
         tabs={[
           { id: 'charts', label: t('detail.tabs.charts') },
@@ -80,36 +127,30 @@ export function RunDetailPanel({ run, otherRuns }: RunDetailPanelProps) {
       >
         {tab === 'charts' && (
           <div className="flex flex-col gap-4">
-            <LossChart data={metrics} />
-            <LRChart data={metrics} />
-            <MemoryChart data={metrics} />
+            {compare && (
+              <p data-testid="compare-summary" className="text-xs text-text-muted">
+                {t('detail.compareActive', { base: run.name, other: compareRun?.name ?? '' })}
+              </p>
+            )}
+            {compareNote && (
+              <p data-testid="compare-note" className="text-xs text-text-muted">
+                {compareNote}
+              </p>
+            )}
+            <LossChart data={metrics} compare={compare} />
+            <LRChart data={metrics} compare={compare} />
+            <MemoryChart data={metrics} compare={compare} />
           </div>
         )}
         {tab === 'config' && <ConfigViewer config={run.config} />}
         {tab === 'diff' && (
           <div className="flex flex-col gap-4">
-            <Field label={t('detail.compareAgainst')} htmlFor="history-diff-run">
-              <Select
-                id="history-diff-run"
-                value={diffRunId}
-                onChange={(event) => setDiffRunId(event.target.value)}
-                options={[
-                  { value: '', label: t('detail.selectRun') },
-                  ...otherRuns
-                    .filter((candidate) => candidate.run_id !== run.run_id)
-                    .map((candidate) => ({
-                      value: candidate.run_id,
-                      label: `${candidate.name} (${candidate.run_id})`,
-                    })),
-                ]}
-              />
-            </Field>
-            {diffRun ? (
+            {compareRun ? (
               <ConfigDiff
                 base={run.config}
-                other={diffRun.config}
+                other={compareRun.config}
                 baseLabel={run.name}
-                otherLabel={diffRun.name}
+                otherLabel={compareRun.name}
               />
             ) : (
               <p className="text-sm text-text-muted">{t('detail.selectRunHint')}</p>

@@ -11,6 +11,9 @@
   --color-accent-strong: #38bdf8;
   --color-success: #4ade80;
   --color-danger: #f87171;
+  /* Overlaid comparison run in the history charts — deliberately far from the
+     accent/success hues so the two runs never blur together. */
+  --color-compare: #fbbf24;
   --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, Consolas, monospace;
 }

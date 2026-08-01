@@ -14,6 +14,9 @@ The version's source of truth is `backend/pyproject.toml` (reported by
 - Full UI internationalization: English and Turkish across every surface
   (~610 keys), with a persistent EN/TR switcher in the top bar and
   browser-language detection on first visit (#55)
+- Run comparison in History: pick a second run to overlay its training curves
+  on the loss/LR/memory charts (dashed, in its own colour) while the same
+  picker diffs the two configs — two experiments read off one screen
 - HF import column mapping: `column_map` renames source columns onto the
   canonical keys the format detector expects, so a dataset carrying the right
   data under the wrong names imports as the right format (#71)

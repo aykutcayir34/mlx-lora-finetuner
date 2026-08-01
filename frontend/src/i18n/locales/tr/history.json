@@ -55,7 +55,12 @@
     },
     "compareAgainst": "Şununla karşılaştır",
     "selectRun": "Bir çalıştırma seçin…",
-    "selectRunHint": "Yapılandırmaları karşılaştırmak için bir çalıştırma seçin."
+    "selectRunHint": "Yapılandırmaları karşılaştırmak için bir çalıştırma seçin.",
+    "compareHint": "Seçilen çalıştırmayı grafiklere kesikli çizgiyle bindirir ve yapılandırmasını karşılaştırır.",
+    "compareActive": "Düz: {{base}} · Kesikli: {{other}}",
+    "compareLoading": "{{name}} metrikleri yükleniyor…",
+    "compareEmpty": "{{name}} için bindirilecek metrik yok.",
+    "compareFailed": "{{name}} metrikleri yüklenemedi."
   },
   "config": {
     "showGrouped": "Gruplu görünümü göster",

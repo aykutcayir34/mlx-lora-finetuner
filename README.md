@@ -39,7 +39,8 @@ from a single process on http://127.0.0.1:8000 (see
   upload once the conversion job completes.
 - **Run History** — a filterable, sortable history of every run (by model,
   train mode, status) with one-click cloning of a past run's config into a
-  fresh prefill.
+  fresh prefill, plus run comparison: overlay a second run's loss/LR/memory
+  curves on the charts (dashed) and diff the two configs side by side.
 - **Export** — fuse a LoRA adapter into the base model, convert the fused model to
   GGUF (with preflight checks for llama.cpp availability, converter
   dependencies, architecture support, and de-quantization), and render an

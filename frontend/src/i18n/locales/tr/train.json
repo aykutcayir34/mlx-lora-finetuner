@@ -223,6 +223,7 @@
     "valLoss": "Doğrulama loss'u",
     "learningRate": "Öğrenme oranı",
     "peakMemoryGb": "Tepe bellek (GB)",
-    "peakMemory": "Tepe bellek"
+    "peakMemory": "Tepe bellek",
+    "seriesRun": "{{series}} · {{run}}"
   }
 }

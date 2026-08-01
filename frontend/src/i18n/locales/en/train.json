@@ -223,6 +223,7 @@
     "valLoss": "Val loss",
     "learningRate": "Learning rate",
     "peakMemoryGb": "Peak memory (GB)",
-    "peakMemory": "Peak memory"
+    "peakMemory": "Peak memory",
+    "seriesRun": "{{series}} · {{run}}"
   }
 }
