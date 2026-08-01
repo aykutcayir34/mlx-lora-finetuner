@@ -10,7 +10,7 @@ A local web studio for LoRA fine-tuning of LLMs on Apple Silicon, built on top o
 React/TypeScript/Vite frontend, similar in spirit to Unsloth Studio but running
 entirely on-device via MLX — no cloud GPUs, no data leaving your Mac.
 
-![Demo: browsing models and datasets, then configuring a GRPO run](docs/screenshots/demo.gif)
+![Demo: browsing models and datasets, configuring a GRPO run, comparing two runs, and switching the UI to Turkish](docs/screenshots/demo.gif)
 
 To try it yourself: `make run` builds the frontend and serves the whole app
 from a single process on http://127.0.0.1:8000 (see
@@ -20,14 +20,19 @@ from a single process on http://127.0.0.1:8000 (see
 
 - **Models** — search and download models from the Hugging Face Hub (defaults to
   the `mlx-community` org), track downloads live, browse and delete local models.
-- **Datasets** — upload JSONL files with automatic format detection across 6
-  supported formats (`chat`, `completions`, `text`, `dpo`, `orpo`, `grpo`), per-row
-  validation with errors/warnings, train/valid/test splitting, and a paginated
-  preview per split.
+- **Datasets** — upload JSONL files with automatic format detection across 7
+  supported formats (`chat`, `completions`, `text`, `dpo`, `orpo`, `grpo`, `ftpo`),
+  per-row validation with errors/warnings, train/valid/test splitting, and a
+  paginated preview per split. Or import straight from the Hugging Face Hub,
+  with a column map that renames source columns onto the keys the detector
+  expects.
 - **Train** — SFT, DPO, ORPO, CPO, GRPO, and FTPO training modes, LoRA/DoRA/full
-  fine-tuning, QLoRA-style 4/6/8-bit quantized loading, and a live run monitor
-  with loss/learning-rate/memory charts and a log tail streamed over
-  WebSocket.
+  fine-tuning, QLoRA-style 4/6/8-bit quantized loading, gradient accumulation,
+  selectable SFT loss (NLL / chunked NLL / DFT), custom GRPO reward functions
+  uploaded as a `.py` file, and a live run monitor with loss/learning-rate/memory
+  charts, a WebSocket log tail, and saved checkpoints you can chat with or fuse
+  in one click. Any run's full config exports as YAML and loads back into the
+  form.
 - **Chat** — streaming chat against a base model or a trained LoRA adapter, with
   a side-by-side adapter-compare mode to see how fine-tuning changed responses.
 - **Arena** — side-by-side comparison of two model/adapter pairs against the
@@ -47,6 +52,13 @@ from a single process on http://127.0.0.1:8000 (see
   Ollama `Modelfile` ready for `ollama create`.
 - **Dashboard** — system stats (memory/disk), the active run at a glance, recent
   runs, and an onboarding guide for first-time setup.
+- **English & Turkish UI** — switch languages from the top bar at any time; the
+  choice persists, and a Turkish browser starts in Turkish on first visit.
+
+Comparing two runs from the History page — the second run's curves are overlaid
+dashed, and the same picker diffs the two configs:
+
+![Run History comparing two GRPO runs: solid and dashed loss curves on one chart](docs/screenshots/history-compare.png)
 
 ## Requirements
 
@@ -132,6 +144,11 @@ enough to iterate quickly on any Apple Silicon Mac.
   - `r1_count_xml` — partial credit per correct XML tag
   - Leaving all unchecked uses the library default (all five). For this
     example, **Accuracy + Integer answer** is a focused starting point.
+- **Custom reward file** (optional) — if the built-ins don't score what you
+  care about, upload a `.py` file whose functions carry mlx-lm-lora's
+  `@register_reward_function()` decorator. They're discovered by a static
+  scan (the API never executes the file) and appear as extra checkboxes
+  beside the built-ins; the trainer loads the file at run start.
 
 Or skip the clicking: save the YAML below as `grpo-math.yaml` and load it with
 the form's **Load YAML** button (any exported run config re-loads the same way):
