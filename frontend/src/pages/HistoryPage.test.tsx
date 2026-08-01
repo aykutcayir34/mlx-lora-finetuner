@@ -32,6 +32,31 @@ afterAll(() => {
   Element.prototype.getBoundingClientRect = originalGetBoundingClientRect
 })
 
+function makeMetric(runId: string, step: number, loss: number) {
+  return {
+    run_id: runId,
+    step,
+    kind: 'train' as const,
+    loss,
+    learning_rate: 1e-5,
+    it_per_sec: 3,
+    tokens_per_sec: 100,
+    peak_memory_gb: 4,
+    ts: '2026-07-12T10:00:00Z',
+  }
+}
+
+/** Serves a different metrics series per run id, so overlays can be told apart. */
+function metricsByRunHandler(lossesByRun: Record<string, number[]>) {
+  return http.get('/api/v1/train/jobs/:runId/metrics', ({ params }) => {
+    const runId = String(params.runId)
+    const losses = lossesByRun[runId] ?? []
+    return HttpResponse.json({
+      metrics: losses.map((loss, step) => makeMetric(runId, step, loss)),
+    })
+  })
+}
+
 beforeEach(() => {
   sessionStorage.clear()
 })
@@ -197,6 +222,90 @@ describe('HistoryPage', () => {
     expect(await within(panel).findByText('Failed to clone this run.')).toBeInTheDocument()
     // Still on the History page — no navigation happened.
     expect(screen.queryByRole('heading', { name: 'Train' })).not.toBeInTheDocument()
+  })
+
+  it('overlays a comparison run on the charts and clears back to a single run', async () => {
+    const user = userEvent.setup()
+    const runA = makeRunSummary({ run_id: 'run_1', name: 'run-a' })
+    const runB = makeRunSummary({ run_id: 'run_2', name: 'run-b' })
+    server.use(listRunHistoryHandler([runA, runB], 2))
+    server.use(metricsByRunHandler({ run_1: [1.9, 1.4], run_2: [2.4, 2.0, 1.7] }))
+
+    renderWithProviders(<HistoryPage />)
+    const table = await screen.findByTestId('history-table')
+    await user.click(within(table).getByText('run-a'))
+
+    const panel = await screen.findByTestId('run-detail-panel')
+    expect(await within(panel).findByText('Train loss')).toBeInTheDocument()
+
+    await user.selectOptions(within(panel).getByLabelText('Compare against'), 'run_2')
+
+    // Both runs are named in the chart legend, and the overlay is dashed.
+    expect(await within(panel).findByText('Train loss · run-b')).toBeInTheDocument()
+    expect(within(panel).getByText('Train loss · run-a')).toBeInTheDocument()
+    expect(within(panel).getByTestId('compare-summary')).toHaveTextContent(
+      'Solid: run-a · Dashed: run-b',
+    )
+    expect(within(panel).queryByTestId('compare-note')).not.toBeInTheDocument()
+
+    await user.selectOptions(within(panel).getByLabelText('Compare against'), '')
+
+    await waitFor(() =>
+      expect(within(panel).queryByText('Train loss · run-b')).not.toBeInTheDocument(),
+    )
+    expect(within(panel).getByText('Train loss')).toBeInTheDocument()
+  })
+
+  it('shows a note instead of an overlay when the comparison run has no metrics', async () => {
+    const user = userEvent.setup()
+    const runA = makeRunSummary({ run_id: 'run_1', name: 'run-a' })
+    const runB = makeRunSummary({ run_id: 'run_2', name: 'run-b', status: 'failed' })
+    server.use(listRunHistoryHandler([runA, runB], 2))
+    server.use(metricsByRunHandler({ run_1: [1.9, 1.4], run_2: [] }))
+
+    renderWithProviders(<HistoryPage />)
+    const table = await screen.findByTestId('history-table')
+    await user.click(within(table).getByText('run-a'))
+
+    const panel = await screen.findByTestId('run-detail-panel')
+    await user.selectOptions(within(panel).getByLabelText('Compare against'), 'run_2')
+
+    expect(await within(panel).findByTestId('compare-note')).toHaveTextContent(
+      'run-b has no metrics to overlay.',
+    )
+    // The base run's charts are untouched.
+    expect(within(panel).getByText('Train loss')).toBeInTheDocument()
+    expect(within(panel).queryByText('Train loss · run-b')).not.toBeInTheDocument()
+  })
+
+  it('keeps the base charts when the comparison run metrics fail to load', async () => {
+    const user = userEvent.setup()
+    const runA = makeRunSummary({ run_id: 'run_1', name: 'run-a' })
+    const runB = makeRunSummary({ run_id: 'run_2', name: 'run-b' })
+    server.use(listRunHistoryHandler([runA, runB], 2))
+    server.use(
+      http.get('/api/v1/train/jobs/:runId/metrics', ({ params }) => {
+        if (params.runId === 'run_2') {
+          return HttpResponse.json(
+            { error: { code: 'internal_error', message: 'boom', detail: {} } },
+            { status: 500 },
+          )
+        }
+        return HttpResponse.json({ metrics: [makeMetric('run_1', 0, 1.9)] })
+      }),
+    )
+
+    renderWithProviders(<HistoryPage />)
+    const table = await screen.findByTestId('history-table')
+    await user.click(within(table).getByText('run-a'))
+
+    const panel = await screen.findByTestId('run-detail-panel')
+    await user.selectOptions(within(panel).getByLabelText('Compare against'), 'run_2')
+
+    expect(await within(panel).findByTestId('compare-note')).toHaveTextContent(
+      'Failed to load metrics for run-b.',
+    )
+    expect(within(panel).getByText('Train loss')).toBeInTheDocument()
   })
 
   it('shows a diff between two runs highlighting changed fields', async () => {

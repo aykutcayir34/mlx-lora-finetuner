@@ -55,7 +55,12 @@
     },
     "compareAgainst": "Compare against",
     "selectRun": "Select a run…",
-    "selectRunHint": "Select a run to compare configs."
+    "selectRunHint": "Select a run to compare configs.",
+    "compareHint": "Overlays the selected run on the charts (dashed) and diffs its config.",
+    "compareActive": "Solid: {{base}} · Dashed: {{other}}",
+    "compareLoading": "Loading metrics for {{name}}…",
+    "compareEmpty": "{{name}} has no metrics to overlay.",
+    "compareFailed": "Failed to load metrics for {{name}}."
   },
   "config": {
     "showGrouped": "Show grouped view",
