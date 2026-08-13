@@ -1,3 +1,5 @@
+
+
 # mlx-lora-finetuner
 
 [![CI](https://github.com/aykutcayir34/mlx-lora-finetuner/actions/workflows/ci.yml/badge.svg)](https://github.com/aykutcayir34/mlx-lora-finetuner/actions/workflows/ci.yml)
@@ -241,6 +243,7 @@ until they pass.
 │   ├── train.log                # raw worker stdout, line-buffered
 │   ├── worker.pid
 │   └── adapters/                # LoRA adapter checkpoints
+├── rewards/                     # custom GRPO reward `.py` files (uploaded via /train/reward-files)
 ├── exports/                     # fused models, GGUF files, Ollama Modelfiles
 └── cache/                       # HF/llama.cpp scratch space
 ```
