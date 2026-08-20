@@ -27,7 +27,7 @@ mlxlf = "app.cli:main"
 
 [project.optional-dependencies]
 mlx = [
-    "mlx-lm-lora==3.0.0",
+    "mlx-lm-lora==3.1.2",
     "mlx-lm==0.31.3",
 ]
 # Dependencies of llama.cpp's `convert_hf_to_gguf.py`, which GGUF export runs
@@ -50,7 +50,7 @@ dev = [
     # idiom), so the ceiling is the next minor, not the next major. Dependabot
     # still proposes the bump — as a PR we can review rules for, instead of an
     # incidental `uv lock` refresh silently breaking lint for everyone.
-    "ruff>=0.15.21,<0.16",
+    "ruff>=0.15.21,<0.17",
 ]
 
 [build-system]
