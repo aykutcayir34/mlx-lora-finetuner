@@ -12,7 +12,7 @@ dependencies = [
     "pydantic>=2.13,<3",
     "pydantic-settings>=2.14,<3",
     "aiosqlite>=0.22,<1",
-    "huggingface_hub>=1.24.0,<2",
+    "huggingface_hub>=1.24.0,<3",
     "psutil>=7.2,<8",
     "jinja2>=3.1,<4",
     "python-multipart>=0.0.32,<1",
@@ -28,7 +28,7 @@ mlxlf = "app.cli:main"
 [project.optional-dependencies]
 mlx = [
     "mlx-lm-lora==3.0.0",
-    "mlx-lm==0.31.3",
+    "mlx-lm==0.32.0",
 ]
 # Dependencies of llama.cpp's `convert_hf_to_gguf.py`, which GGUF export runs
 # with this interpreter. Optional because torch is a large download and no
@@ -50,7 +50,7 @@ dev = [
     # idiom), so the ceiling is the next minor, not the next major. Dependabot
     # still proposes the bump — as a PR we can review rules for, instead of an
     # incidental `uv lock` refresh silently breaking lint for everyone.
-    "ruff>=0.15.21,<0.16",
+    "ruff>=0.15.21,<0.18",
 ]
 
 [build-system]
